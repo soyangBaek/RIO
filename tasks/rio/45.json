@@ -1,0 +1,25 @@
+{
+  "id": "45",
+  "subject": "Implement webcam snapshot (T-045)",
+  "description": "src/app/adapters/camera/capture.py — 웹캠 단일 프레임 캡처 → JPEG 저장. photo service에서 호출.",
+  "activeForm": "Implementing webcam snapshot",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "44"
+  ],
+  "metadata": {
+    "rio_id": "T-045",
+    "phase": 5,
+    "targetdir": "src/app/adapters/camera/",
+    "target_file": "src/app/adapters/camera/capture.py",
+    "language": "python",
+    "dependencies": [
+      "T-044"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md VOICE-05"
+    ]
+  }
+}

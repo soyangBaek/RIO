@@ -1,0 +1,28 @@
+{
+  "id": "33",
+  "subject": "Implement timer service (T-033)",
+  "description": "src/app/domains/timers/service.py — 타이머 등록(timer_scheduler 사용), 만료 시 Alerting 전이. 여러 타이머 관리, scenarios INT-10 대응.",
+  "activeForm": "Implementing timer service",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "13",
+    "31"
+  ],
+  "metadata": {
+    "rio_id": "T-033",
+    "phase": 4,
+    "targetdir": "src/app/domains/timers/",
+    "target_file": "src/app/domains/timers/service.py",
+    "language": "python",
+    "dependencies": [
+      "T-013",
+      "T-031"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md INT-10",
+      "docs/scenarios.md VOICE-07"
+    ]
+  }
+}

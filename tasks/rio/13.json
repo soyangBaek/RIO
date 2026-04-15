@@ -1,0 +1,27 @@
+{
+  "id": "13",
+  "subject": "Implement timer scheduler (T-013)",
+  "description": "src/app/core/scheduler/timer_scheduler.py — 타이머 등록, 만료 시 timer.expired 이벤트 발행. 반복 작업 예약. 메인 루프와 동일 프로세스에서 비차단 동작.",
+  "activeForm": "Implementing timer scheduler",
+  "status": "pending",
+  "blocks": [
+    "33"
+  ],
+  "blockedBy": [
+    "3"
+  ],
+  "metadata": {
+    "rio_id": "T-013",
+    "phase": 1,
+    "targetdir": "src/app/core/scheduler/",
+    "target_file": "src/app/core/scheduler/timer_scheduler.py",
+    "language": "python",
+    "dependencies": [
+      "T-003"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/project-layout.md §5.scheduler"
+    ]
+  }
+}

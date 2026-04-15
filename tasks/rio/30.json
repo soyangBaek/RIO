@@ -1,0 +1,29 @@
+{
+  "id": "30",
+  "subject": "Implement effect planner (T-030)",
+  "description": "src/app/domains/behavior/effect_planner.py — 상태 전이를 display/speaker/service 명령으로 변환. scene 선택 결과에 따른 출력 계획.",
+  "activeForm": "Implementing effect planner",
+  "status": "pending",
+  "blocks": [
+    "31"
+  ],
+  "blockedBy": [
+    "11",
+    "12"
+  ],
+  "metadata": {
+    "rio_id": "T-030",
+    "phase": 3,
+    "targetdir": "src/app/domains/behavior/",
+    "target_file": "src/app/domains/behavior/effect_planner.py",
+    "language": "python",
+    "dependencies": [
+      "T-011",
+      "T-012"
+    ],
+    "estimated_effort": "L",
+    "source_docs": [
+      "docs/architecture.md §4"
+    ]
+  }
+}

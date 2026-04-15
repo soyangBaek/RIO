@@ -1,0 +1,36 @@
+{
+  "id": "50",
+  "subject": "Implement audio worker (T-050)",
+  "description": "src/app/workers/audio_worker.py — 별도 프로세스 진입점. capture → VAD → STT → intent_normalizer 파이프라인. voice.* 이벤트를 bus에 publish. heartbeat 발행.",
+  "activeForm": "Implementing audio worker",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "3",
+    "36",
+    "37",
+    "38",
+    "39"
+  ],
+  "metadata": {
+    "rio_id": "T-050",
+    "phase": 6,
+    "targetdir": "src/app/workers/",
+    "target_file": "src/app/workers/audio_worker.py",
+    "language": "python",
+    "dependencies": [
+      "T-003",
+      "T-036",
+      "T-037",
+      "T-038",
+      "T-039"
+    ],
+    "estimated_effort": "L",
+    "source_docs": [
+      "docs/architecture.md §2",
+      "docs/project-layout.md §6"
+    ]
+  }
+}

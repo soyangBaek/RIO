@@ -1,0 +1,25 @@
+{
+  "id": "63",
+  "subject": "Unit test intent parser (T-063)",
+  "description": "tests/unit/test_intent_parser.py — alias 매칭, 한국어/영어 변형, low-confidence 분류 테스트.",
+  "activeForm": "Unit testing intent parser",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "26"
+  ],
+  "metadata": {
+    "rio_id": "T-063",
+    "phase": 9,
+    "targetdir": "tests/unit/",
+    "target_file": "tests/unit/test_intent_parser.py",
+    "language": "python",
+    "dependencies": [
+      "T-026"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/prd.md canonical intents"
+    ]
+  }
+}

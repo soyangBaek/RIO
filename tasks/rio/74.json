@@ -1,0 +1,25 @@
+{
+  "id": "74",
+  "subject": "Populate triggers.yaml (T-074)",
+  "description": "configs/triggers.yaml — canonical intent별 한국어/영어 alias 목록 채우기. prd.md의 예시 문구 기반 + intent_parser 테스트 커버리지와 정합성.",
+  "activeForm": "Populating triggers.yaml",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "26"
+  ],
+  "metadata": {
+    "rio_id": "T-074",
+    "phase": 10,
+    "targetdir": "configs/",
+    "target_file": "configs/triggers.yaml",
+    "language": "yaml",
+    "dependencies": [
+      "T-026"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/prd.md canonical intents"
+    ]
+  }
+}

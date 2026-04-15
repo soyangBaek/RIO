@@ -1,0 +1,25 @@
+{
+  "id": "28",
+  "subject": "Implement intent dedupe (T-028)",
+  "description": "src/app/domains/speech/dedupe.py — intent_cooldown_ms 이내 동일 intent 재수신 무시. 중복 음성 입력 방어.",
+  "activeForm": "Implementing intent dedupe",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "1"
+  ],
+  "metadata": {
+    "rio_id": "T-028",
+    "phase": 3,
+    "targetdir": "src/app/domains/speech/",
+    "target_file": "src/app/domains/speech/dedupe.py",
+    "language": "python",
+    "dependencies": [
+      "T-001"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "configs/thresholds.yaml intent_cooldown_ms"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "2",
+  "subject": "Define topic registry (T-002)",
+  "description": "src/app/core/events/topics.py — 이벤트 topic 상수 정의 (audio.*, vision.*, touch.*, timer.*, system.*, voice.intent.detected 등). scenarios.md의 이벤트 이름과 정합성 맞추기.",
+  "activeForm": "Defining topic registry",
+  "status": "pending",
+  "blocks": [
+    "3"
+  ],
+  "blockedBy": [
+    "1"
+  ],
+  "metadata": {
+    "rio_id": "T-002",
+    "phase": 1,
+    "targetdir": "src/app/core/events/",
+    "target_file": "src/app/core/events/topics.py",
+    "language": "python",
+    "dependencies": [
+      "T-001"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/project-layout.md §5.events",
+      "docs/scenarios.md"
+    ]
+  }
+}

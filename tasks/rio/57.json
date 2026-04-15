@@ -1,0 +1,27 @@
+{
+  "id": "57",
+  "subject": "Define scene catalog (T-057)",
+  "description": "src/app/scenes/catalog.py — 씬 이름 → 구성 매핑 등록. effect_planner가 조회.",
+  "activeForm": "Defining scene catalog",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "55",
+    "56"
+  ],
+  "metadata": {
+    "rio_id": "T-057",
+    "phase": 7,
+    "targetdir": "src/app/scenes/",
+    "target_file": "src/app/scenes/catalog.py",
+    "language": "python",
+    "dependencies": [
+      "T-055",
+      "T-056"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/project-layout.md §9"
+    ]
+  }
+}

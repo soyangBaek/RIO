@@ -1,0 +1,24 @@
+{
+  "id": "52",
+  "subject": "Define gesture catalog (T-052)",
+  "description": "src/app/domains/gesture/catalog.py — Phase 2 제스처 정의. V-sign, 손 흔들기, 손총, 고개 방향 카탈로그.",
+  "activeForm": "Defining gesture catalog",
+  "status": "pending",
+  "blocks": [
+    "53"
+  ],
+  "blockedBy": [],
+  "metadata": {
+    "rio_id": "T-052",
+    "phase": 7,
+    "targetdir": "src/app/domains/gesture/",
+    "target_file": "src/app/domains/gesture/catalog.py",
+    "language": "python",
+    "dependencies": [],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/prd.md Phase 2",
+      "docs/project-layout.md §8.gesture"
+    ]
+  }
+}

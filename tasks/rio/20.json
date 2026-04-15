@@ -1,0 +1,27 @@
+{
+  "id": "20",
+  "subject": "Implement touch input driver (T-020)",
+  "description": "src/app/adapters/touch/input.py — 터치스크린 이벤트 수신. evdev/라즈베리파이 드라이버. raw 터치 좌표/시간 발행.",
+  "activeForm": "Implementing touch input",
+  "status": "pending",
+  "blocks": [
+    "21"
+  ],
+  "blockedBy": [
+    "1"
+  ],
+  "metadata": {
+    "rio_id": "T-020",
+    "phase": 2,
+    "targetdir": "src/app/adapters/touch/",
+    "target_file": "src/app/adapters/touch/input.py",
+    "language": "python",
+    "dependencies": [
+      "T-001"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/project-layout.md §7.touch"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "29",
+  "subject": "Implement interrupt policies (T-029)",
+  "description": "src/app/domains/behavior/interrupts.py — Alerting 우선권, photo 잠금, game/dance 잠금, deferred_intent 저장/재시도 정책. scenarios POL-01~08 구현.",
+  "activeForm": "Implementing interrupt policies",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "12"
+  ],
+  "metadata": {
+    "rio_id": "T-029",
+    "phase": 3,
+    "targetdir": "src/app/domains/behavior/",
+    "target_file": "src/app/domains/behavior/interrupts.py",
+    "language": "python",
+    "dependencies": [
+      "T-012"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/state-machine.md §4.1",
+      "docs/scenarios.md POL-*"
+    ]
+  }
+}

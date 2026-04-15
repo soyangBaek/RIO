@@ -1,0 +1,27 @@
+{
+  "id": "4",
+  "subject": "Implement event router (T-004)",
+  "description": "src/app/core/bus/router.py — subscribe/publish 라우터. topic별 구독자 dispatch. 메인 루프 진입점. 워커 입력 큐와 메인 이벤트 루프 연결.",
+  "activeForm": "Implementing event router",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "3"
+  ],
+  "metadata": {
+    "rio_id": "T-004",
+    "phase": 1,
+    "targetdir": "src/app/core/bus/",
+    "target_file": "src/app/core/bus/router.py",
+    "language": "python",
+    "dependencies": [
+      "T-003"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/architecture.md §3"
+    ]
+  }
+}

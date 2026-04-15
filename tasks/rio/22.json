@@ -1,0 +1,22 @@
+{
+  "id": "22",
+  "subject": "Implement SFX player (T-022)",
+  "description": "src/app/adapters/speaker/sfx.py — 효과음 재생, 알림 사운드 큐. 셔터/성공/실패/화들짝/코골이/만족 등. assets/sounds 참조.",
+  "activeForm": "Implementing SFX player",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [],
+  "metadata": {
+    "rio_id": "T-022",
+    "phase": 2,
+    "targetdir": "src/app/adapters/speaker/",
+    "target_file": "src/app/adapters/speaker/sfx.py",
+    "language": "python",
+    "dependencies": [],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/project-layout.md §4.sounds",
+      "docs/project-layout.md §7.speaker"
+    ]
+  }
+}

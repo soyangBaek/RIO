@@ -1,0 +1,25 @@
+{
+  "id": "61",
+  "subject": "Unit test oneshot dispatcher (T-061)",
+  "description": "tests/unit/test_oneshot.py — ONE-01~05 우선순위/중첩/coalesce 규칙 검증.",
+  "activeForm": "Unit testing oneshot",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "10"
+  ],
+  "metadata": {
+    "rio_id": "T-061",
+    "phase": 9,
+    "targetdir": "tests/unit/",
+    "target_file": "tests/unit/test_oneshot.py",
+    "language": "python",
+    "dependencies": [
+      "T-010"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md ONE-*"
+    ]
+  }
+}

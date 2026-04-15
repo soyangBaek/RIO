@@ -1,0 +1,27 @@
+{
+  "id": "17",
+  "subject": "Implement eye tracking animation (T-017)",
+  "description": "src/app/adapters/display/eye_tracking.py — face 중심 좌표 기반 눈동자/시선 애니메이션. vision.face.moved 이벤트 구독. Layer1에 그리기.",
+  "activeForm": "Implementing eye tracking",
+  "status": "pending",
+  "blocks": [
+    "19"
+  ],
+  "blockedBy": [
+    "16"
+  ],
+  "metadata": {
+    "rio_id": "T-017",
+    "phase": 2,
+    "targetdir": "src/app/adapters/display/",
+    "target_file": "src/app/adapters/display/eye_tracking.py",
+    "language": "python",
+    "dependencies": [
+      "T-016"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md INT-02"
+    ]
+  }
+}

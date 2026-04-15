@@ -1,0 +1,21 @@
+{
+  "id": "75",
+  "subject": "Populate devices.yaml (T-075)",
+  "description": "configs/devices.yaml — home-client base_url, 장치 ID 매핑(aircon/light/robot_cleaner/tv/music). 실 장치 확인 필요.",
+  "activeForm": "Populating devices.yaml",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [],
+  "metadata": {
+    "rio_id": "T-075",
+    "phase": 10,
+    "targetdir": "configs/",
+    "target_file": "configs/devices.yaml",
+    "language": "yaml",
+    "dependencies": [],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/project-layout.md §3.devices"
+    ]
+  }
+}

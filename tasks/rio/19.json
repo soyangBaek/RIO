@@ -1,0 +1,31 @@
+{
+  "id": "19",
+  "subject": "Implement main renderer (T-019)",
+  "description": "src/app/adapters/display/renderer.py — 메인 컴포지터. scene → 3-layer 합성 → 화면 출력. 프레임워크 최종 선택 지점. Mood/UI 변경 구독.",
+  "activeForm": "Implementing main renderer",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "16",
+    "17",
+    "18"
+  ],
+  "metadata": {
+    "rio_id": "T-019",
+    "phase": 2,
+    "targetdir": "src/app/adapters/display/",
+    "target_file": "src/app/adapters/display/renderer.py",
+    "language": "python",
+    "dependencies": [
+      "T-016",
+      "T-017",
+      "T-018"
+    ],
+    "estimated_effort": "L",
+    "source_docs": [
+      "docs/project-layout.md §7.display"
+    ]
+  }
+}

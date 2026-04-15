@@ -1,0 +1,27 @@
+{
+  "id": "67",
+  "subject": "Integration test smart-home flow (T-067)",
+  "description": "tests/integration/test_smart_home_flow.py — smart-home intent → home-client mock → 성공/실패 경로(INT-07/08, OPS-02).",
+  "activeForm": "Integration testing smart-home",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "35"
+  ],
+  "metadata": {
+    "rio_id": "T-067",
+    "phase": 9,
+    "targetdir": "tests/integration/",
+    "target_file": "tests/integration/test_smart_home_flow.py",
+    "language": "python",
+    "dependencies": [
+      "T-035"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md INT-07",
+      "docs/scenarios.md INT-08",
+      "docs/scenarios.md OPS-02"
+    ]
+  }
+}

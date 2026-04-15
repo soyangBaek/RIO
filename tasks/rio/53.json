@@ -1,0 +1,27 @@
+{
+  "id": "53",
+  "subject": "Implement gesture mapper (T-053)",
+  "description": "src/app/domains/gesture/mapper.py — 제스처 → intent/event 매핑 (예: V-sign → camera.capture). Phase 2.",
+  "activeForm": "Implementing gesture mapper",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "52",
+    "43"
+  ],
+  "metadata": {
+    "rio_id": "T-053",
+    "phase": 7,
+    "targetdir": "src/app/domains/gesture/",
+    "target_file": "src/app/domains/gesture/mapper.py",
+    "language": "python",
+    "dependencies": [
+      "T-052",
+      "T-043"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/prd.md Phase 2"
+    ]
+  }
+}

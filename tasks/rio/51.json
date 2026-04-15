@@ -1,0 +1,36 @@
+{
+  "id": "51",
+  "subject": "Implement vision worker (T-051)",
+  "description": "src/app/workers/vision_worker.py — 별도 프로세스 진입점. camera_stream → face_detector → face_tracker / gesture_detector. vision.* 이벤트 publish. heartbeat 발행.",
+  "activeForm": "Implementing vision worker",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "3",
+    "40",
+    "41",
+    "42",
+    "43"
+  ],
+  "metadata": {
+    "rio_id": "T-051",
+    "phase": 6,
+    "targetdir": "src/app/workers/",
+    "target_file": "src/app/workers/vision_worker.py",
+    "language": "python",
+    "dependencies": [
+      "T-003",
+      "T-040",
+      "T-041",
+      "T-042",
+      "T-043"
+    ],
+    "estimated_effort": "L",
+    "source_docs": [
+      "docs/architecture.md §2",
+      "docs/project-layout.md §6"
+    ]
+  }
+}

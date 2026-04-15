@@ -1,0 +1,26 @@
+{
+  "id": "21",
+  "subject": "Implement touch gesture mapper (T-021)",
+  "description": "src/app/adapters/touch/gesture_mapper.py — raw 터치를 tap/stroke(쓰다듬기) 제스처로 변환. touch.tap, touch.stroke 이벤트 발행. scenarios INT-03/04 대응.",
+  "activeForm": "Mapping touch gestures",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "20"
+  ],
+  "metadata": {
+    "rio_id": "T-021",
+    "phase": 2,
+    "targetdir": "src/app/adapters/touch/",
+    "target_file": "src/app/adapters/touch/gesture_mapper.py",
+    "language": "python",
+    "dependencies": [
+      "T-020"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md INT-03",
+      "docs/scenarios.md INT-04"
+    ]
+  }
+}

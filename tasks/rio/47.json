@@ -1,0 +1,28 @@
+{
+  "id": "47",
+  "subject": "Implement weather client (T-047)",
+  "description": "src/app/adapters/weather/client.py — 날씨 API HTTP 호출(requests). http_timeout_ms/retry 적용. 실패 시 scenarios INT-06b.",
+  "activeForm": "Implementing weather client",
+  "status": "pending",
+  "blocks": [
+    "68"
+  ],
+  "blockedBy": [
+    "46"
+  ],
+  "metadata": {
+    "rio_id": "T-047",
+    "phase": 5,
+    "targetdir": "src/app/adapters/weather/",
+    "target_file": "src/app/adapters/weather/client.py",
+    "language": "python",
+    "dependencies": [
+      "T-046"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md INT-06",
+      "docs/scenarios.md OPS-01"
+    ]
+  }
+}

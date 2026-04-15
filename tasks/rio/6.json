@@ -1,0 +1,28 @@
+{
+  "id": "6",
+  "subject": "Implement state store (T-006)",
+  "description": "src/app/core/state/store.py — 전역 상태 저장소. 단일 프로세스 내 thread-safe 접근. authoritative + extended state 통합 관리.",
+  "activeForm": "Implementing state store",
+  "status": "pending",
+  "blocks": [
+    "7",
+    "10"
+  ],
+  "blockedBy": [
+    "5"
+  ],
+  "metadata": {
+    "rio_id": "T-006",
+    "phase": 1,
+    "targetdir": "src/app/core/state/",
+    "target_file": "src/app/core/state/store.py",
+    "language": "python",
+    "dependencies": [
+      "T-005"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/project-layout.md §5.state"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "32",
+  "subject": "Implement photo service (T-032)",
+  "description": "src/app/domains/photo/service.py — camera.capture 실행. 카운트다운 → 셔터 → 저장 → 피드백 시퀀스. photo 잠금 상태 유지. scenarios VOICE-05, INT-05, INT-11 대응.",
+  "activeForm": "Implementing photo service",
+  "status": "pending",
+  "blocks": [
+    "66"
+  ],
+  "blockedBy": [
+    "31"
+  ],
+  "metadata": {
+    "rio_id": "T-032",
+    "phase": 4,
+    "targetdir": "src/app/domains/photo/",
+    "target_file": "src/app/domains/photo/service.py",
+    "language": "python",
+    "dependencies": [
+      "T-031"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md VOICE-05",
+      "docs/scenarios.md INT-05",
+      "docs/scenarios.md INT-11"
+    ]
+  }
+}

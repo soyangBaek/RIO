@@ -1,0 +1,25 @@
+{
+  "id": "49",
+  "subject": "Implement home-client HTTP (T-049)",
+  "description": "src/app/adapters/home_client/client.py — PUT http://[HOME_CLIENT_IP]/device/control. {\"content\": \"...\"} body. timeout/retry 적용. 성공/실패 이벤트 변환. OPS-02 대응.",
+  "activeForm": "Implementing home-client HTTP",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "48"
+  ],
+  "metadata": {
+    "rio_id": "T-049",
+    "phase": 5,
+    "targetdir": "src/app/adapters/home_client/",
+    "target_file": "src/app/adapters/home_client/client.py",
+    "language": "python",
+    "dependencies": [
+      "T-048"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md OPS-02"
+    ]
+  }
+}

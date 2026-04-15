@@ -1,0 +1,33 @@
+{
+  "id": "5",
+  "subject": "Define state models (T-005)",
+  "description": "src/app/core/state/models.py — Context enum(Away/Idle/Engaged/Sleepy), Activity enum(Idle/Listening/Executing/Alerting), Mood/UI enums, ExtendedState dataclass, Oneshot dataclass. state-machine.md의 전 상태 타입 정의.",
+  "activeForm": "Defining state models",
+  "status": "pending",
+  "blocks": [
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11"
+  ],
+  "blockedBy": [
+    "1"
+  ],
+  "metadata": {
+    "rio_id": "T-005",
+    "phase": 1,
+    "targetdir": "src/app/core/state/",
+    "target_file": "src/app/core/state/models.py",
+    "language": "python",
+    "dependencies": [
+      "T-001"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/state-machine.md",
+      "docs/project-layout.md §5.state"
+    ]
+  }
+}

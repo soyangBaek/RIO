@@ -1,0 +1,28 @@
+{
+  "id": "14",
+  "subject": "Implement heartbeat monitor (T-014)",
+  "description": "src/app/core/safety/heartbeat_monitor.py — 워커 생존 주기 감시. 일정 시간 heartbeat 없으면 system.degraded 발행 (OPS-06/07). face_present 강제 false 등 후속 처리.",
+  "activeForm": "Implementing heartbeat monitor",
+  "status": "pending",
+  "blocks": [
+    "58"
+  ],
+  "blockedBy": [
+    "3"
+  ],
+  "metadata": {
+    "rio_id": "T-014",
+    "phase": 1,
+    "targetdir": "src/app/core/safety/",
+    "target_file": "src/app/core/safety/heartbeat_monitor.py",
+    "language": "python",
+    "dependencies": [
+      "T-003"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/scenarios.md OPS-06",
+      "docs/scenarios.md OPS-07"
+    ]
+  }
+}

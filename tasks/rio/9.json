@@ -1,0 +1,28 @@
+{
+  "id": "9",
+  "subject": "Implement Activity FSM (T-009)",
+  "description": "src/app/core/state/activity_fsm.py — Idle/Listening/Executing(kind)/Alerting 전이. voice_started→Listening, intent_resolved→Executing(kind), action_done→Idle, high_priority_alert→Alerting. interrupt policy는 behavior/interrupts.py에서 처리.",
+  "activeForm": "Implementing Activity FSM",
+  "status": "pending",
+  "blocks": [
+    "12",
+    "60"
+  ],
+  "blockedBy": [
+    "5"
+  ],
+  "metadata": {
+    "rio_id": "T-009",
+    "phase": 1,
+    "targetdir": "src/app/core/state/",
+    "target_file": "src/app/core/state/activity_fsm.py",
+    "language": "python",
+    "dependencies": [
+      "T-005"
+    ],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/state-machine.md §1"
+    ]
+  }
+}

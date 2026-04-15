@@ -1,0 +1,27 @@
+{
+  "id": "16",
+  "subject": "Implement display layers (T-016)",
+  "description": "src/app/adapters/display/layers.py — 3-layer 컴포지터 (Layer1 Core Face, Layer2 Action Overlay, Layer3 System HUD). 프레임워크 결정 필요(PyGame/Pillow/Tkinter) — T-019와 함께 선택.",
+  "activeForm": "Implementing display layers",
+  "status": "pending",
+  "blocks": [
+    "17",
+    "18",
+    "19"
+  ],
+  "blockedBy": [],
+  "metadata": {
+    "rio_id": "T-016",
+    "phase": 2,
+    "targetdir": "src/app/adapters/display/",
+    "target_file": "src/app/adapters/display/layers.py",
+    "language": "python",
+    "dependencies": [],
+    "estimated_effort": "M",
+    "source_docs": [
+      "docs/project-layout.md §7.display",
+      "docs/prd.md 3-layer UI"
+    ],
+    "language_notes": "60fps 미달 시 SDL2 기반 C 래퍼 고려."
+  }
+}

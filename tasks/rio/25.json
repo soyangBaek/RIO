@@ -1,0 +1,25 @@
+{
+  "id": "25",
+  "subject": "Derive presence helpers (T-025)",
+  "description": "src/app/domains/presence/helpers.py — is_searching_for_user, recent_face_loss, just_reappeared 파생 상황 계산. confirmed_user_and_interacting 판단. thresholds.yaml 값 사용.",
+  "activeForm": "Deriving presence helpers",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "24"
+  ],
+  "metadata": {
+    "rio_id": "T-025",
+    "phase": 3,
+    "targetdir": "src/app/domains/presence/",
+    "target_file": "src/app/domains/presence/helpers.py",
+    "language": "python",
+    "dependencies": [
+      "T-024"
+    ],
+    "estimated_effort": "S",
+    "source_docs": [
+      "docs/state-machine.md §2"
+    ]
+  }
+}
