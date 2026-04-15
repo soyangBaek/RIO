@@ -41,6 +41,7 @@ RIO는 Raspberry Pi 위에서 동작하는 `desktop pet + smart-home hub` 프로
 - [PRD / 기준 문서](./docs/prd.md)
 - [Architecture](./docs/architecture.md)
 - [State Machine](./docs/state-machine.md)
+- [Scenario Catalog](./docs/scenarios.md)
 - [Project Layout](./docs/project-layout.md)
 
 ## 현재 상태
