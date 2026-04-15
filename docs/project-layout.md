@@ -189,10 +189,10 @@ RIO의 공통 기반 계층입니다.
 
 ### `state/`
 
-- Presence FSM
-- Behavior FSM
-- UI FSM
-- Task FSM
+- Context FSM (Away/Idle/Engaged/Sleepy)
+- Activity FSM (Idle/Listening/Executing/Alerting)
+- Oneshot dispatcher (순간 반응 이벤트, 중첩 정책)
+- Scene Selector (파생 출력: Mood + UI)
 - 전역 상태 저장소
 
 ### `scheduler/`

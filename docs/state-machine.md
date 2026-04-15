@@ -1,43 +1,38 @@
 # State Machine
 
-이 문서는 RIO가 실제로 "어떤 상태를 가지고 살아 움직이는지"를 설명하는 문서입니다.
+이 문서는 RIO가 실제로 "어떤 상태를 가지고 살아 움직이는지"를 설명하는 기준 문서입니다.
+이전 4-FSM 구조(`Presence`/`Mood`/`Activity`/`UI`)는 [archive/state-machine-v1.md](archive/state-machine-v1.md)로 보존되어 있으며, 본 문서가 이를 대체합니다.
+
 핵심은 기능 실행보다 먼저 `상태를 가진 캐릭터`로 동작해야 한다는 점입니다.
 
 RIO의 기본 동작은 아래 순서로 이해하는 것이 가장 자연스럽습니다.
 
-`입력 감지 -> 의미 해석 -> 상태 변경 -> 씬 선택 -> 화면/사운드/기능 실행 -> 기본 상태 복귀`
+`입력 감지 -> 의미 해석 -> 상태 변경 -> 씬 파생 -> 화면/사운드/기능 실행 -> 기본 상태 복귀`
 
 ## 1. 핵심 원칙
 
-RIO는 하나의 거대한 상태 머신으로 만들지 않습니다.
-대신 아래 4개의 축이 동시에 움직이는 구조로 봅니다.
-
-1. `Presence FSM`
-2. `Mood FSM`
-3. `Activity FSM`
-4. `UI FSM`
-
-이 네 개를 동시에 보고 `scene selector`가 지금 어떤 반응을 보여줄지 결정합니다.
+1. **상태 축은 2개만 둔다**: `Context`, `Activity`
+2. **Mood(감정)와 UI(화면)는 상태가 아니다** → 2개 상태 + 이벤트로부터 **파생(derived)** 된다
+3. **순간 반응은 상태가 아니라 oneshot 이벤트**로 처리 (자동 소멸)
+4. 시선 이동은 상태가 아니라 애니메이션 규칙이며, 표정과 UI에도 동일한 철학("파생은 상태가 아니다")을 적용한다
 
 중요한 점:
 
-- `눈 방향 변화`는 별도 상태가 아닙니다.
-- 얼굴 중심 좌표를 입력으로 받아 `display adapter`가 애니메이션으로 표현합니다.
+- `눈 방향 변화`는 별도 상태가 아닙니다. 웹캠 얼굴 중심 좌표를 입력으로 받아 `display adapter`가 애니메이션으로 표현합니다.
+- 표정과 화면 레이아웃 역시 상태가 아니라 `Scene Selector`의 파생 출력입니다.
 
 ## 2. 전체 관계
 
 ```mermaid
 flowchart TD
     A[Webcam / Mic / Touchscreen / Timer] --> B[Input Interpretation]
-    B --> C[Presence FSM]
-    B --> D[Mood FSM]
-    B --> E[Activity FSM]
-    B --> F[UI FSM]
+    B --> C[Context FSM]
+    B --> D[Activity FSM]
+    B --> E[Oneshot Events]
 
     C --> G[Scene Selector]
     D --> G
     E --> G
-    F --> G
 
     G --> H[Display Animation]
     G --> I[Speaker / TTS / SFX]
@@ -45,258 +40,250 @@ flowchart TD
     G --> K[Home Client]
 ```
 
-## 3. Presence FSM
+핵심:
 
-Presence FSM은 "사람이 있는가", "방금 사라졌는가", "다시 나타났는가"를 관리합니다.
-이 축이 있어야 놀람, 반김, 졸음 같은 감정 반응이 자연스럽게 나옵니다.
+- FSM은 `Context`, `Activity` 두 개뿐
+- 표정(Mood)과 화면 레이아웃(UI)은 `Scene Selector`가 두 상태 + 이벤트로부터 계산
+- `startled`/`happy`/`welcome` 같은 **순간 감정**은 상태가 아닌 짧은 oneshot 이벤트
+
+## 3. Context FSM
+
+"지금 사용자/시간 맥락이 어떤가"를 관리합니다.
+v1의 `Presence` + `Mood`의 장기 성분(`Calm`/`Sleepy`)을 합친 축입니다.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NoUser
-    NoUser --> Searching : voice_detected_without_face
-    NoUser --> UserVisible : face_detected
-    Searching --> UserVisible : face_detected
-    Searching --> NoUser : timeout
-    UserVisible --> FaceLost : no_face_short_timeout
-    FaceLost --> UserVisible : face_detected
-    FaceLost --> LongAbsent : no_face_long_timeout
-    LongAbsent --> Reappeared : face_detected
-    Reappeared --> UserVisible : welcome_done_or_window_timeout
+    [*] --> Away
+    Away --> Idle : face_detected_or_voice
+    Idle --> Engaged : user_visible_and_interacting
+    Engaged --> Idle : no_interaction_for_a_while
+    Idle --> Away : no_face_long_timeout
+    Idle --> Sleepy : long_idle
+    Engaged --> Sleepy : long_idle
+    Sleepy --> Idle : gentle_wake
+    Sleepy --> Away : no_face_long_timeout
+    Away --> Idle : face_detected
 ```
 
 상태 의미:
 
-- `NoUser`: 현재 화면 앞에 사용자가 없음
-- `Searching`: 음성은 들렸지만 얼굴이 아직 보이지 않음
-- `UserVisible`: 사용자가 안정적으로 화면 안에 들어와 있음
-- `FaceLost`: 방금까지 보였지만 잠깐 놓친 상태
-- `LongAbsent`: 오래 비어 있어 수면/졸음 연출이 가능한 상태
-- `Reappeared`: 오래 없다가 다시 나타난 직후의 특별 반응 구간
+- `Away`: 현재 사용자가 없음 (v1 `NoUser` + `LongAbsent` 통합)
+- `Idle`: 사용자가 있거나 방금 감지됐지만 적극적 상호작용은 없음 (v1 `UserVisible` + `Calm`)
+- `Engaged`: 사용자가 보고/말하고/만지고 있는 집중 상호작용 상태 (v1 `Attentive`)
+- `Sleepy`: 오래 상호작용이 없어 에너지가 낮은 상태
 
-## 4. Mood FSM
+**삭제된 상태**: `Searching`, `FaceLost`, `Reappeared`, `Startled`, `Happy`
+→ 모두 순간 반응이므로 §5 oneshot 이벤트로 이동.
 
-Mood FSM은 "지금 어떤 감정 톤으로 반응하는가"를 관리합니다.
-같은 기능을 수행하더라도 감정 톤이 다르면 캐릭터로 느껴지는 방식이 크게 달라집니다.
+## 4. Activity FSM
 
-```mermaid
-stateDiagram-v2
-    [*] --> Calm
-    Calm --> Attentive : user_visible_or_voice_or_touch
-    Calm --> Sleepy : long_idle
-    Attentive --> Startled : voice_without_face_or_sudden_reappear
-    Attentive --> Happy : petting_or_successful_interaction
-    Attentive --> Calm : no_event_for_a_while
-    Sleepy --> Startled : sudden_voice_or_face
-    Sleepy --> Attentive : gentle_wake
-    Startled --> Attentive : settle_down
-    Happy --> Attentive : reaction_done
-```
-
-상태 의미:
-
-- `Calm`: 평상시 기본 감정 상태
-- `Attentive`: 사용자를 보고 듣고 있으며 집중하고 있는 상태
-- `Sleepy`: 오래 상호작용이 없어 에너지가 낮아진 상태
-- `Startled`: 갑작스러운 입력에 놀란 상태
-- `Happy`: 쓰다듬기, 반김, 성공 피드백처럼 긍정적인 반응 상태
-
-## 5. Activity FSM
-
-Activity FSM은 "지금 무엇을 하고 있는가"를 관리합니다.
-이 축은 기능 실행 흐름과 가장 가까운 상태 머신입니다.
+"지금 무엇을 하고 있는가"를 관리합니다. v1 Activity FSM을 거의 유지하되, UI FSM과의 1:1 쌍을 제거합니다.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
     Idle --> Listening : voice_started
     Listening --> Idle : timeout_or_no_intent
-    Listening --> WeatherAnswer : intent_weather
-    Listening --> PhotoMode : intent_camera_capture
-    Listening --> SmartHomeControl : intent_smarthome
-    Listening --> TimerSetup : intent_timer_create
-    Listening --> GameMode : intent_game_mode
-    Listening --> DanceMode : intent_dance
+    Listening --> Executing : intent_resolved
+    Executing --> Idle : action_done
 
-    WeatherAnswer --> Idle : answer_done
-    PhotoMode --> Idle : photo_done
-    SmartHomeControl --> Idle : feedback_done
-    TimerSetup --> Idle : timer_saved
-    GameMode --> Idle : exit_game_mode
-    DanceMode --> Idle : dance_done
-
-    Idle --> TimerAlert : timer_expired
-    TimerAlert --> Idle : acknowledged_or_timeout
+    Idle --> Alerting : timer_expired_or_system_event
+    Alerting --> Idle : acknowledged_or_timeout
 ```
 
 상태 의미:
 
-- `Idle`: 특별한 작업이 없는 기본 상태
-- `Listening`: 음성을 듣고 해석하는 중
-- `WeatherAnswer`: 날씨 응답 중
-- `PhotoMode`: 사진 촬영 시퀀스 실행 중
-- `SmartHomeControl`: 스마트홈 명령 처리 중
-- `TimerSetup`: 타이머 등록 중
-- `GameMode`: 게임 상호작용 중
-- `DanceMode`: 댄스 시퀀스 실행 중
-- `TimerAlert`: 타이머 완료를 알려주는 중
+- `Idle`: 특별한 작업 없음
+- `Listening`: 음성 수신/해석 중
+- `Executing(kind)`: 기능 실행 중. `kind`는 파라미터 (`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`)
+- `Alerting`: 시스템이 사용자에게 적극적으로 피드백하는 중 (타이머 완료 등)
 
-## 6. UI FSM
+**변경점**: v1의 `WeatherAnswer`, `PhotoMode`, `SmartHomeControl`, `TimerSetup`, `GameMode`, `DanceMode`는 모두 `Executing(kind)` 한 상태로 통합하고 `kind` 파라미터로 구분합니다.
+→ 상태 수는 줄지만 표현력은 동일하고, 씬 매핑 테이블만 확장하면 새 기능 추가가 쉽습니다.
 
-UI FSM은 현재 어떤 화면 레이아웃이 보여야 하는지를 결정합니다.
-감정 상태와는 별개로, 지금 화면이 기본 얼굴인지 듣기 모드인지 게임 모드인지를 따로 관리해야 합니다.
+## 5. Oneshot Events (상태 아님)
 
-```mermaid
-stateDiagram-v2
-    [*] --> NormalFace
-    NormalFace --> ListeningUI : voice_started
-    ListeningUI --> NormalFace : intent_done_or_timeout
+짧은 순간 반응은 상태가 아니라 이벤트로 처리합니다. 트리거되면 정해진 시간(보통 300ms ~ 2s) 동안 표정/사운드에 오버레이된 뒤 자동 소멸합니다.
 
-    NormalFace --> SleepUI : long_idle
-    SleepUI --> NormalFace : wake_up
+| Event | priority | 트리거 | 지속 |
+|---|---|---|---|
+| `startled` | 30 | 얼굴 없이 큰 소리, 급격한 재등장 | ~600ms |
+| `confused` | 25 | intent 해석 실패 | ~800ms |
+| `welcome` | 20 | `Away → Idle` 전이 중 장기 부재 후 | ~1.5s |
+| `happy` | 20 | 쓰다듬기, 성공 피드백 | ~1s |
 
-    NormalFace --> CameraUI : enter_photo_mode
-    CameraUI --> NormalFace : photo_done
+**핵심**: 이벤트는 FSM 상태를 변경하지 않습니다. 진행 중인 상태 위에 잠깐 덧씌워질 뿐입니다. 따라서 "언제 빠져나오지?" 문제가 구조적으로 발생하지 않습니다.
 
-    NormalFace --> GameUI : enter_game_mode
-    GameUI --> NormalFace : exit_game_mode
+### 5.1 중첩 정책
 
-    NormalFace --> AlertUI : timer_expired_or_system_feedback
-    AlertUI --> NormalFace : ack_or_timeout
-```
+동시에 여러 oneshot이 발생할 수 있으므로 아래 규칙으로 해소합니다.
 
-상태 의미:
+1. **Priority preempt**: 진행 중인 oneshot보다 새 oneshot의 priority가 **더 높으면** 즉시 교체합니다. 남은 지속시간은 버립니다.
+2. **Same priority coalesce**: priority가 같으면 **새 이벤트를 무시**합니다 (깜빡임 방지). 단, 진행 중 이벤트가 지속시간의 80% 이상 경과했다면 교체합니다.
+3. **Lower priority drop**: 진행 중인 oneshot보다 낮은 priority는 항상 무시합니다.
+4. **Queue 금지**: oneshot은 큐잉하지 않습니다. 즉시성이 핵심이며, 시간이 지난 뒤 뒤늦게 표출되는 것은 의미가 퇴색합니다.
 
-- `NormalFace`: 기본 얼굴 UI
-- `ListeningUI`: STT/HUD 중심의 듣기 상태
-- `SleepUI`: 졸음, 꿈, 수면 연출 상태
-- `CameraUI`: 카운트다운, 플래시를 보여주는 촬영 상태
-- `GameUI`: 얼굴 축소 + 게임 버튼/입력 UI 상태
-- `AlertUI`: 타이머 완료나 시스템 피드백을 강조하는 상태
+> priority 값과 지속시간은 설정 파일에서 조정 가능하도록 분리합니다. 위 표는 기본값입니다.
 
-## 7. 눈동자와 시선 애니메이션
+## 6. Scene Selector (파생 규칙)
 
-이 부분은 상태 머신의 상태가 아니라 `출력 규칙`입니다.
+표정과 UI는 `(Context, Activity, active oneshot)` 3요소의 **순수 함수**입니다.
 
-즉:
+### 6.1 표정 (Mood 파생)
 
-- `Presence = UserVisible`
-- `Mood = Attentive`
-- `webcam face center = (x, y)`
+우선순위 (위에서부터 먼저 평가):
 
-이면 `display adapter`가 눈동자 위치와 얼굴 방향감을 애니메이션으로 계산합니다.
+1. `Activity == Alerting` → `alert` (Context 무관, §6.4 override)
+2. Active oneshot이 있으면 → 그 이벤트의 표정 (`startled`, `happy`, `welcome`, `confused`)
+3. `Activity == Executing(kind)` → `attentive` 고정 (§6.4 Executing focus lock)
+4. `Activity == Listening` → `attentive`
+5. 그 외 (`Activity == Idle`)에는 `Context`에 따라:
+   - `Away` → 비활성 (눈 감김/어두움)
+   - `Idle` → `calm`
+   - `Engaged` → `attentive`
+   - `Sleepy` → `sleepy`
 
-정리하면:
+### 6.2 UI 레이아웃 (UI 파생)
 
-- 시선 이동은 `state`가 아니라 `animation rule`
-- 입력은 웹캠 얼굴 중심 좌표
-- 출력은 Layer 1 Core Face의 눈동자/얼굴 방향 애니메이션
+`(Activity, Context)` 완전 매핑 테이블입니다. 빈칸 없이 모든 조합을 정의합니다.
 
-## 8. 대표 상태 조합
+| Activity | Context=Away | Context=Idle | Context=Engaged | Context=Sleepy |
+|---|---|---|---|---|
+| `Idle` | `NormalFace`(dim) | `NormalFace` | `NormalFace` | `SleepUI` |
+| `Listening` | `ListeningUI` | `ListeningUI` | `ListeningUI` | `ListeningUI` |
+| `Executing(photo)` | `CameraUI` | `CameraUI` | `CameraUI` | `CameraUI` |
+| `Executing(game)` | `GameUI` | `GameUI` | `GameUI` | `GameUI` |
+| `Executing(weather)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
+| `Executing(smarthome)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
+| `Executing(timer_setup)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
+| `Executing(dance)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
+| `Alerting` | `AlertUI` | `AlertUI` | `AlertUI` | `AlertUI` |
 
-실제 런타임에서는 하나의 상태만 존재하는 게 아니라 네 축이 같이 조합됩니다.
+규칙:
 
-예시:
+- `Listening`/`Executing`/`Alerting`은 Activity가 UI를 지배합니다. Context에 관계없이 같은 UI를 씁니다 (사용자가 프레임을 잠깐 벗어나도 촬영/알림 UI가 유지되어야 자연스러움).
+- `Idle`일 때만 Context가 UI를 결정합니다.
+- `Away` + `Idle`은 `NormalFace`를 어둡게(`dim`) 표시합니다. 완전히 꺼진 화면이 아니라 "대기 중"을 시각화.
 
-- 평상시 대기
-  - `Presence=NoUser`
-  - `Mood=Calm`
-  - `Activity=Idle`
-  - `UI=NormalFace`
+### 6.3 시선/눈동자
 
-- 사용자가 화면 앞에 있음
-  - `Presence=UserVisible`
-  - `Mood=Attentive`
-  - `Activity=Idle`
-  - `UI=NormalFace`
+상태가 아닌 애니메이션 규칙입니다. 웹캠 얼굴 중심 좌표 → display adapter가 계산 (좌표 규격은 [architecture.md §6.4](architecture.md#64-좌표-규격) 참고).
 
-- 얼굴 없이 말 걸었을 때
-  - `Presence=Searching`
-  - `Mood=Startled`
-  - `Activity=Listening`
-  - `UI=ListeningUI`
+### 6.4 Override 규칙 (Activity가 Context를 앞지르는 경우)
 
-- 사진 촬영 중
-  - `Presence=UserVisible`
-  - `Mood=Attentive`
-  - `Activity=PhotoMode`
-  - `UI=CameraUI`
+아래 두 경우는 Context의 장기 성분이 표정/UI를 바꾸지 않도록 **고정**합니다.
 
-- 오래 비워둔 뒤 수면 상태
-  - `Presence=LongAbsent`
-  - `Mood=Sleepy`
-  - `Activity=Idle`
-  - `UI=SleepUI`
+1. **Alerting override**: `Activity == Alerting`이면 Context와 무관하게 표정은 `alert`, UI는 `AlertUI`. 타이머 알림은 `Away`/`Sleepy`에서도 반드시 사용자에게 인지되어야 합니다.
+2. **Executing focus lock**: `Activity == Executing(kind)` 동안에는 표정이 `attentive`로 고정됩니다. 촬영 중 사용자가 잠깐 프레임을 벗어나(`Engaged → Idle`) 표정이 `attentive → calm`으로 흔들리는 것을 방지합니다. 단, 이 구간에 oneshot이 들어오면(예: `happy` on success) 정상적으로 오버레이됩니다 — §6.1의 우선순위 2가 3보다 앞서기 때문.
 
-- 스마트홈 명령 처리 중
-  - `Presence=UserVisible`
-  - `Mood=Attentive`
-  - `Activity=SmartHomeControl`
-  - `UI=AlertUI` 또는 `NormalFace`
+> 이 override 규칙은 §6.1 우선순위에 이미 반영되어 있습니다. 이 절은 그 의도를 명시적으로 서술한 것입니다.
 
-## 9. 대표 시나리오
+## 7. 대표 상태 조합
 
-### 9.1 얼굴 없이 먼저 음성이 들림
+| 시나리오 | Context | Activity | Oneshot | 표정 | UI |
+|---|---|---|---|---|---|
+| 평상시 대기 | Away | Idle | - | 비활성 | NormalFace(dim) |
+| 사용자가 옴 | Idle | Idle | - | calm | NormalFace |
+| 적극 상호작용 | Engaged | Idle | - | attentive | NormalFace |
+| 얼굴 없이 말 걸림 | Idle | Listening | startled | 놀람(잠깐) → attentive | ListeningUI |
+| 사진 촬영 | Engaged | Executing(photo) | - | attentive | CameraUI |
+| 오래 비움 | Sleepy | Idle | - | sleepy | SleepUI |
+| 오래 비운 뒤 재등장 | Idle | Idle | welcome | 반김(잠깐) → calm | NormalFace |
+| 스마트홈 성공 | Engaged | Executing(smarthome) | happy | 기쁨(잠깐) → attentive | NormalFace |
+| 타이머 울림 (사용자 있음) | Engaged | Alerting | - | alert | AlertUI |
+| 타이머 울림 (부재 중) | Away | Alerting | - | alert | AlertUI |
 
-- Presence: `NoUser -> Searching`
-- Mood: `Calm -> Startled`
-- Activity: `Idle -> Listening`
-- UI: `NormalFace -> ListeningUI`
+## 8. 대표 시나리오
 
-이후 얼굴이 검출되면:
+### 8.1 얼굴 없이 먼저 음성이 들림
 
-- Presence: `Searching -> UserVisible`
-- Mood: `Startled -> Attentive`
+- Context: `Idle` 유지 (또는 `Away → Idle`)
+- Activity: `Idle → Listening`
+- Oneshot: `startled` 발화
 
-즉, RIO는 바로 기능을 실행하는 것이 아니라 먼저 "놀라고 찾는" 반응을 보여줍니다.
+→ 놀란 표정으로 잠깐 반응 후 듣기 모드. v1의 "Searching + Startled" 조합과 동일한 결과를 FSM 1회 전이로 표현.
 
-### 9.2 "사진 찍어줘"
+### 8.2 "사진 찍어줘"
 
-- Activity: `Idle -> Listening -> PhotoMode`
-- UI: `NormalFace -> ListeningUI -> CameraUI`
-- Mood: `Attentive` 유지
+- Activity: `Idle → Listening → Executing(photo) → Idle`
+- Context: `Engaged` 유지
 
-사진 완료 후:
+→ UI는 테이블로 `NormalFace → ListeningUI → CameraUI → NormalFace`로 자동 결정. 촬영 중 Context가 흔들려도 Executing focus lock으로 표정 유지.
 
-- Activity: `PhotoMode -> Idle`
-- UI: `CameraUI -> NormalFace`
+### 8.3 오래 아무도 없음
 
-### 9.3 오래 아무도 없음
+- Context: `Idle → Sleepy`
+- Activity: `Idle` 유지
 
-- Presence: `FaceLost -> LongAbsent`
-- Mood: `Calm -> Sleepy`
-- UI: `NormalFace -> SleepUI`
+→ 표정/UI가 자동으로 `sleepy` + `SleepUI`.
 
-이때는 단순 정지가 아니라 blink가 느려지고 꿈/졸음 연출이 들어가야 합니다.
+### 8.4 다시 나타난 직후 말 걸기
 
-### 9.4 다시 나타난 직후 바로 말 걸기
+- Context: `Sleepy → Idle`
+- Activity: `Idle → Listening`
+- Oneshot: `welcome` 발화
 
-- Presence: `LongAbsent -> Reappeared -> UserVisible`
-- Mood: `Sleepy -> Startled -> Attentive`
-- Activity: `Idle -> Listening`
+→ 깨어남 + 반김이 한 프레임 안에 자연스럽게.
 
-이 구간은 일반 응답보다 "깨어남 + 반김 + 집중"이 섞인 특별한 반응으로 처리하는 것이 좋습니다.
+### 8.5 스마트홈 명령 성공/실패
 
-### 9.5 스마트홈 명령
+- Activity: `Listening → Executing(smarthome) → Idle`
+- 성공 시 oneshot: `happy`
+- 실패 시 oneshot: `confused`
 
-- Activity: `Listening -> SmartHomeControl`
-- Mood: `Attentive`
-- UI: `ListeningUI -> AlertUI` 또는 `NormalFace`
+### 8.6 Sleepy 중 타이머 울림
 
-성공 시:
+- Context: `Sleepy` 유지
+- Activity: `Idle → Alerting`
+- 표정: `sleepy → alert` (Alerting override로 즉시 전환)
+- UI: `SleepUI → AlertUI`
 
-- Mood: `Attentive -> Happy -> Attentive`
+→ 사용자가 ACK하면 `Alerting → Idle`로 복귀, 표정/UI는 다시 `sleepy` + `SleepUI`.
 
-실패 시:
+## 9. v1과의 비교
 
-- Mood: `Attentive` 유지 또는 짧은 `Startled/미안함` 계열 반응
+| 항목 | v1 (4-FSM) | v2 (현재) |
+|---|---|---|
+| FSM 개수 | 4개 (Presence/Mood/Activity/UI) | 2개 (Context/Activity) |
+| 상태 총수 | 6+5+9+6 = **26** | 4+4 = **8** |
+| 순간 반응 처리 | FSM 상태로 둠 (Startled/Happy/Reappeared) | Oneshot 이벤트 (자동 소멸) |
+| 표정 결정 | Mood FSM 상태 = 표정 | `(Activity, Context, oneshot)` 파생 |
+| UI 결정 | UI FSM 상태 = 레이아웃 | `(Activity, Context)` 테이블 파생 |
+| 충돌 가능성 | Scene Selector 우선순위 필요 | 구조적으로 불가능 (파생 함수라 결정적) |
+| 새 기능 추가 | Activity + UI 양쪽에 상태 추가 | `Executing(kind)`에 kind 추가 + 테이블 한 줄 |
+| 표현력 | 높음 | 동일 (시나리오 8.x 모두 재현 가능) |
 
-핵심은 성공/실패 모두 캐릭터 반응이 먼저 느껴져야 한다는 점입니다.
+### 주요 변경 요약
 
-## 10. 구현 시 꼭 지켜야 할 규칙
+1. **Presence + Mood 통합 → Context**
+   - `NoUser`/`LongAbsent` → `Away`
+   - `UserVisible` + `Calm` → `Idle`
+   - `UserVisible` + `Attentive` → `Engaged`
+   - `Sleepy` → `Sleepy` (유지)
+   - `Searching`/`FaceLost`/`Reappeared`/`Startled`/`Happy` → oneshot 이벤트로 이동
 
-1. 상태 전이와 화면 애니메이션을 분리합니다.
-2. 기능 실행보다 먼저 `캐릭터 반응`이 보이게 설계합니다.
-3. 하나의 입력이 여러 FSM에 동시에 영향을 줄 수 있어야 합니다.
-4. 모든 전이는 timestamp와 함께 기록해야 합니다.
-5. 시간 임계치, alias 문장, 반응 강도는 설정 파일로 분리합니다.
-6. 상태가 애매하면 기능 중심보다 `존재감과 자연스러운 전이`를 우선합니다.
+2. **Activity 간소화**
+   - 기능별 상태(`WeatherAnswer`, `PhotoMode` 등 6개) → `Executing(kind)` 하나로 통합
+   - `TimerAlert` → `Alerting` (범용화)
+
+3. **UI FSM 완전 제거** — Activity/Context에서 테이블로 파생
+4. **Mood FSM 완전 제거** — 장기 감정은 Context에, 순간 감정은 oneshot에
+
+## 10. 구현 시 지켜야 할 규칙
+
+1. `Context`와 `Activity`는 서로의 상태를 직접 참조하지 않는다 (독립 축).
+2. 표정/UI는 반드시 Scene Selector의 파생 함수로만 결정한다. FSM 전이 로직 안에서 표정을 직접 지시하지 않는다.
+3. 짧은 반응은 항상 oneshot 이벤트로 구현한다. 새 상태를 만들지 않는다.
+4. 새 기능은 `Executing(kind)`의 `kind`를 늘리고 §6.2 테이블에 한 줄을 추가하는 방식으로만 확장한다.
+5. §6.4의 override 규칙은 Scene Selector 안에서만 구현한다. FSM 전이에 override 로직을 넣지 않는다.
+6. 모든 전이와 oneshot 트리거는 timestamp와 함께 기록한다.
+7. 시간 임계치, oneshot 지속시간/priority, 테이블 매핑은 설정 파일로 분리한다.
+
+## 11. 관련 이벤트 토픽
+
+Architecture 문서의 [토픽 레지스트리](architecture.md#63-topic-레지스트리)와 정합되도록 아래 토픽을 사용합니다.
+
+- `context.state.changed` — Context FSM 전이 (payload: `from`, `to`)
+- `activity.state.changed` — Activity FSM 전이 (payload: `from`, `to`, `kind?`)
+- `oneshot.triggered` — oneshot 이벤트 발화 (payload: `name`, `duration_ms`, `priority`)
+- `scene.derived` — Scene Selector 출력 변경 (payload: `mood`, `ui`)

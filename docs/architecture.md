@@ -140,34 +140,36 @@ RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다
 
 RIO의 중심 저장소입니다.
 
-반드시 관리해야 하는 상태:
+반드시 관리해야 하는 상태 ([state-machine.md](state-machine.md) 참고):
 
-- 얼굴 존재 여부
-- 마지막 얼굴 검출 시각
+- `Context` FSM 현재 상태 (`Away`/`Idle`/`Engaged`/`Sleepy`)
+- `Activity` FSM 현재 상태 (`Idle`/`Listening`/`Executing(kind)`/`Alerting`)
+- 활성 oneshot 이벤트 (이름, 남은 지속시간, priority)
+- 얼굴 존재 여부, 마지막 얼굴 검출 시각
 - 마지막 음성 감지 시각
-- reappearance window
-- 현재 행동 상태
-- 현재 UI 상태
 - 활성 타이머
 - 진행 중 작업
 - 스마트홈 명령 결과 캐시
 
+표정(Mood)과 UI 레이아웃은 별도 상태로 저장하지 않습니다. Scene Selector가 위 상태로부터 매 전이마다 파생 계산합니다.
+
 ### 3.4 Behavior Layer
 
-이벤트와 상태를 보고 무엇을 할지 결정합니다.
+이벤트와 상태를 보고 무엇을 할지 결정합니다. 상세한 FSM 정의는 [state-machine.md](state-machine.md) 참고.
 
 하위 구성:
 
-- `reaction rules`
-- `behavior state reducer`
-- `scene selector`
-- `task dispatcher`
+- `context fsm` — 사용자/시간 맥락 축 (Away/Idle/Engaged/Sleepy)
+- `activity fsm` — 실행 축 (Idle/Listening/Executing/Alerting)
+- `oneshot dispatcher` — 순간 반응 이벤트 발화/중첩 정책 관리
+- `scene selector` — `(Context, Activity, oneshot)` → `(Mood, UI)` 순수 함수
+- `task dispatcher` — Executing(kind) 진입 시 도메인 핸들러 호출
 
 예:
 
-- 얼굴 없음 + 음성 감지 -> `startled_then_track`
-- `camera.capture` -> `take_photo_countdown`
-- `smarthome.aircon.on` -> smart-home task dispatch + success/failure feedback
+- 얼굴 없음 + 음성 감지 → `Activity: Idle→Listening` + `oneshot: startled`
+- `camera.capture` → `Activity: Listening→Executing(photo)` → camera adapter 호출
+- `smarthome.aircon.on` → `Activity: Executing(smarthome)` + 성공 시 `oneshot: happy`, 실패 시 `oneshot: confused`
 
 ### 3.5 Output / Actuation Layer
 
@@ -259,7 +261,7 @@ voice -> STT -> intent normalization
 
 - 형식: `<domain>.<object>.<verb-past>` (예: `voice.intent.detected`, `vision.face.lost`)
 - `domain`은 소스 계층을 나타내며 아래 중 하나로 제한합니다.
-  - `voice`, `vision`, `touch`, `timer`, `task`, `ui`, `presence`, `behavior`, `smarthome`, `weather`, `system`
+  - `voice`, `vision`, `touch`, `timer`, `task`, `scene`, `context`, `activity`, `oneshot`, `smarthome`, `weather`, `system`
 - `verb`는 과거형/완료형(`detected`, `lost`, `expired`, `succeeded`, `failed`, `changed` 등)만 사용합니다.
 - 이벤트는 `무슨 일이 일어났다`만 기록합니다. 명령형(imperative) topic은 금지하며, 명령은 payload의 `intent` 필드로 전달합니다.
 - 같은 상태 변화에 대해 중복 topic을 만들지 않습니다. (예: `vision.face.gone`과 `vision.face.lost`를 동시에 쓰지 않음)
@@ -287,9 +289,10 @@ voice -> STT -> intent normalization
 | `smarthome.request.sent` | `main/home_client` | `intent`, `content` | PUT 발송 직후 |
 | `smarthome.result` | `main/home_client` | `ok`, `status`, `error?` | 응답 수신 |
 | `weather.result` | `main/weather` | `ok`, `data?`, `error?` | 날씨 API 응답 |
-| `presence.state.changed` | `main/presence` | `from`, `to` | Presence FSM 전이 |
-| `behavior.state.changed` | `main/behavior` | `from`, `to` | Behavior FSM 전이 |
-| `ui.state.changed` | `main/display` | `from`, `to` | UI FSM 전이 |
+| `context.state.changed` | `main/behavior` | `from`, `to` | Context FSM 전이 (Away/Idle/Engaged/Sleepy) |
+| `activity.state.changed` | `main/behavior` | `from`, `to`, `kind?` | Activity FSM 전이 (Idle/Listening/Executing/Alerting) |
+| `oneshot.triggered` | `main/behavior` | `name`, `duration_ms`, `priority` | 순간 반응 이벤트 발화 |
+| `scene.derived` | `main/behavior` | `mood`, `ui` | Scene Selector 파생 출력 변경 |
 | `system.worker.heartbeat` | `audio_worker`, `vision_worker` | `worker`, `status` | 주기적 생존 신호 |
 | `system.degraded.entered` | `main/safety` | `reason`, `lost_capability` | degraded 모드 진입 |
 
