@@ -1,0 +1,1 @@
+dummy smart-home status badge

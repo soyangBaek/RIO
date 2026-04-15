@@ -1,5 +1,25 @@
-# Smart-home device mapping
 home_client:
   base_url: "http://127.0.0.1"
-devices: {}
-
+weather:
+  base_url: "https://api.example.invalid/weather"
+devices:
+  aircon:
+    id: "aircon.living_room"
+    name: "에어컨"
+    template: "{device_id}:{action}"
+  light:
+    id: "light.main"
+    name: "거실 조명"
+    template: "{device_id}:{action}"
+  robot_cleaner:
+    id: "cleaner.bot"
+    name: "로봇청소기"
+    template: "{device_id}:{action}"
+  tv:
+    id: "tv.living_room"
+    name: "TV"
+    template: "{device_id}:{action}"
+  music:
+    id: "speaker.main"
+    name: "음악"
+    template: "{device_id}:{action}"

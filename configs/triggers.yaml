@@ -1,13 +1,57 @@
-# Intent aliases
 intents:
-  dance.start: []
-  camera.capture: []
-  ui.game_mode.enter: []
-  timer.create: []
-  weather.current: []
-  smarthome.aircon.on: []
-  smarthome.light.on: []
-  smarthome.robot_cleaner.start: []
-  smarthome.tv.on: []
-  smarthome.music.play: []
-
+  dance.start:
+    - "emo dance"
+    - "rio dance"
+    - "dance mode"
+    - "춤 춰"
+    - "춤춰"
+    - "댄스 모드"
+  camera.capture:
+    - "사진 찍어줘"
+    - "사진 찍자"
+    - "take a photo"
+    - "take picture"
+    - "photo please"
+  ui.game_mode.enter:
+    - "게임 모드로 바꿔줘"
+    - "게임 모드"
+    - "enter game mode"
+  timer.create:
+    - "분 있다 알려줘"
+    - "초 뒤에 알려줘"
+    - "set a timer"
+    - "timer"
+    - "알람 맞춰줘"
+  weather.current:
+    - "날씨 알려줘"
+    - "오늘 날씨"
+    - "weather"
+    - "what's the weather"
+  smarthome.aircon.on:
+    - "에어컨 켜줘"
+    - "aircon on"
+    - "turn on aircon"
+  smarthome.light.on:
+    - "불 켜줘"
+    - "조명 켜줘"
+    - "light on"
+    - "turn on the light"
+  smarthome.robot_cleaner.start:
+    - "로봇 청소기 실행시켜줘"
+    - "청소기 돌려줘"
+    - "start robot cleaner"
+  smarthome.tv.on:
+    - "티비 켜줘"
+    - "tv on"
+    - "turn on the tv"
+  smarthome.music.play:
+    - "음악 틀어줘"
+    - "노래 틀어줘"
+    - "play music"
+  system.ack:
+    - "알겠어"
+    - "확인"
+    - "okay"
+  system.cancel:
+    - "취소"
+    - "cancel"

@@ -1,10 +1,25 @@
-# Timing and confidence thresholds
 presence:
-  face_lost_seconds: 0
-  sleepy_after_minutes: 0
-  reappeared_window_seconds: 0
-speech:
-  vad_sensitivity: 0
-vision:
-  gesture_confidence: 0.0
+  face_lost_timeout_ms: 800
+  away_timeout_ms: 60000
+  welcome_min_away_ms: 3000
+  face_moved_sample_hz: 10
 
+behavior:
+  idle_to_sleepy_timeout_ms: 120000
+  engaged_to_idle_timeout_ms: 5000
+  intent_cooldown_ms: 1500
+  startled_oneshot_min_ms: 600
+
+vision:
+  face_confidence_min: 0.6
+  gesture_confidence_min: 0.75
+  head_direction_confidence_min: 0.7
+
+voice:
+  vad_sensitivity: 2
+  stt_confidence_min: 0.5
+  intent_match_confidence_min: 0.6
+
+task:
+  http_timeout_ms: 3000
+  http_retry_count: 1
