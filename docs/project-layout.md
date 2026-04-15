@@ -12,6 +12,7 @@ RIO/
 │   ├── prd.md
 │   ├── architecture.md
 │   ├── state-machine.md
+│   ├── scenarios.md
 │   └── project-layout.md
 ├── configs/
 │   ├── robot.yaml
@@ -84,19 +85,19 @@ RIO/
 
 ### `thresholds.yaml`
 
-Presence / Behavior / Vision 상태 전이에 쓰이는 수치 기준입니다. 단위는 모두 명시합니다. 아래 값은 문서 기준 기본값(default)이며, 튜닝은 이 파일에서만 수행합니다.
+Context / Activity FSM 전이와 파생 상황 계산에 쓰이는 수치 기준입니다. 단위는 모두 명시합니다. 아래 값은 문서 기준 기본값(default)이며, 튜닝은 이 파일에서만 수행합니다.
 
 ```yaml
 presence:
-  face_lost_timeout_ms: 800        # FaceVisible -> FaceLost 전이
-  sleepy_absence_timeout_ms: 60000 # FaceLost -> SleepyAbsence 전이
-  reappeared_window_ms: 3000       # ReappearedWindow 유지 시간
+  face_lost_timeout_ms: 800        # recent_face_loss 파생 상황 유지 시간
+  away_timeout_ms: 60000           # Idle/Sleepy -> Away 전이 (no_face_long_timeout)
+  welcome_min_away_ms: 3000        # just_reappeared 파생 상황 최소 경과 시간
   face_moved_sample_hz: 10         # vision.face.moved 샘플링 주기
 
 behavior:
-  idle_to_sleepy_timeout_ms: 120000  # Idle -> Sleepy 전이
+  idle_to_sleepy_timeout_ms: 120000  # Idle/Engaged -> Sleepy 전이 (long_idle)
   intent_cooldown_ms: 1500           # 동일 intent 재수신 무시 구간
-  startled_scene_min_ms: 1200        # Startled 최소 유지 시간
+  startled_oneshot_min_ms: 600       # startled oneshot 최소 지속 시간
 
 vision:
   face_confidence_min: 0.6

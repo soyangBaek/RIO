@@ -1,7 +1,7 @@
 # State Machine
 
 이 문서는 RIO가 실제로 "어떤 상태를 가지고 살아 움직이는지"를 설명하는 기준 문서입니다.
-이전 4-FSM 구조(`Presence`/`Mood`/`Activity`/`UI`)를 단순화해, 현재 문서는 구현 기준을 `Context + Activity + Oneshot + Derived Output`으로 통일합니다.
+구현 기준은 `Context + Activity + Oneshot + Derived Output` 네 요소로 구성됩니다.
 
 핵심은 기능 실행보다 먼저 `상태를 가진 캐릭터`로 동작해야 한다는 점입니다.
 
@@ -48,8 +48,7 @@ flowchart TD
 
 ## 3. Context FSM
 
-"지금 사용자/시간 맥락이 어떤가"를 관리합니다.
-v1의 `Presence` + `Mood`의 장기 성분(`Calm`/`Sleepy`)을 합친 축입니다.
+"지금 사용자/시간 맥락이 어떤가"를 관리합니다. 사용자 존재 여부와 장기적인 에너지 수준(깨어 있음/졸림)을 하나의 축에 담습니다.
 
 ```mermaid
 stateDiagram-v2
@@ -66,9 +65,9 @@ stateDiagram-v2
 
 상태 의미:
 
-- `Away`: 현재 사용자가 없음 (v1 `NoUser` + `LongAbsent` 통합)
+- `Away`: 현재 사용자가 없음
 - `Idle`: 최근 사용자 증거가 들어와 깨어 있는 상태지만, 아직 적극적 상호작용은 아님
-- `Engaged`: 사용자가 보고/말하고/만지고 있는 집중 상호작용 상태 (v1 `Attentive`)
+- `Engaged`: 사용자가 보고/말하고/만지고 있는 집중 상호작용 상태
 - `Sleepy`: 오래 상호작용이 없어 에너지가 낮은 상태
 
 전이 조건 정의:
@@ -84,9 +83,9 @@ stateDiagram-v2
 즉 `Idle`은 "확실히 누가 앞에 보인다"보다 넓은 개념입니다.
 얼굴 없이 먼저 말이 들린 경우에도 `Away -> Idle`로 진입할 수 있습니다.
 
-### 3.1 보조 런타임 사실
+### 3.1 확장 상태 (Extended State)
 
-아래 값들은 **FSM 상태는 아니지만**, 현재 상태를 해석하고 파생 출력을 계산하는 데 반드시 필요합니다.
+UML Statecharts에서 말하는 **확장 상태(extended state)** — 즉 FSM의 명시적 상태(`Context`/`Activity`)로는 표현하지 않지만, 상태를 해석하고 파생 출력을 계산하는 데 반드시 필요한 값들입니다. 타임스탬프·플래그·최근 관측값처럼 연속적이거나 수치적인 데이터라 상태 다이어그램에 그리기엔 부적합한 것들이 여기에 속합니다.
 
 - `face_present: bool`
 - `last_face_seen_at`
@@ -111,12 +110,11 @@ stateDiagram-v2
   - 현재 Context가 `Idle`
   - 그리고 `now - away_started_at >= welcome_min_away_ms`
 
-따라서 v1의 `Searching`, `FaceLost`, `Reappeared`는 더 이상 독립 상태가 아니라
-`Context + Activity + runtime facts`로 계산되는 파생 상황입니다.
+`Searching`, `FaceLost`, `Reappeared`처럼 짧은 시간창에 성립하는 복합 조건은 독립 상태가 아니라 `Context + Activity + extended state`로 계산되는 **파생 상황**입니다. 이렇게 두면 상태 개수가 폭발하지 않고, 같은 표현력을 유지할 수 있습니다.
 
 ## 4. Activity FSM
 
-"지금 무엇을 하고 있는가"를 관리합니다. v1 Activity FSM을 거의 유지하되, UI FSM과의 1:1 쌍을 제거합니다.
+"지금 무엇을 하고 있는가"를 관리합니다. UI 레이아웃과는 분리되어 있으며, UI는 §6에서 Activity와 Context로부터 파생됩니다.
 
 ```mermaid
 stateDiagram-v2
@@ -138,8 +136,7 @@ stateDiagram-v2
 - `Executing(kind)`: 기능 실행 중. `kind`는 파라미터 (`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`)
 - `Alerting`: 시스템이 사용자에게 적극적으로 피드백하는 중 (타이머 완료 등)
 
-**변경점**: v1의 `WeatherAnswer`, `PhotoMode`, `SmartHomeControl`, `TimerSetup`, `GameMode`, `DanceMode`는 모두 `Executing(kind)` 한 상태로 통합하고 `kind` 파라미터로 구분합니다.
-→ 상태 수는 줄지만 표현력은 동일하고, 씬 매핑 테이블만 확장하면 새 기능 추가가 쉽습니다.
+기능별 실행 모드(`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`)는 별도 상태를 만들지 않고 `Executing(kind)`의 `kind` 파라미터로 구분합니다. 새 기능이 추가되면 `kind`를 늘리고 씬 매핑 테이블(§6.2)에 한 줄만 더하면 됩니다.
 
 ### 4.1 Activity 인터럽트 정책
 
@@ -153,7 +150,7 @@ stateDiagram-v2
    기존 보류 intent가 있으면 새 것으로 덮어씁니다.
 5. `Executing -> Idle` 직후 `deferred_intent`가 있으면 즉시 `Idle -> Executing(kind)` 또는 `Idle -> Listening`으로 재진입합니다.
    어느 경로로 재진입할지는 intent가 이미 확정됐는지 여부에 따라 결정합니다.
-6. `GameMode`, `dance`는 장시간 연출일 수 있으므로 기본적으로 신규 intent를 무시하고,
+6. `Executing(game)`, `Executing(dance)`는 장시간 연출일 수 있으므로 기본적으로 신규 intent를 무시하고,
    `exit`, `cancel`, `high_priority_alert`만 받습니다.
 
 ## 5. Oneshot Events (상태 아님)
@@ -169,10 +166,8 @@ stateDiagram-v2
 
 **핵심**: 이벤트는 FSM 상태를 변경하지 않습니다. 진행 중인 상태 위에 잠깐 덧씌워질 뿐입니다. 따라서 "언제 빠져나오지?" 문제가 구조적으로 발생하지 않습니다.
 
-즉:
-
-- `Startled`, `Happy`는 oneshot으로 이동
-- `Searching`, `FaceLost`, `Reappeared`는 파생 상황으로 이동
+- `startled`, `happy` 같은 순간 감정은 oneshot으로 처리
+- `Searching`, `FaceLost`, `Reappeared` 같은 복합 조건은 파생 상황으로 처리 (§3.1 참고)
 
 ### 5.1 중첩 정책
 
@@ -263,8 +258,7 @@ stateDiagram-v2
 - Oneshot: `startled` 발화
 - Derived fact: `is_searching_for_user = true`
 
-→ 놀란 표정으로 잠깐 반응 후 듣기 모드.
-v1의 `Searching + Startled` 조합을 `Idle/Listening + startled + is_searching_for_user`로 표현합니다.
+→ 놀란 표정으로 잠깐 반응 후 듣기 모드. "얼굴이 안 보이는 상태에서 듣고 있음"은 별도 상태가 아니라 `Activity == Listening + is_searching_for_user` 조합으로 표현됩니다.
 
 ### 8.2 "사진 찍어줘"
 
@@ -303,48 +297,18 @@ v1의 `Searching + Startled` 조합을 `Idle/Listening + startled + is_searching
 
 → 사용자가 ACK하면 `Alerting → Idle`로 복귀, 표정/UI는 다시 `sleepy` + `SleepUI`.
 
-## 9. v1과의 비교
-
-| 항목 | v1 (4-FSM) | v2 (현재) |
-|---|---|---|
-| FSM 개수 | 4개 (Presence/Mood/Activity/UI) | 2개 (Context/Activity) |
-| 상태 총수 | 6+5+9+6 = **26** | 4+4 = **8** |
-| 순간 반응 처리 | FSM 상태로 둠 (Startled/Happy/Reappeared) | Oneshot 이벤트 (자동 소멸) |
-| 표정 결정 | Mood FSM 상태 = 표정 | `(Activity, Context, oneshot)` 파생 |
-| UI 결정 | UI FSM 상태 = 레이아웃 | `(Activity, Context)` 테이블 파생 |
-| 충돌 가능성 | Scene Selector 우선순위 필요 | 구조적으로 불가능 (파생 함수라 결정적) |
-| 새 기능 추가 | Activity + UI 양쪽에 상태 추가 | `Executing(kind)`에 kind 추가 + 테이블 한 줄 |
-| 표현력 | 높음 | 동일 (시나리오 8.x 모두 재현 가능) |
-
-### 주요 변경 요약
-
-1. **Presence + Mood 통합 → Context**
-   - `NoUser`/`LongAbsent` → `Away`
-   - `UserVisible` + `Calm` → `Idle`
-   - `UserVisible` + `Attentive` → `Engaged`
-   - `Sleepy` → `Sleepy` (유지)
-   - `Searching`/`FaceLost`/`Reappeared`/`Startled`/`Happy` → oneshot 이벤트로 이동
-
-2. **Activity 간소화**
-   - 기능별 상태(`WeatherAnswer`, `PhotoMode` 등 6개) → `Executing(kind)` 하나로 통합
-   - `TimerAlert` → `Alerting` (범용화)
-
-3. **UI FSM 완전 제거** — Activity/Context에서 테이블로 파생
-4. **Mood FSM 완전 제거** — 장기 감정은 Context에, 순간 감정은 oneshot에
-5. **Searching/FaceLost/Reappeared 제거** — 상태가 아닌 파생 상황으로 이동
-
-## 10. 구현 시 지켜야 할 규칙
+## 9. 구현 시 지켜야 할 규칙
 
 1. `Context`와 `Activity`는 서로의 상태를 직접 참조하지 않는다 (독립 축).
 2. 표정/UI는 반드시 Scene Selector의 파생 함수로만 결정한다. FSM 전이 로직 안에서 표정을 직접 지시하지 않는다.
 3. 짧은 반응은 항상 oneshot 이벤트로 구현한다. 새 상태를 만들지 않는다.
-4. `Searching`, `FaceLost`, `Reappeared` 같은 짧은 맥락은 독립 상태를 만들지 말고 runtime facts로 계산한다.
+4. `Searching`, `FaceLost`, `Reappeared` 같은 짧은 맥락은 독립 상태를 만들지 말고 확장 상태(extended state)로 계산한다.
 5. 새 기능은 `Executing(kind)`의 `kind`를 늘리고 §6.2 테이블에 한 줄을 추가하는 방식으로만 확장한다.
 6. §6.4의 override 규칙은 Scene Selector 안에서만 구현한다. FSM 전이에 override 로직을 넣지 않는다.
 7. 모든 전이와 oneshot 트리거는 timestamp와 함께 기록한다.
 8. 시간 임계치, oneshot 지속시간/priority, 테이블 매핑은 설정 파일로 분리한다.
 
-## 11. 관련 이벤트 토픽
+## 10. 관련 이벤트 토픽
 
 Architecture 문서의 [토픽 레지스트리](architecture.md#63-topic-레지스트리)와 정합되도록 아래 토픽을 사용합니다.
 
