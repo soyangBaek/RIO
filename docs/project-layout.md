@@ -33,6 +33,7 @@ RIO/
 │       │   ├── state/
 │       │   ├── scheduler/
 │       │   └── safety/
+│       ├── workers/
 │       ├── adapters/
 │       │   ├── audio/
 │       │   ├── speaker/
@@ -67,10 +68,26 @@ RIO/
   - 런타임, 이벤트 흐름, 계층 구조
 - `docs/state-machine.md`
   - 상태 전이 규칙
+- `docs/scenarios.md`
+  - 구현해야 하는 동작 시나리오와 테스트 기준
 - `src/`
   - 위 문서를 코드로 옮기는 자리
 
-즉, 구현자는 먼저 `prd -> architecture -> state-machine -> src` 순서로 보는 것이 맞습니다.
+즉, 구현자는 먼저 `prd -> state-machine -> scenarios -> architecture -> src` 순서로 보는 것이 맞습니다.
+
+`architecture.md`의 런타임 블록은 아래처럼 실제 경로에 대응됩니다.
+
+| 런타임 블록 | 실제 코드 위치 |
+| :--- | :--- |
+| `Event Router` | `src/app/core/bus/` |
+| `Extended State Update` | `src/app/core/state/extended_state.py` |
+| `Context / Activity Reducers` | `src/app/core/state/context_fsm.py`, `src/app/core/state/activity_fsm.py`, `src/app/core/state/reducers.py` |
+| `Oneshot Dispatcher` | `src/app/core/state/oneshot.py` |
+| `Scene Selector` | `src/app/core/state/scene_selector.py` |
+| `Effect Planner` | `src/app/domains/behavior/effect_planner.py` |
+| `Executor Registry` | `src/app/domains/behavior/executor_registry.py` |
+| `Photo / Timer / SmartHome / Game Services` | `src/app/domains/` |
+| `Camera / Weather / Home Client Adapters` | `src/app/adapters/` |
 
 ## 3. `configs/`
 
@@ -137,6 +154,8 @@ task:
 - 표정
 - 오버레이 자산
 - 지속 시간
+- oneshot별 priority / duration 기본값
+- `Executing(kind)`별 UI/사운드 연출 매핑
 
 ## 4. `assets/`
 
@@ -181,34 +200,94 @@ RIO의 공통 기반 계층입니다.
 - 공통 이벤트 포맷
 - topic 정의
 - trace / metadata 정의
+- 권장 초기 파일:
+  - `models.py`
+  - `topics.py`
 
 ### `bus/`
 
 - 이벤트 라우터
 - 구독/발행 인터페이스
 - 워커 입력 큐와 메인 루프 연결
+- 권장 초기 파일:
+  - `queue_bus.py`
+  - `router.py`
 
 ### `state/`
 
-- Context FSM (Away/Idle/Engaged/Sleepy)
-- Activity FSM (Idle/Listening/Executing/Alerting)
-- Oneshot dispatcher (순간 반응 이벤트, 중첩 정책)
-- Scene Selector (파생 출력: Mood + UI)
-- 전역 상태 저장소
+- authoritative state, extended state, derived output을 함께 다루는 핵심 계층입니다.
+- 구현 책임:
+  - Context FSM (`Away` / `Idle` / `Engaged` / `Sleepy`)
+  - Activity FSM (`Idle` / `Listening` / `Executing` / `Alerting`)
+  - extended state (`face_present`, `last_face_seen_at`, `deferred_intent` 등)
+  - oneshot dispatcher (순간 반응 이벤트, 중첩 정책)
+  - Scene Selector (파생 출력: Mood + UI)
+  - 전역 상태 저장소
+- 권장 초기 파일:
+  - `models.py`
+  - `store.py`
+  - `context_fsm.py`
+  - `activity_fsm.py`
+  - `extended_state.py`
+  - `oneshot.py`
+  - `scene_selector.py`
+  - `reducers.py`
+
+구현 관점에서 역할을 나누면 아래처럼 보는 것이 좋습니다.
+
+- `extended_state.py`
+  - 이벤트를 받아 `face_present`, `last_face_seen_at`, `deferred_intent` 같은 값을 갱신
+- `context_fsm.py`, `activity_fsm.py`
+  - 전이 규칙만 가진다
+- `reducers.py`
+  - `extended state update -> fsm transition -> oneshot trigger` 순서를 조합한다
+- `scene_selector.py`
+  - 최종 `(Mood, UI)`를 파생한다
 
 ### `scheduler/`
 
 - 타이머 등록
 - timeout 이벤트 발행
 - 반복 작업
+- 권장 초기 파일:
+  - `timer_scheduler.py`
 
 ### `safety/`
 
 - 워커 생존 감시
 - degraded mode 전환
 - 예외 복구
+- 권장 초기 파일:
+  - `heartbeat_monitor.py`
+  - `capabilities.py`
 
-## 6. `src/app/adapters/`
+## 6. `src/app/workers/`
+
+별도 프로세스로 실행되는 워커 진입점입니다.
+
+- `audio_worker.py`
+  - 마이크 캡처
+  - VAD
+  - STT
+  - intent normalization 호출
+  - `voice.*` 이벤트 발행
+- `vision_worker.py`
+  - 카메라 프레임 수신
+  - 얼굴 검출 / 이동 추적
+  - gesture 추론
+  - `vision.*` 이벤트 발행
+
+## 6.1 `src/app/main.py`
+
+메인 오케스트레이터 진입점입니다.
+
+- `core/bus` 초기화
+- worker 프로세스 시작과 종료 관리
+- 이벤트 루프 실행
+- `extended state -> reducers -> oneshot -> scene selector -> effect planner -> executor registry` 순서 연결
+- degraded mode와 종료 시 cleanup 수행
+
+## 7. `src/app/adapters/`
 
 외부 입출력을 담당하는 계층입니다.
 
@@ -217,24 +296,40 @@ RIO의 공통 기반 계층입니다.
 - 마이크 입력
 - VAD
 - STT adapter
-- raw transcript 전달
+- intent normalization helper
+- 권장 초기 파일:
+  - `capture.py`
+  - `vad.py`
+  - `stt.py`
+  - `intent_normalizer.py`
 
 ### `speaker/`
 
 - TTS 출력
 - 효과음 재생
 - 알림 사운드 큐 관리
+- 권장 초기 파일:
+  - `tts.py`
+  - `sfx.py`
 
 ### `vision/`
 
 - 카메라 프레임 수신
 - OpenCV / MediaPipe 처리
 - 얼굴/손동작 이벤트 생성
+- 권장 초기 파일:
+  - `camera_stream.py`
+  - `face_detector.py`
+  - `face_tracker.py`
+  - `gesture_detector.py`
 
 ### `touch/`
 
 - 터치스크린 이벤트 수신
 - 탭/드래그/쓰다듬기 제스처 변환
+- 권장 초기 파일:
+  - `input.py`
+  - `gesture_mapper.py`
 
 ### `display/`
 
@@ -248,76 +343,125 @@ RIO 화면 렌더러의 핵심입니다.
 - 얼굴 중심 좌표를 기반으로 한 눈동자/시선 애니메이션
 - 게임 모드 UI
 - 카운트다운/알림 렌더링
+- 권장 초기 파일:
+  - `renderer.py`
+  - `layers.py`
+  - `eye_tracking.py`
+  - `hud.py`
 
 ### `camera/`
 
 - 웹캠 기반 사진 촬영
 - 저장 경로 관리
+- 권장 초기 파일:
+  - `capture.py`
+  - `storage.py`
 
 ### `weather/`
 
 - 날씨 API 요청
 - 응답 정규화
+- 권장 초기 파일:
+  - `client.py`
+  - `normalizer.py`
 
 ### `home_client/`
 
 - 로컬 smart-home home-client HTTP 호출
 - 제어 성공/실패 이벤트 변환
+- 권장 초기 파일:
+  - `client.py`
+  - `mapper.py`
 
-## 7. `src/app/domains/`
+## 8. `src/app/domains/`
 
 비즈니스 로직 계층입니다.
 
 ### `presence/`
 
-- 얼굴 존재/부재 추적
-- 재등장 window
-- sleepy absence 판단
+- `Context FSM` 자체를 소유하지는 않습니다.
+- 대신 아래 판단 로직을 제공하는 보조 도메인입니다.
+  - 사용자 증거 집계 (`face`, `voice`, `touch`)
+  - `confirmed_user_and_interacting` 판단
+  - `just_reappeared`, `recent_face_loss` 같은 파생 상황 helper
+  - away / sleepy 관련 threshold 적용
+- 권장 초기 파일:
+  - `signals.py`
+  - `helpers.py`
 
 ### `speech/`
 
-- transcript -> intent normalization
-- alias 처리
-- command parsing
-- low-confidence / unknown / duplicate intent 분류 (`voice.intent.unknown` 발행 포함)
+- 음성 의미 해석 규칙을 담당합니다.
+- 구현 책임:
+  - alias 처리
+  - canonical intent 매핑
+  - 자연어 시간 파싱
+  - low-confidence / unknown / duplicate intent 분류
+- 권장 초기 파일:
+  - `intent_parser.py`
+  - `timer_parser.py`
+  - `dedupe.py`
 
 ### `gesture/`
 
-- 손총
-- V자
-- 손 흔들기
-- 고개 방향
+- 현재는 Phase 2 중심 도메인입니다.
+- 손총, V자, 손 흔들기, 고개 방향 규칙을 정의합니다.
+- 권장 초기 파일:
+  - `catalog.py`
+  - `mapper.py`
 
 ### `behavior/`
 
-- 감정/반응 상태 전이
-- reaction rule
-- scene selection
+- 상태 전이는 `core/state`가 가진다는 점이 중요합니다.
+- `behavior/`는 그 위에서 아래 책임을 가집니다.
+  - interrupt policy
+  - effect planner
+  - executor registry
+  - scene-to-output command planning
+- 권장 초기 파일:
+  - `effect_planner.py`
+  - `executor_registry.py`
+  - `interrupts.py`
+
+즉,
+
+- `core/state`는 "상태가 어떻게 바뀌는가"
+- `domains/behavior`는 "그 상태를 보고 무엇을 실행할 것인가"
+
+를 담당합니다.
 
 ### `photo/`
 
 - 사진 촬영 시퀀스
 - 카운트다운
 - 저장 완료 피드백
+- 권장 초기 파일:
+  - `service.py`
 
 ### `games/`
 
-- 핑퐁
-- 갤로그
-- 참참참
+- 게임 모드 진입과 게임 콘텐츠 실행
+- MVP에서는 게임 모드 UI 전환을 먼저 구현하고,
+  실제 게임 로직은 이후 확장합니다.
+- 권장 초기 파일:
+  - `service.py`
 
 ### `smart_home/`
 
 - intent -> home-client 요청 변환
 - 결과 피드백
+- 권장 초기 파일:
+  - `service.py`
+  - `payloads.py`
 
 ### `timers/`
 
-- 자연어 시간 파싱
 - 타이머 상태 관리
 - 종료 알람
+- 권장 초기 파일:
+  - `service.py`
 
-## 8. `src/app/scenes/`
+## 9. `src/app/scenes/`
 
 RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 구성을 둡니다.
 
@@ -330,13 +474,21 @@ RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 
 - `smarthome_feedback`
 - `petting_reaction`
 
-## 9. `tests/`
+권장 초기 파일:
+
+- `catalog.py`
+- `builders.py`
+- `assets.py`
+
+## 10. `tests/`
 
 하드웨어 프로젝트이므로 테스트를 분리해서 봐야 합니다.
 
 ### `unit/`
 
-- 상태 전이
+- Context / Activity reducer
+- oneshot 중첩 정책
+- scene selector
 - intent 정규화
 - 타이머 파싱
 
@@ -345,6 +497,7 @@ RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 
 - 이벤트 플로우
 - smart-home adapter
 - weather adapter
+- photo sequence
 
 ### `simulation/`
 
@@ -352,12 +505,14 @@ RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 
 - 마이크 없이 transcript event 주입
 - 긴 시나리오 재생
 
-## 10. 구현 시작 순서
+## 11. 구현 시작 순서
 
-1. `core/events`, `core/state`, `core/bus`
-2. `domains/presence`, `domains/speech`, `domains/behavior`
-3. `adapters/display`, `adapters/audio`, `adapters/speaker`, `adapters/vision`, `adapters/touch`
-4. `domains/photo`, `domains/timers`, `domains/smart_home`, `adapters/home_client`
-5. `gesture`, `games`
+1. `core/events`, `core/bus`, `core/state`
+2. `workers/audio_worker.py`, `workers/vision_worker.py`
+3. `adapters/display`, `adapters/touch`, `adapters/speaker`
+4. `domains/presence`, `domains/speech`, `domains/behavior`
+5. `domains/photo`, `domains/timers`, `domains/smart_home`
+6. `adapters/camera`, `adapters/weather`, `adapters/home_client`
+7. `gesture`, `games`
 
-이 순서를 유지하면 PRD의 MVP 범위를 가장 적은 충돌로 구현할 수 있습니다.
+이 순서를 유지하면 [scenarios.md](./scenarios.md)의 `SYS-*`, `VOICE-*`, `INT-*`, `POL-*` 순서로 자연스럽게 검증을 붙일 수 있습니다.
