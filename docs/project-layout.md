@@ -84,10 +84,35 @@ RIO/
 
 ### `thresholds.yaml`
 
-- face lost timeout
-- sleepy timeout
-- reappeared window duration
-- gesture confidence threshold
+Presence / Behavior / Vision 상태 전이에 쓰이는 수치 기준입니다. 단위는 모두 명시합니다. 아래 값은 문서 기준 기본값(default)이며, 튜닝은 이 파일에서만 수행합니다.
+
+```yaml
+presence:
+  face_lost_timeout_ms: 800        # FaceVisible -> FaceLost 전이
+  sleepy_absence_timeout_ms: 60000 # FaceLost -> SleepyAbsence 전이
+  reappeared_window_ms: 3000       # ReappearedWindow 유지 시간
+  face_moved_sample_hz: 10         # vision.face.moved 샘플링 주기
+
+behavior:
+  idle_to_sleepy_timeout_ms: 120000  # Idle -> Sleepy 전이
+  intent_cooldown_ms: 1500           # 동일 intent 재수신 무시 구간
+  startled_scene_min_ms: 1200        # Startled 최소 유지 시간
+
+vision:
+  face_confidence_min: 0.6
+  gesture_confidence_min: 0.75
+  head_direction_confidence_min: 0.7
+
+voice:
+  stt_confidence_min: 0.5       # 이 미만은 voice.intent.unknown으로 발행
+  intent_match_confidence_min: 0.6
+
+task:
+  http_timeout_ms: 3000         # home_client, weather 공용
+  http_retry_count: 1
+```
+
+필드 추가 시 단위 suffix(`_ms`, `_hz`, `_min`)를 유지합니다. 상태 머신 문서와 수치가 어긋나면 이 파일이 기준입니다.
 
 ### `triggers.yaml`
 
@@ -253,6 +278,7 @@ RIO 화면 렌더러의 핵심입니다.
 - transcript -> intent normalization
 - alias 처리
 - command parsing
+- low-confidence / unknown / duplicate intent 분류 (`voice.intent.unknown` 발행 포함)
 
 ### `gesture/`
 

@@ -18,20 +18,24 @@ RIO는 아래 원칙으로 구성합니다.
 flowchart LR
     A[Audio Worker] --> D[Event In Queue]
     B[Vision Worker] --> D
-    C[Touchscreen / Timer] --> D
 
-    D --> E[Main Orchestrator]
-    E --> F[State Store]
-    E --> G[Behavior Engine]
-    G --> H[Action Planner]
-
-    H --> I[Display Adapter]
-    H --> J[Audio Output Adapter]
-    H --> K[Service Adapters]
+    subgraph Main[Main Orchestrator Process]
+        D --> E[Event Router]
+        C[Touchscreen Input] --> E
+        T[Timer Scheduler] --> E
+        E --> F[State Store]
+        E --> G[Behavior Engine]
+        G --> H[Action Planner]
+        H --> I[Display Adapter]
+        H --> J[Audio Output Adapter]
+        H --> K[Service Adapters]
+    end
 
     K --> L[Weather API]
     K --> M[Home Client]
     K --> N[Webcam Capture]
+    L --> E
+    M --> E
 ```
 
 ## 2. 고정된 런타임 모델
@@ -50,7 +54,40 @@ RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다
 - 한쪽 인식 파이프라인이 잠시 느려져도 상태 관리와 UI 루프를 유지할 수 있음
 - 멀티 프레임워크 대신 Python 중심 구조로 유지 가능
 
-### 2.2 프로세스 간 통신
+### 2.2 프로세스 소유권 규칙
+
+각 입출력 구성요소는 아래 기준으로 소속 프로세스가 결정됩니다.
+
+- `Audio Worker`
+  - 마이크 캡처
+  - VAD
+  - STT
+  - intent normalization
+- `Vision Worker`
+  - 카메라 프레임 수신
+  - 얼굴 검출 / 중심 추적
+  - 제스처 인식
+  - 재등장 감지
+- `Main Orchestrator` (내부 모듈로 실행)
+  - Touchscreen input adapter
+  - Timer scheduler
+  - Service adapters (`home_client`, `weather`, `camera`) 요청 및 응답 처리
+  - Display adapter, Speaker adapter
+  - State store, Behavior engine, Action planner
+  - Event router
+
+분리 기준은 아래와 같습니다.
+
+- 별도 워커: `지속 스트림 + 무거운 추론 파이프라인`에 한함 (현재는 오디오/비전 2종)
+- 메인 내부 모듈: 이벤트성/경량 I/O, UI 렌더 루프에 밀착된 입력, 요청-응답형 네트워크 어댑터
+
+터치/타이머/HTTP 응답을 별도 프로세스로 분리하지 않는 이유:
+
+- 터치는 display adapter와 동일한 UI 이벤트 루프에서 받는 편이 가장 단순함
+- Timer는 `core/scheduler/`가 내부 bus에 `timer.expired`만 넣으면 충분함
+- 서비스 어댑터 응답은 요청 주체(메인)에서 async 추적하는 편이 자연스러움
+
+### 2.3 프로세스 간 통신
 
 - 프로세스 간: `queue 기반 이벤트 전달`
 - 메인 프로세스 내부: `event router + state reducer + action planner`
@@ -159,7 +196,7 @@ PRD의 3-layer UI를 구현 기준으로 고정합니다.
 
 - display adapter는 세 레이어를 독립적으로 업데이트 가능해야 함
 - 얼굴 표정과 HUD는 서로 독립 상태를 가질 수 있어야 함
-- 눈 방향 변화는 face center를 입력으로 받아 화면 애니메이션으로 처리해야 함
+- 눈 방향 변화는 face center를 입력으로 받아 화면 애니메이션으로 처리해야 함 (좌표 규격은 §6.4 참고)
 - 게임 모드에서는 얼굴 영역 축소 + 하단 버튼 또는 가상 입력 영역을 띄울 수 있어야 함
 
 즉, 화면은 하나의 정적 캔버스가 아니라 `layer compositor`처럼 설계해야 합니다.
@@ -189,6 +226,8 @@ voice -> STT -> intent normalization
 
 ## 6. 이벤트 계약
 
+### 6.1 이벤트 포맷
+
 문서 간 구현 차이를 줄이기 위해 모든 핵심 이벤트는 아래 형식을 따릅니다.
 
 ```json
@@ -215,6 +254,66 @@ voice -> STT -> intent normalization
 
 - `confidence`
 - `trace_id`
+
+### 6.2 Topic 네이밍 규칙
+
+- 형식: `<domain>.<object>.<verb-past>` (예: `voice.intent.detected`, `vision.face.lost`)
+- `domain`은 소스 계층을 나타내며 아래 중 하나로 제한합니다.
+  - `voice`, `vision`, `touch`, `timer`, `task`, `ui`, `presence`, `behavior`, `smarthome`, `weather`, `system`
+- `verb`는 과거형/완료형(`detected`, `lost`, `expired`, `succeeded`, `failed`, `changed` 등)만 사용합니다.
+- 이벤트는 `무슨 일이 일어났다`만 기록합니다. 명령형(imperative) topic은 금지하며, 명령은 payload의 `intent` 필드로 전달합니다.
+- 같은 상태 변화에 대해 중복 topic을 만들지 않습니다. (예: `vision.face.gone`과 `vision.face.lost`를 동시에 쓰지 않음)
+
+### 6.3 Topic 레지스트리
+
+아래 표가 RIO의 전체 topic 목록입니다. 새 topic은 반드시 이 표에 먼저 추가한 뒤 코드에 반영합니다.
+
+| Topic | Source | 주요 payload 필드 | 발행 시점 |
+| :--- | :--- | :--- | :--- |
+| `voice.activity.started` | `audio_worker` | — | VAD 시작 |
+| `voice.activity.ended` | `audio_worker` | — | VAD 종료 |
+| `voice.intent.detected` | `audio_worker` | `intent`, `text`, `confidence` | STT + normalization 완료 |
+| `voice.intent.unknown` | `audio_worker` | `text`, `confidence` | 매칭 실패 또는 low-confidence |
+| `vision.face.detected` | `vision_worker` | `bbox`, `center`, `confidence` | 얼굴 첫 검출 |
+| `vision.face.lost` | `vision_worker` | `last_seen_at` | threshold 이상 미검출 |
+| `vision.face.moved` | `vision_worker` | `center`, `delta` | 얼굴 중심 이동 (샘플링 주기) |
+| `vision.gesture.detected` | `vision_worker` | `gesture`, `confidence` | 손동작/고개 인식 |
+| `touch.tap.detected` | `main/touch` | `x`, `y` | 탭 |
+| `touch.stroke.detected` | `main/touch` | `path`, `duration` | 쓰다듬기/드래그 |
+| `timer.expired` | `main/scheduler` | `timer_id`, `label` | 타이머 만료 |
+| `task.started` | `main/behavior` | `task_id`, `kind` | Task FSM `Running` 진입 |
+| `task.succeeded` | `main/behavior` | `task_id`, `result` | Task 성공 |
+| `task.failed` | `main/behavior` | `task_id`, `error` | Task 실패 |
+| `smarthome.request.sent` | `main/home_client` | `intent`, `content` | PUT 발송 직후 |
+| `smarthome.result` | `main/home_client` | `ok`, `status`, `error?` | 응답 수신 |
+| `weather.result` | `main/weather` | `ok`, `data?`, `error?` | 날씨 API 응답 |
+| `presence.state.changed` | `main/presence` | `from`, `to` | Presence FSM 전이 |
+| `behavior.state.changed` | `main/behavior` | `from`, `to` | Behavior FSM 전이 |
+| `ui.state.changed` | `main/display` | `from`, `to` | UI FSM 전이 |
+| `system.worker.heartbeat` | `audio_worker`, `vision_worker` | `worker`, `status` | 주기적 생존 신호 |
+| `system.degraded.entered` | `main/safety` | `reason`, `lost_capability` | degraded 모드 진입 |
+
+### 6.4 좌표 규격
+
+Vision 이벤트와 Display adapter 사이의 좌표는 아래 규격으로 고정합니다. 프로세스가 분리돼 있으므로 이 규격이 없으면 통합 시점에 재작업이 발생합니다.
+
+- `center`, `bbox`는 `normalized frame coordinates`를 사용합니다.
+  - 원점: 프레임 좌상단 `(0.0, 0.0)`
+  - 우하단: `(1.0, 1.0)`
+  - x 증가 방향: 카메라 기준 오른쪽
+  - y 증가 방향: 아래쪽
+- `bbox`는 `[x, y, w, h]` 순서이며 모두 `[0.0, 1.0]` 범위입니다.
+- `center`는 `[x, y]`이며 `bbox`의 중심과 동일하게 계산합니다.
+- `delta`(vision.face.moved)는 직전 샘플 대비 normalized 좌표 차이이며 부호를 유지합니다.
+- Display adapter는 normalized 좌표를 자체 해상도(터치스크린 해상도, `configs/robot.yaml`)로 선형 매핑합니다.
+- 카메라 해상도는 vision adapter 내부 구현 사항이며 이벤트 계약에 노출하지 않습니다.
+- 미러링(좌우 반전)이 필요한 경우 vision adapter에서 한 번만 적용합니다. 이후 계층은 항상 `사용자 기준`이 아닌 `카메라 기준` 좌표라고 가정합니다.
+
+### 6.5 변경 규칙
+
+- 새 topic 추가 또는 이름 변경은 이 표를 먼저 수정한 뒤 코드에 반영합니다.
+- payload 필드 변경은 breaking change로 간주합니다. 기존 consumer가 있으면 topic 이름을 분리하거나 버전 suffix를 고려합니다.
+- `core/events/` 구현체는 이 표의 topic을 상수로 노출합니다. 코드가 문서를 앞서 확장하지 않습니다.
 
 ## 7. 명령어 처리 원칙
 

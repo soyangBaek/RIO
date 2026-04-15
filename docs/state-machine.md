@@ -54,6 +54,7 @@ stateDiagram-v2
     Attentive --> PhotoMode : intent_camera_capture
     Attentive --> GameMode : intent_enter_game_mode
     Attentive --> SmartHomeHandling : smarthome_intent
+    Attentive --> Attentive : intent_unknown / intent_low_confidence / intent_duplicate
     Sleepy --> Attentive : face_or_voice_or_touch
     Startled --> Attentive : startled_scene_done
     Dancing --> Attentive : dance_scene_done
@@ -167,6 +168,35 @@ stateDiagram-v2
   - Task: `Running -> Succeeded/Failed`
   - Behavior: `SmartHomeHandling -> Attentive`
 
+### 6.6 Intent 실패 / 미인식 / 중복
+
+Behavior FSM이 stuck되지 않도록 아래 경로를 항상 보장합니다.
+
+- Low-confidence STT
+  - 조건: `stt_confidence < voice.stt_confidence_min` ([thresholds.yaml](project-layout.md#thresholdsyaml))
+  - 이벤트: `voice.intent.unknown` (intent 필드 없음)
+  - Behavior: `Attentive` 유지, 짧은 `huh?` 반응 씬만 재생
+  - UI: `ListeningUI -> NormalFaceUI` (타임아웃 경로 사용)
+
+- Unknown intent (매칭 실패)
+  - 조건: STT는 성공했으나 `triggers.yaml` 어느 alias와도 매칭 안 됨
+  - 이벤트: `voice.intent.unknown` (`text` 필드 포함)
+  - Behavior: `Attentive` 유지, `huh?` 또는 `sorry` 계열 반응
+  - 연속 3회 발생 시 HUD에 `인식 못했어요` 안내 1회 표시
+
+- Duplicate intent (쿨다운 중 재수신)
+  - 조건: 동일 intent가 `behavior.intent_cooldown_ms` 이내 재수신
+  - 현재 Behavior 상태가 해당 intent의 타깃 상태와 같으면 무시
+  - 예: `Dancing` 상태에서 `dance.start` 재수신 → 무시, 선택적으로 가벼운 `acknowledge` 반응
+  - 이벤트 발행 자체는 유지하되 Behavior 전이는 일으키지 않음
+
+- 진행 중 Task가 있는데 다른 intent 수신
+  - 규칙: `PhotoMode`, `SmartHomeHandling` 등 종료 조건이 있는 씬은 현재 Task 완료까지 신규 intent를 defer 큐에 쌓음
+  - Task 종료 시 defer 큐의 최신 1건만 처리, 나머지는 drop
+  - `ui.game_mode.enter` 같이 씬 전환이 필요한 intent는 defer 없이 즉시 취소+전환 허용
+
+위 규칙은 모두 `Attentive -> Attentive` self-transition 범주로 취급하며, [architecture.md §6.3](architecture.md#63-topic-레지스트리)의 `voice.intent.unknown` topic과 연결됩니다.
+
 ## 7. 상태 저장소에 반드시 있어야 하는 값
 
 - `face_present`
@@ -179,11 +209,14 @@ stateDiagram-v2
 - `active_timers`
 - `pending_tasks`
 - `current_game`
+- `last_intent`
+- `last_intent_at`
+- `deferred_intents`
 
 ## 8. 설계 규칙
 
 1. 상태 머신은 전이만 담당하고 실제 사운드/UI 호출은 액션 플래너가 담당합니다.
 2. 하나의 이벤트가 여러 FSM에 동시에 영향을 줄 수 있어야 합니다.
 3. 모든 전이는 timestamp와 함께 기록합니다.
-4. `n초`, `n분`, confidence 임계치, alias 문구는 설정 파일로 뺍니다.
+4. `n초`, `n분`, confidence 임계치, alias 문구는 설정 파일로 뺍니다. 기본값은 [project-layout.md §3 `thresholds.yaml`](project-layout.md#thresholdsyaml)을 기준으로 합니다.
 5. Phase 2 기능이 아직 없더라도 상태 이름과 이벤트 계약은 지금 문서 기준을 따릅니다.
