@@ -1,222 +1,302 @@
 # State Machine
 
-이 문서는 `prd.md`를 기준으로 RIO의 상태 전이를 실제 구현 가능한 형태로 정리한 문서입니다.
-핵심 원칙은 `하나의 거대한 FSM 대신 여러 개의 작은 FSM`입니다.
+이 문서는 RIO가 실제로 "어떤 상태를 가지고 살아 움직이는지"를 설명하는 문서입니다.
+핵심은 기능 실행보다 먼저 `상태를 가진 캐릭터`로 동작해야 한다는 점입니다.
 
-## 1. 상태 머신 구성
+RIO의 기본 동작은 아래 순서로 이해하는 것이 가장 자연스럽습니다.
 
-RIO는 아래 4개의 FSM으로 나눕니다.
+`입력 감지 -> 의미 해석 -> 상태 변경 -> 씬 선택 -> 화면/사운드/기능 실행 -> 기본 상태 복귀`
+
+## 1. 핵심 원칙
+
+RIO는 하나의 거대한 상태 머신으로 만들지 않습니다.
+대신 아래 4개의 축이 동시에 움직이는 구조로 봅니다.
 
 1. `Presence FSM`
-2. `Behavior FSM`
-3. `UI FSM`
-4. `Task FSM`
+2. `Mood FSM`
+3. `Activity FSM`
+4. `UI FSM`
 
-이 네 가지를 동시에 보고 Main Orchestrator가 최종 액션을 결정합니다.
+이 네 개를 동시에 보고 `scene selector`가 지금 어떤 반응을 보여줄지 결정합니다.
 
-## 2. Presence FSM
+중요한 점:
 
-Presence FSM은 `보임/사라짐/재등장`과 관련된 시간 맥락을 관리합니다.
+- `눈 방향 변화`는 별도 상태가 아닙니다.
+- 얼굴 중심 좌표를 입력으로 받아 `display adapter`가 애니메이션으로 표현합니다.
+
+## 2. 전체 관계
+
+```mermaid
+flowchart TD
+    A[Webcam / Mic / Touchscreen / Timer] --> B[Input Interpretation]
+    B --> C[Presence FSM]
+    B --> D[Mood FSM]
+    B --> E[Activity FSM]
+    B --> F[UI FSM]
+
+    C --> G[Scene Selector]
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H[Display Animation]
+    G --> I[Speaker / TTS / SFX]
+    G --> J[Camera Capture]
+    G --> K[Home Client]
+```
+
+## 3. Presence FSM
+
+Presence FSM은 "사람이 있는가", "방금 사라졌는가", "다시 나타났는가"를 관리합니다.
+이 축이 있어야 놀람, 반김, 졸음 같은 감정 반응이 자연스럽게 나옵니다.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NoFace
-    NoFace --> Searching : voice_detected_without_face
-    NoFace --> FaceVisible : face_detected
-    Searching --> FaceVisible : face_detected
-    FaceVisible --> FaceLost : face_missing_over_threshold
-    FaceLost --> SleepyAbsence : absence_timeout
-    FaceLost --> ReappearedWindow : face_detected
-    SleepyAbsence --> ReappearedWindow : face_detected
-    ReappearedWindow --> FaceVisible : window_elapsed
+    [*] --> NoUser
+    NoUser --> Searching : voice_detected_without_face
+    NoUser --> UserVisible : face_detected
+    Searching --> UserVisible : face_detected
+    Searching --> NoUser : timeout
+    UserVisible --> FaceLost : no_face_short_timeout
+    FaceLost --> UserVisible : face_detected
+    FaceLost --> LongAbsent : no_face_long_timeout
+    LongAbsent --> Reappeared : face_detected
+    Reappeared --> UserVisible : welcome_done_or_window_timeout
 ```
 
 상태 의미:
 
-- `NoFace`: 화면 안에 얼굴이 없음
-- `Searching`: 음성은 감지됐지만 아직 얼굴을 찾는 중
-- `FaceVisible`: 얼굴이 안정적으로 검출됨
-- `FaceLost`: 최근까지 보였으나 잠시 놓친 상태
-- `SleepyAbsence`: 장시간 부재로 수면/졸음 연출 가능 상태
-- `ReappearedWindow`: 재등장 직후 특별 반응을 줄 수 있는 짧은 시간창
+- `NoUser`: 현재 화면 앞에 사용자가 없음
+- `Searching`: 음성은 들렸지만 얼굴이 아직 보이지 않음
+- `UserVisible`: 사용자가 안정적으로 화면 안에 들어와 있음
+- `FaceLost`: 방금까지 보였지만 잠깐 놓친 상태
+- `LongAbsent`: 오래 비어 있어 수면/졸음 연출이 가능한 상태
+- `Reappeared`: 오래 없다가 다시 나타난 직후의 특별 반응 구간
 
-## 3. Behavior FSM
+## 4. Mood FSM
 
-Behavior FSM은 로봇이 지금 어떤 연출 단위로 움직이는지 관리합니다.
+Mood FSM은 "지금 어떤 감정 톤으로 반응하는가"를 관리합니다.
+같은 기능을 수행하더라도 감정 톤이 다르면 캐릭터로 느껴지는 방식이 크게 달라집니다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Calm
+    Calm --> Attentive : user_visible_or_voice_or_touch
+    Calm --> Sleepy : long_idle
+    Attentive --> Startled : voice_without_face_or_sudden_reappear
+    Attentive --> Happy : petting_or_successful_interaction
+    Attentive --> Calm : no_event_for_a_while
+    Sleepy --> Startled : sudden_voice_or_face
+    Sleepy --> Attentive : gentle_wake
+    Startled --> Attentive : settle_down
+    Happy --> Attentive : reaction_done
+```
+
+상태 의미:
+
+- `Calm`: 평상시 기본 감정 상태
+- `Attentive`: 사용자를 보고 듣고 있으며 집중하고 있는 상태
+- `Sleepy`: 오래 상호작용이 없어 에너지가 낮아진 상태
+- `Startled`: 갑작스러운 입력에 놀란 상태
+- `Happy`: 쓰다듬기, 반김, 성공 피드백처럼 긍정적인 반응 상태
+
+## 5. Activity FSM
+
+Activity FSM은 "지금 무엇을 하고 있는가"를 관리합니다.
+이 축은 기능 실행 흐름과 가장 가까운 상태 머신입니다.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Attentive : face_or_voice_or_touch
-    Idle --> Sleepy : idle_timeout
-    Attentive --> Startled : voice_without_face
-    Attentive --> Dancing : intent_dance_start
-    Attentive --> PhotoMode : intent_camera_capture
-    Attentive --> GameMode : intent_enter_game_mode
-    Attentive --> SmartHomeHandling : smarthome_intent
-    Attentive --> Attentive : intent_unknown / intent_low_confidence / intent_duplicate
-    Sleepy --> Attentive : face_or_voice_or_touch
-    Startled --> Attentive : startled_scene_done
-    Dancing --> Attentive : dance_scene_done
-    PhotoMode --> Attentive : photo_scene_done
-    GameMode --> Attentive : exit_game_mode
-    SmartHomeHandling --> Attentive : feedback_done
+    Idle --> Listening : voice_started
+    Listening --> Idle : timeout_or_no_intent
+    Listening --> WeatherAnswer : intent_weather
+    Listening --> PhotoMode : intent_camera_capture
+    Listening --> SmartHomeControl : intent_smarthome
+    Listening --> TimerSetup : intent_timer_create
+    Listening --> GameMode : intent_game_mode
+    Listening --> DanceMode : intent_dance
+
+    WeatherAnswer --> Idle : answer_done
+    PhotoMode --> Idle : photo_done
+    SmartHomeControl --> Idle : feedback_done
+    TimerSetup --> Idle : timer_saved
+    GameMode --> Idle : exit_game_mode
+    DanceMode --> Idle : dance_done
+
+    Idle --> TimerAlert : timer_expired
+    TimerAlert --> Idle : acknowledged_or_timeout
 ```
 
 상태 의미:
 
-- `Idle`: 기본 대기
-- `Attentive`: 사용자에게 주의를 두고 있는 상태
-- `Sleepy`: 장시간 유휴 후 수면/꿈 연출 상태
-- `Startled`: 화들짝 놀람 반응
-- `Dancing`: 댄스 씬
-- `PhotoMode`: 사진 촬영 씬
-- `GameMode`: 게임 UI 및 조작 활성 상태
-- `SmartHomeHandling`: 스마트홈 명령 처리 및 피드백 상태
+- `Idle`: 특별한 작업이 없는 기본 상태
+- `Listening`: 음성을 듣고 해석하는 중
+- `WeatherAnswer`: 날씨 응답 중
+- `PhotoMode`: 사진 촬영 시퀀스 실행 중
+- `SmartHomeControl`: 스마트홈 명령 처리 중
+- `TimerSetup`: 타이머 등록 중
+- `GameMode`: 게임 상호작용 중
+- `DanceMode`: 댄스 시퀀스 실행 중
+- `TimerAlert`: 타이머 완료를 알려주는 중
 
-## 4. UI FSM
+## 6. UI FSM
 
-UI FSM은 얼굴/오버레이/HUD가 어떤 레이아웃으로 보이는지 관리합니다.
+UI FSM은 현재 어떤 화면 레이아웃이 보여야 하는지를 결정합니다.
+감정 상태와는 별개로, 지금 화면이 기본 얼굴인지 듣기 모드인지 게임 모드인지를 따로 관리해야 합니다.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NormalFaceUI
-    NormalFaceUI --> ListeningUI : voice_detected
-    ListeningUI --> NormalFaceUI : intent_done_or_timeout
-    NormalFaceUI --> CameraUI : enter_photo_mode
-    NormalFaceUI --> GameUI : enter_game_mode
-    NormalFaceUI --> SleepUI : enter_sleepy
-    GameUI --> NormalFaceUI : exit_game_mode
-    CameraUI --> NormalFaceUI : photo_done
-    SleepUI --> NormalFaceUI : wake_up
+    [*] --> NormalFace
+    NormalFace --> ListeningUI : voice_started
+    ListeningUI --> NormalFace : intent_done_or_timeout
+
+    NormalFace --> SleepUI : long_idle
+    SleepUI --> NormalFace : wake_up
+
+    NormalFace --> CameraUI : enter_photo_mode
+    CameraUI --> NormalFace : photo_done
+
+    NormalFace --> GameUI : enter_game_mode
+    GameUI --> NormalFace : exit_game_mode
+
+    NormalFace --> AlertUI : timer_expired_or_system_feedback
+    AlertUI --> NormalFace : ack_or_timeout
 ```
 
 상태 의미:
 
-- `NormalFaceUI`: 기본 얼굴 화면
-- `ListeningUI`: STT/HUD를 강조하는 청취 상태
-- `CameraUI`: 카운트다운과 플래시를 보여주는 촬영 상태
-- `GameUI`: 얼굴 축소 및 게임 입력 UI 상태
-- `SleepUI`: 졸음/꿈 애니메이션 상태
+- `NormalFace`: 기본 얼굴 UI
+- `ListeningUI`: STT/HUD 중심의 듣기 상태
+- `SleepUI`: 졸음, 꿈, 수면 연출 상태
+- `CameraUI`: 카운트다운, 플래시를 보여주는 촬영 상태
+- `GameUI`: 얼굴 축소 + 게임 버튼/입력 UI 상태
+- `AlertUI`: 타이머 완료나 시스템 피드백을 강조하는 상태
 
-## 5. Task FSM
+## 7. 눈동자와 시선 애니메이션
 
-Task FSM은 시간이 걸리거나 외부 서비스가 필요한 작업을 관리합니다.
+이 부분은 상태 머신의 상태가 아니라 `출력 규칙`입니다.
 
-대상:
+즉:
 
-- 타이머
-- 날씨 조회
-- 스마트홈 명령
-- 사진 저장
+- `Presence = UserVisible`
+- `Mood = Attentive`
+- `webcam face center = (x, y)`
 
-```mermaid
-stateDiagram-v2
-    [*] --> Ready
-    Ready --> Running : task_started
-    Running --> Succeeded : task_succeeded
-    Running --> Failed : task_failed
-    Succeeded --> Ready : ack_or_scene_done
-    Failed --> Ready : ack_or_retry
-```
+이면 `display adapter`가 눈동자 위치와 얼굴 방향감을 애니메이션으로 계산합니다.
 
-이 FSM을 따로 두는 이유:
+정리하면:
 
-- 외부 API 실패를 행동 상태와 분리 가능
-- 스마트홈 실패 시에도 감정 연출은 정상 유지 가능
-- 여러 작업이 동시에 돌더라도 추적 단위를 분리 가능
+- 시선 이동은 `state`가 아니라 `animation rule`
+- 입력은 웹캠 얼굴 중심 좌표
+- 출력은 Layer 1 Core Face의 눈동자/얼굴 방향 애니메이션
 
-## 6. 대표 시나리오
+## 8. 대표 상태 조합
 
-### 6.1 얼굴 없이 음성 감지
+실제 런타임에서는 하나의 상태만 존재하는 게 아니라 네 축이 같이 조합됩니다.
 
-- Presence: `NoFace -> Searching`
-- Behavior: `Idle/Attentive -> Startled`
-- UI: `NormalFaceUI -> ListeningUI`
-- 이후 얼굴 검출 시:
-  - Presence: `Searching -> FaceVisible`
-  - Behavior: `Startled -> Attentive`
+예시:
 
-### 6.2 "사진 찍어줘"
+- 평상시 대기
+  - `Presence=NoUser`
+  - `Mood=Calm`
+  - `Activity=Idle`
+  - `UI=NormalFace`
 
-- Behavior: `Attentive -> PhotoMode`
-- UI: `NormalFaceUI -> CameraUI`
-- Task: `Ready -> Running`
-- 완료 후:
-  - Task: `Running -> Succeeded`
-  - Behavior: `PhotoMode -> Attentive`
-  - UI: `CameraUI -> NormalFaceUI`
+- 사용자가 화면 앞에 있음
+  - `Presence=UserVisible`
+  - `Mood=Attentive`
+  - `Activity=Idle`
+  - `UI=NormalFace`
 
-### 6.3 오래 방치됨
+- 얼굴 없이 말 걸었을 때
+  - `Presence=Searching`
+  - `Mood=Startled`
+  - `Activity=Listening`
+  - `UI=ListeningUI`
 
-- Presence: `FaceLost -> SleepyAbsence`
-- Behavior: `Idle -> Sleepy`
-- UI: `NormalFaceUI -> SleepUI`
+- 사진 촬영 중
+  - `Presence=UserVisible`
+  - `Mood=Attentive`
+  - `Activity=PhotoMode`
+  - `UI=CameraUI`
 
-### 6.4 재등장 직후 말 걸기
+- 오래 비워둔 뒤 수면 상태
+  - `Presence=LongAbsent`
+  - `Mood=Sleepy`
+  - `Activity=Idle`
+  - `UI=SleepUI`
 
-- Presence: `SleepyAbsence -> ReappearedWindow`
-- Behavior: `Sleepy -> Attentive`
-- `voice_detected`가 window 안에 들어오면 추가 반김/깜짝 연출 실행
+- 스마트홈 명령 처리 중
+  - `Presence=UserVisible`
+  - `Mood=Attentive`
+  - `Activity=SmartHomeControl`
+  - `UI=AlertUI` 또는 `NormalFace`
 
-### 6.5 스마트홈 명령
+## 9. 대표 시나리오
 
-- Intent: `smarthome.*`
-- Behavior: `Attentive -> SmartHomeHandling`
-- Task: `Ready -> Running`
-- 성공 또는 실패 후:
-  - Task: `Running -> Succeeded/Failed`
-  - Behavior: `SmartHomeHandling -> Attentive`
+### 9.1 얼굴 없이 먼저 음성이 들림
 
-### 6.6 Intent 실패 / 미인식 / 중복
+- Presence: `NoUser -> Searching`
+- Mood: `Calm -> Startled`
+- Activity: `Idle -> Listening`
+- UI: `NormalFace -> ListeningUI`
 
-Behavior FSM이 stuck되지 않도록 아래 경로를 항상 보장합니다.
+이후 얼굴이 검출되면:
 
-- Low-confidence STT
-  - 조건: `stt_confidence < voice.stt_confidence_min` ([thresholds.yaml](project-layout.md#thresholdsyaml))
-  - 이벤트: `voice.intent.unknown` (intent 필드 없음)
-  - Behavior: `Attentive` 유지, 짧은 `huh?` 반응 씬만 재생
-  - UI: `ListeningUI -> NormalFaceUI` (타임아웃 경로 사용)
+- Presence: `Searching -> UserVisible`
+- Mood: `Startled -> Attentive`
 
-- Unknown intent (매칭 실패)
-  - 조건: STT는 성공했으나 `triggers.yaml` 어느 alias와도 매칭 안 됨
-  - 이벤트: `voice.intent.unknown` (`text` 필드 포함)
-  - Behavior: `Attentive` 유지, `huh?` 또는 `sorry` 계열 반응
-  - 연속 3회 발생 시 HUD에 `인식 못했어요` 안내 1회 표시
+즉, RIO는 바로 기능을 실행하는 것이 아니라 먼저 "놀라고 찾는" 반응을 보여줍니다.
 
-- Duplicate intent (쿨다운 중 재수신)
-  - 조건: 동일 intent가 `behavior.intent_cooldown_ms` 이내 재수신
-  - 현재 Behavior 상태가 해당 intent의 타깃 상태와 같으면 무시
-  - 예: `Dancing` 상태에서 `dance.start` 재수신 → 무시, 선택적으로 가벼운 `acknowledge` 반응
-  - 이벤트 발행 자체는 유지하되 Behavior 전이는 일으키지 않음
+### 9.2 "사진 찍어줘"
 
-- 진행 중 Task가 있는데 다른 intent 수신
-  - 규칙: `PhotoMode`, `SmartHomeHandling` 등 종료 조건이 있는 씬은 현재 Task 완료까지 신규 intent를 defer 큐에 쌓음
-  - Task 종료 시 defer 큐의 최신 1건만 처리, 나머지는 drop
-  - `ui.game_mode.enter` 같이 씬 전환이 필요한 intent는 defer 없이 즉시 취소+전환 허용
+- Activity: `Idle -> Listening -> PhotoMode`
+- UI: `NormalFace -> ListeningUI -> CameraUI`
+- Mood: `Attentive` 유지
 
-위 규칙은 모두 `Attentive -> Attentive` self-transition 범주로 취급하며, [architecture.md §6.3](architecture.md#63-topic-레지스트리)의 `voice.intent.unknown` topic과 연결됩니다.
+사진 완료 후:
 
-## 7. 상태 저장소에 반드시 있어야 하는 값
+- Activity: `PhotoMode -> Idle`
+- UI: `CameraUI -> NormalFace`
 
-- `face_present`
-- `face_last_seen_at`
-- `voice_last_detected_at`
-- `reappeared_at`
-- `current_behavior_state`
-- `current_ui_state`
-- `presence_state`
-- `active_timers`
-- `pending_tasks`
-- `current_game`
-- `last_intent`
-- `last_intent_at`
-- `deferred_intents`
+### 9.3 오래 아무도 없음
 
-## 8. 설계 규칙
+- Presence: `FaceLost -> LongAbsent`
+- Mood: `Calm -> Sleepy`
+- UI: `NormalFace -> SleepUI`
 
-1. 상태 머신은 전이만 담당하고 실제 사운드/UI 호출은 액션 플래너가 담당합니다.
-2. 하나의 이벤트가 여러 FSM에 동시에 영향을 줄 수 있어야 합니다.
-3. 모든 전이는 timestamp와 함께 기록합니다.
-4. `n초`, `n분`, confidence 임계치, alias 문구는 설정 파일로 뺍니다. 기본값은 [project-layout.md §3 `thresholds.yaml`](project-layout.md#thresholdsyaml)을 기준으로 합니다.
-5. Phase 2 기능이 아직 없더라도 상태 이름과 이벤트 계약은 지금 문서 기준을 따릅니다.
+이때는 단순 정지가 아니라 blink가 느려지고 꿈/졸음 연출이 들어가야 합니다.
+
+### 9.4 다시 나타난 직후 바로 말 걸기
+
+- Presence: `LongAbsent -> Reappeared -> UserVisible`
+- Mood: `Sleepy -> Startled -> Attentive`
+- Activity: `Idle -> Listening`
+
+이 구간은 일반 응답보다 "깨어남 + 반김 + 집중"이 섞인 특별한 반응으로 처리하는 것이 좋습니다.
+
+### 9.5 스마트홈 명령
+
+- Activity: `Listening -> SmartHomeControl`
+- Mood: `Attentive`
+- UI: `ListeningUI -> AlertUI` 또는 `NormalFace`
+
+성공 시:
+
+- Mood: `Attentive -> Happy -> Attentive`
+
+실패 시:
+
+- Mood: `Attentive` 유지 또는 짧은 `Startled/미안함` 계열 반응
+
+핵심은 성공/실패 모두 캐릭터 반응이 먼저 느껴져야 한다는 점입니다.
+
+## 10. 구현 시 꼭 지켜야 할 규칙
+
+1. 상태 전이와 화면 애니메이션을 분리합니다.
+2. 기능 실행보다 먼저 `캐릭터 반응`이 보이게 설계합니다.
+3. 하나의 입력이 여러 FSM에 동시에 영향을 줄 수 있어야 합니다.
+4. 모든 전이는 timestamp와 함께 기록해야 합니다.
+5. 시간 임계치, alias 문장, 반응 강도는 설정 파일로 분리합니다.
+6. 상태가 애매하면 기능 중심보다 `존재감과 자연스러운 전이`를 우선합니다.
