@@ -1,0 +1,10 @@
+# Timing and confidence thresholds
+presence:
+  face_lost_seconds: 0
+  sleepy_after_minutes: 0
+  reappeared_window_seconds: 0
+speech:
+  vad_sensitivity: 0
+vision:
+  gesture_confidence: 0.0
+

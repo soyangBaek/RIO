@@ -1,0 +1,13 @@
+# Intent aliases
+intents:
+  dance.start: []
+  camera.capture: []
+  ui.game_mode.enter: []
+  timer.create: []
+  weather.current: []
+  smarthome.aircon.on: []
+  smarthome.light.on: []
+  smarthome.robot_cleaner.start: []
+  smarthome.tv.on: []
+  smarthome.music.play: []
+

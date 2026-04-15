@@ -1,0 +1,5 @@
+# Smart-home device mapping
+home_client:
+  base_url: "http://127.0.0.1"
+devices: {}
+

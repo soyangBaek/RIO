@@ -1,0 +1,11 @@
+# RIO hardware baseline
+display:
+  width: 0
+  height: 0
+touchscreen:
+  enabled: true
+webcam:
+  device_index: 0
+audio:
+  input_device: default
+  output_device: default

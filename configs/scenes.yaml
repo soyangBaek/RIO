@@ -1,0 +1,9 @@
+# Scene-level presentation mapping
+scenes:
+  startled_then_track: {}
+  welcome_back: {}
+  sleep_mode_loop: {}
+  take_photo_countdown: {}
+  smarthome_feedback: {}
+  petting_reaction: {}
+

@@ -1,11 +1,15 @@
-# Recommended Project Layout
+# Project Layout
 
-구현을 시작할 때는 아래 구조를 추천합니다.
+이 문서는 `prd.md`와 `architecture.md`를 코드 구조로 번역한 문서입니다.
+폴더 구조 역시 하나의 구현 방향만 보도록 정리합니다.
+
+## 1. 기본 구조
 
 ```text
-emo-homehub-rpi/
+RIO/
 ├── README.md
 ├── docs/
+│   ├── prd.md
 │   ├── architecture.md
 │   ├── state-machine.md
 │   └── project-layout.md
@@ -30,13 +34,13 @@ emo-homehub-rpi/
 │       │   └── safety/
 │       ├── adapters/
 │       │   ├── audio/
+│       │   ├── speaker/
 │       │   ├── vision/
-│       │   ├── gpio/
+│       │   ├── touch/
 │       │   ├── display/
-│       │   ├── motor/
 │       │   ├── camera/
 │       │   ├── weather/
-│       │   └── thinq/
+│       │   └── home_client/
 │       ├── domains/
 │       │   ├── presence/
 │       │   ├── speech/
@@ -54,104 +58,279 @@ emo-homehub-rpi/
     └── simulation/
 ```
 
-## 각 디렉토리의 역할
+## 2. 문서와 코드의 관계
 
-### `configs/`
+- `docs/prd.md`
+  - 기능과 구현 기준의 원문
+- `docs/architecture.md`
+  - 런타임, 이벤트 흐름, 계층 구조
+- `docs/state-machine.md`
+  - 상태 전이 규칙
+- `src/`
+  - 위 문서를 코드로 옮기는 자리
 
-코드가 아니라 조정 가능한 정책을 넣는 곳입니다.
+즉, 구현자는 먼저 `prd -> architecture -> state-machine -> src` 순서로 보는 것이 맞습니다.
+
+## 3. `configs/`
+
+이 프로젝트는 구현 파라미터를 코드에 박아넣지 않고 설정으로 분리합니다.
+
+### `robot.yaml`
+
+- 터치스크린 해상도
+- 웹캠 장치 정보
+- 오디오 입출력 장치 정보
+- 화면 배치
+
+### `thresholds.yaml`
+
+- face lost timeout
+- sleepy timeout
+- reappeared window duration
+- gesture confidence threshold
+
+### `triggers.yaml`
+
+- intent별 음성 alias
+- command normalization 룰
 
 예:
 
-- 얼굴 미검출 몇 초 후 `FaceLost`로 볼지
-- 몇 분 동안 부재 시 졸음 상태 진입할지
-- 어떤 음성 문장을 어떤 명령으로 정규화할지
-- 어떤 ThinQ 디바이스를 어떤 이름으로 노출할지
+- `dance.start`
+- `camera.capture`
+- `smarthome.aircon.on`
 
-이걸 처음부터 분리해두면 나중에 튜닝이 매우 쉬워집니다.
+### `devices.yaml`
 
-### `assets/`
+- home-client 대상 장치 이름
+- 장치 ID 또는 매핑 정보
 
-emo pet 특성상 자산이 많아질 가능성이 높습니다.
+### `scenes.yaml`
 
-예:
+- 장면별 사운드
+- 표정
+- 오버레이 자산
+- 지속 시간
 
-- 표정 PNG / SVG
-- 꿈 애니메이션
+## 4. `assets/`
+
+PRD의 3-layer UI를 구현하기 위한 자산 폴더입니다.
+
+### `assets/expressions/`
+
+- 기본 표정
+- 놀람
+- 졸음
+- 반김
+- 웃음
+
+### `assets/sounds/`
+
+- 셔터
+- 성공/실패 비프
+- 화들짝
 - 코 고는 소리
-- 반김 효과음
-- 게임 UI 아이콘
+- 만족 사운드
 
-### `src/app/core/`
+### `assets/animations/`
 
-프로젝트의 뼈대입니다.
+- 꿈 애니메이션
+- 댄스 연출
+- 반김 연출
+- 오버레이 연출
 
-- `events/`: 공통 이벤트 모델
-- `bus/`: pub/sub, 라우팅
-- `state/`: 전역 상태 저장소, FSM
-- `scheduler/`: 타이머, 반복 작업
-- `safety/`: watchdog, 오류 복구, graceful degradation
+### `assets/ui/`
 
-### `src/app/adapters/`
+- HUD 아이콘
+- 날씨 아이콘
+- 게임 버튼
+- 상태 배지
 
-외부 세계와 만나는 포인트입니다.
+## 5. `src/app/core/`
+
+RIO의 공통 기반 계층입니다.
+
+### `events/`
+
+- 공통 이벤트 포맷
+- topic 정의
+- trace / metadata 정의
+
+### `bus/`
+
+- 이벤트 라우터
+- 구독/발행 인터페이스
+- 워커 입력 큐와 메인 루프 연결
+
+### `state/`
+
+- Presence FSM
+- Behavior FSM
+- UI FSM
+- Task FSM
+- 전역 상태 저장소
+
+### `scheduler/`
+
+- 타이머 등록
+- timeout 이벤트 발행
+- 반복 작업
+
+### `safety/`
+
+- 워커 생존 감시
+- degraded mode 전환
+- 예외 복구
+
+## 6. `src/app/adapters/`
+
+외부 입출력을 담당하는 계층입니다.
+
+### `audio/`
+
+- 마이크 입력
+- VAD
+- STT adapter
+- raw transcript 전달
+
+### `speaker/`
+
+- TTS 출력
+- 효과음 재생
+- 알림 사운드 큐 관리
+
+### `vision/`
+
+- 카메라 프레임 수신
+- OpenCV / MediaPipe 처리
+- 얼굴/손동작 이벤트 생성
+
+### `touch/`
+
+- 터치스크린 이벤트 수신
+- 탭/드래그/쓰다듬기 제스처 변환
+
+### `display/`
+
+RIO 화면 렌더러의 핵심입니다.
+
+구현 책임:
+
+- Layer 1 `Core Face`
+- Layer 2 `Action Overlay`
+- Layer 3 `System HUD`
+- 얼굴 중심 좌표를 기반으로 한 눈동자/시선 애니메이션
+- 게임 모드 UI
+- 카운트다운/알림 렌더링
+
+### `camera/`
+
+- 웹캠 기반 사진 촬영
+- 저장 경로 관리
+
+### `weather/`
+
+- 날씨 API 요청
+- 응답 정규화
+
+### `home_client/`
+
+- 로컬 smart-home home-client HTTP 호출
+- 제어 성공/실패 이벤트 변환
+
+## 7. `src/app/domains/`
+
+비즈니스 로직 계층입니다.
+
+### `presence/`
+
+- 얼굴 존재/부재 추적
+- 재등장 window
+- sleepy absence 판단
+
+### `speech/`
+
+- transcript -> intent normalization
+- alias 처리
+- command parsing
+
+### `gesture/`
+
+- 손총
+- V자
+- 손 흔들기
+- 고개 방향
+
+### `behavior/`
+
+- 감정/반응 상태 전이
+- reaction rule
+- scene selection
+
+### `photo/`
+
+- 사진 촬영 시퀀스
+- 카운트다운
+- 저장 완료 피드백
+
+### `games/`
+
+- 핑퐁
+- 갤로그
+- 참참참
+
+### `smart_home/`
+
+- intent -> home-client 요청 변환
+- 결과 피드백
+
+### `timers/`
+
+- 자연어 시간 파싱
+- 타이머 상태 관리
+- 종료 알람
+
+## 8. `src/app/scenes/`
+
+RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 구성을 둡니다.
 
 예:
 
-- 마이크, 카메라, GPIO
-- 모터 드라이버
-- 디스플레이 렌더러
-- OpenWeatherMap
-- ThinQ
-
-핵심 원칙:
-
-- 이 계층은 교체 가능해야 합니다.
-- 예를 들어 STT 엔진을 바꾸더라도 상위 도메인 계층은 그대로 가야 합니다.
-
-### `src/app/domains/`
-
-비즈니스 로직이 들어가는 곳입니다.
-
-예:
-
-- `presence/`: 얼굴 존재/부재/재등장
-- `speech/`: 명령 인식 후 의도 해석
-- `gesture/`: 손동작/머리방향 이벤트
-- `behavior/`: 감정 및 반응 결정
-- `photo/`: 사진 촬영 흐름
-- `games/`: 핑퐁, 참참참, 갤로그
-- `smart_home/`: 기기 제어
-- `timers/`: 자연어 타이머
-
-### `src/app/scenes/`
-
-복합 액션 시퀀스를 관리하기 좋은 위치입니다.
-
-예:
-
-- `surprised_then_track`
+- `startled_then_track`
+- `welcome_back`
 - `sleep_mode_loop`
 - `take_photo_countdown`
-- `welcome_back`
-- `lose_chamchamcham`
+- `smarthome_feedback`
+- `petting_reaction`
 
-즉, 단일 명령보다 `연출 단위`를 모아두는 폴더입니다.
+## 9. `tests/`
 
-### `tests/`
+하드웨어 프로젝트이므로 테스트를 분리해서 봐야 합니다.
 
-이 프로젝트는 하드웨어가 섞여 있으므로 테스트를 분리하는 게 중요합니다.
+### `unit/`
 
-- `unit/`: 상태 전이, 규칙, 명령 파싱
-- `integration/`: 이벤트 플로우, 서비스 연동
-- `simulation/`: 카메라/마이크 없이 이벤트 재생 테스트
+- 상태 전이
+- intent 정규화
+- 타이머 파싱
 
-## 구현 순서에 맞춘 최소 시작 구조
+### `integration/`
 
-아직은 코드 없이 시작하더라도, 첫 구현은 아래 3축부터 잡는 걸 추천합니다.
+- 이벤트 플로우
+- smart-home adapter
+- weather adapter
 
-1. `core/events`, `core/bus`, `core/state`
-2. `domains/presence`, `domains/behavior`, `domains/timers`
-3. `adapters/audio`, `adapters/vision`, `adapters/display`
+### `simulation/`
 
-이 3축이 잡히면 나머지 기능은 비교적 자연스럽게 올라갑니다.
+- 카메라 없이 face event 재생
+- 마이크 없이 transcript event 주입
+- 긴 시나리오 재생
 
+## 10. 구현 시작 순서
+
+1. `core/events`, `core/state`, `core/bus`
+2. `domains/presence`, `domains/speech`, `domains/behavior`
+3. `adapters/display`, `adapters/audio`, `adapters/speaker`, `adapters/vision`, `adapters/touch`
+4. `domains/photo`, `domains/timers`, `domains/smart_home`, `adapters/home_client`
+5. `gesture`, `games`
+
+이 순서를 유지하면 PRD의 MVP 범위를 가장 적은 충돌로 구현할 수 있습니다.

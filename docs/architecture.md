@@ -1,371 +1,265 @@
 # Architecture
 
-## 1. 시스템을 어떻게 나누는 게 좋은가
+이 문서는 `prd.md`를 실제 구현 관점으로 풀어쓴 문서입니다.
+여기서 설명하는 구조는 모두 Raspberry Pi 기준 단일 구현 방향을 전제로 합니다.
 
-이 프로젝트는 한 덩어리 앱으로 만들기보다, 아래 6개 층으로 나누는 것이 좋습니다.
+## 1. 아키텍처 기준
 
-1. Input Adapter Layer
-2. Perception Layer
-3. Event Bus Layer
-4. State / Context Layer
-5. Behavior / Skill Layer
-6. Output / Actuation Layer
+RIO는 아래 원칙으로 구성합니다.
 
-핵심은 `입력 -> 인식 -> 이벤트 -> 상태 판단 -> 행동 결정 -> 출력` 흐름을 명확히 분리하는 것입니다.
+- `event-driven`
+- `state-centered`
+- `main orchestrator + worker processes`
+- `local UI + local perception + selective network services`
 
-## 2. 레이어별 역할
+핵심 흐름은 아래와 같습니다.
 
-### 2.1 Input Adapter Layer
+```mermaid
+flowchart LR
+    A[Audio Worker] --> D[Event In Queue]
+    B[Vision Worker] --> D
+    C[Touchscreen / Timer] --> D
 
-실제 하드웨어나 외부 입력을 받아 표준화된 내부 이벤트로 바꾸는 층입니다.
+    D --> E[Main Orchestrator]
+    E --> F[State Store]
+    E --> G[Behavior Engine]
+    G --> H[Action Planner]
 
-포함 대상:
+    H --> I[Display Adapter]
+    H --> J[Audio Output Adapter]
+    H --> K[Service Adapters]
 
-- 마이크 입력
-- 카메라 프레임 입력
-- 터치 센서 / GPIO
-- 내부 타이머 / 스케줄러
-- 네트워크 응답 수신
+    K --> L[Weather API]
+    K --> M[Home Client]
+    K --> N[Webcam Capture]
+```
 
-중요 포인트:
+## 2. 고정된 런타임 모델
 
-- 이 계층은 `명령 의미`를 해석하지 않습니다.
-- 예를 들어 마이크 계층은 `audio.chunk.ready`, `voice.segment.started` 같은 사건만 올리고, `"사진 찍어줘"`가 무슨 뜻인지는 다음 계층에서 판단합니다.
+### 2.1 프로세스 구성
 
-### 2.2 Perception Layer
+RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다.
 
-센서 데이터를 해석해서 의미 있는 이벤트를 만듭니다.
+1. `Main Orchestrator`
+2. `Audio Worker`
+3. `Vision Worker`
 
-예시 모듈:
+이 구조를 고정하는 이유:
 
-- `speech pipeline`
-  - VAD
-  - STT
-  - command parser / intent classifier
-- `vision pipeline`
-  - face detection
-  - face tracking
-  - eye landmarks
-  - gesture recognition
-  - head direction estimation
-- `presence logic`
-  - 얼굴 미검출 누적 시간
-  - 재등장 감지
-  - 음성은 들렸지만 얼굴이 없는 상황
+- Raspberry Pi에서 음성/STT와 비전 추론을 메인 로직과 분리할 수 있음
+- 한쪽 인식 파이프라인이 잠시 느려져도 상태 관리와 UI 루프를 유지할 수 있음
+- 멀티 프레임워크 대신 Python 중심 구조로 유지 가능
 
-이 층의 출력 예시:
+### 2.2 프로세스 간 통신
 
-- `voice.command.detected`
+- 프로세스 간: `queue 기반 이벤트 전달`
+- 메인 프로세스 내부: `event router + state reducer + action planner`
+
+문서 기준에서는 MQTT, ZeroMQ, 웹소켓 같은 외부 브로커를 기본값으로 두지 않습니다.
+초기 구현은 내부 큐 기반으로 충분합니다.
+
+## 3. 계층 구조
+
+### 3.1 Input Adapters
+
+실제 입력을 표준 이벤트로 바꾸는 계층입니다.
+
+- 마이크
+- 웹캠
+- 터치스크린
+- 타이머
+- 네트워크 응답
+
+이 계층은 의미를 해석하지 않고 원시 입력 또는 1차 이벤트만 생성합니다.
+
+### 3.2 Perception Layer
+
+입력을 의미 있는 사건으로 해석합니다.
+
+음성:
+
+- VAD
+- STT
+- intent normalization
+
+비전:
+
+- face detection
+- face center tracking
+- gesture recognition
+- head direction estimation
+- reappearance detection
+
+출력 이벤트 예시:
+
+- `voice.intent.detected`
 - `vision.face.detected`
 - `vision.face.lost`
-- `vision.gesture.v_sign`
-- `vision.gesture.gun_pose`
+- `vision.gesture.detected`
 - `touch.stroke.detected`
+- `timer.expired`
 
-### 2.3 Event Bus Layer
+### 3.3 State / Context Layer
 
-모든 모듈이 서로 직접 연결되지 않게 만드는 중간 허브입니다.
+RIO의 중심 저장소입니다.
 
-이 레이어를 두는 이유:
+반드시 관리해야 하는 상태:
 
-- 기능 간 결합도를 줄임
-- 나중에 센서나 API 교체가 쉬움
-- 로그를 이벤트 단위로 남기기 좋음
-- 규칙 기반 반응을 추가하기 쉬움
-
-추천 방식:
-
-- 초기: Python `asyncio.Queue` 또는 내부 pub/sub
-- 확장: ZeroMQ 또는 MQTT
-
-초기 MVP에서는 외부 브로커 없이도 충분합니다.
-
-### 2.4 State / Context Layer
-
-이 프로젝트의 중심입니다.
-
-여기에는 아래 같은 정보가 들어갑니다.
-
-- 현재 얼굴이 보이는가
+- 얼굴 존재 여부
 - 마지막 얼굴 검출 시각
 - 마지막 음성 감지 시각
-- 현재 추적 대상 좌표
-- 현재 UI 모드
-- 현재 행동 모드
-- 유휴 누적 시간
-- 수면/졸음 상태
-- 게임 진행 상태
-- 활성 타이머 목록
-- 스마트홈 디바이스 상태 캐시
+- reappearance window
+- 현재 행동 상태
+- 현재 UI 상태
+- 활성 타이머
+- 진행 중 작업
+- 스마트홈 명령 결과 캐시
 
-이 레이어는 단순 저장소가 아니라 `맥락`을 만드는 곳입니다.
+### 3.4 Behavior Layer
 
-예를 들어:
+이벤트와 상태를 보고 무엇을 할지 결정합니다.
 
-- `voice.command.detected`가 왔을 때
-- `face_present == false`
-- 그리고 `last_face_seen > N초 전`
-
-이면 단순 명령 수행이 아니라 먼저 `화들짝 -> face tracking 시작` 같은 반응을 넣을 수 있습니다.
-
-### 2.5 Behavior / Skill Layer
-
-이벤트와 상태를 보고 실제로 무엇을 할지 결정하는 층입니다.
-
-하위 구성 추천:
+하위 구성:
 
 - `reaction rules`
-  - 빠른 반응 규칙
-  - 예: 얼굴 없이 음성 -> 놀람
-- `behavior engine`
-  - 감정/행동 상태 전환
-  - 예: idle -> attentive -> playful -> sleepy
-- `skill handlers`
-  - 날씨
-  - 타이머
-  - 사진 촬영
-  - 게임 모드
-  - ThinQ 제어
-- `action planner`
-  - 표정, 사운드, 목 모터, UI 변화를 하나의 액션 시퀀스로 합성
-
-중요한 점:
-
-- `행동 결정`과 `출력 실행`은 분리해야 합니다.
-- 예를 들어 "댄스 모드"는 행동 엔진이 결정하고, 실제 사운드 재생/모터/UI는 액션 플래너와 출력 계층이 담당합니다.
-
-### 2.6 Output / Actuation Layer
-
-결정된 액션을 실제 하드웨어나 화면에 반영합니다.
-
-예시:
-
-- 디스플레이 얼굴 렌더링
-- 표정 전환
-- 게임 UI 버튼 생성
-- 모터 제어
-- 셔터 동작
-- TTS / 효과음 재생
-- 스마트홈 API 호출
-
-이 레이어는 가능하면 `idempotent`하고 짧은 명령 단위로 두는 것이 좋습니다.
+- `behavior state reducer`
+- `scene selector`
+- `task dispatcher`
 
 예:
 
-- `set_expression("surprised")`
-- `move_neck_to(x, y)`
-- `play_animation("dreaming")`
-- `capture_photo()`
-- `thinq.turn_on("aircon")`
+- 얼굴 없음 + 음성 감지 -> `startled_then_track`
+- `camera.capture` -> `take_photo_countdown`
+- `smarthome.aircon.on` -> smart-home task dispatch + success/failure feedback
 
-## 3. 추천 프로세스 구조
+### 3.5 Output / Actuation Layer
 
-Raspberry Pi에서는 아래처럼 나누는 것이 현실적입니다.
+행동 결정을 실제 출력으로 옮기는 계층입니다.
 
-```mermaid
-flowchart TB
-    subgraph P1[Main Orchestrator]
-        A[Event Router]
-        B[State Store]
-        C[Behavior Engine]
-        D[Action Planner]
-        E[Timer Scheduler]
-    end
+- display adapter
+- speaker / TTS adapter
+- camera adapter
+- weather adapter
+- home-client adapter
 
-    subgraph P2[Audio Worker]
-        F[VAD]
-        G[STT]
-        H[Intent Parser]
-    end
+핵심 원칙은 `행동 결정`과 `실행`을 분리하는 것입니다.
+이 프로젝트에서 얼굴 방향감과 시선 이동은 `display adapter`가 애니메이션으로 표현하며, 별도 모터 제어는 포함하지 않습니다.
 
-    subgraph P3[Vision Worker]
-        I[Camera Stream]
-        J[Face / Eye Tracking]
-        K[Gesture Recognition]
-        L[Presence Analyzer]
-    end
+## 4. UI 아키텍처
 
-    subgraph P4[Device / Service Adapters]
-        M[Display]
-        N[Motor]
-        O[Speaker]
-        P[ThinQ / Weather / Camera]
-    end
+PRD의 3-layer UI를 구현 기준으로 고정합니다.
 
-    F --> A
-    G --> A
-    H --> A
-    J --> A
-    K --> A
-    L --> A
-    D --> M
-    D --> N
-    D --> O
-    D --> P
+### 4.1 Layer 구성
+
+1. `Core Face`
+2. `Action Overlay`
+3. `System HUD`
+
+### 4.2 구현 규칙
+
+- display adapter는 세 레이어를 독립적으로 업데이트 가능해야 함
+- 얼굴 표정과 HUD는 서로 독립 상태를 가질 수 있어야 함
+- 눈 방향 변화는 face center를 입력으로 받아 화면 애니메이션으로 처리해야 함
+- 게임 모드에서는 얼굴 영역 축소 + 하단 버튼 또는 가상 입력 영역을 띄울 수 있어야 함
+
+즉, 화면은 하나의 정적 캔버스가 아니라 `layer compositor`처럼 설계해야 합니다.
+
+## 5. 스마트홈 아키텍처
+
+RIO는 스마트홈 제어를 직접 분산 구현하지 않고 하나의 adapter를 통해 처리합니다.
+
+### 5.1 요청 흐름
+
+```text
+voice -> STT -> intent normalization
+-> smart_home domain
+-> home_client adapter
+-> PUT /device/control
+-> success/failure event
+-> face + sound + HUD feedback
 ```
 
-## 4. 가장 중요한 설계 포인트
+### 5.2 계약
 
-### 4.1 하나의 거대한 상태 머신은 피하기
+- home-client endpoint: `http://[HOME_CLIENT_IP]/device/control`
+- method: `PUT`
+- 최소 body: `{ "content": "<user command>" }`
 
-`idle + sleepy + tracking + dancing + game + surprised + photo + face_missing`를 한 FSM으로 합치면 금방 폭발합니다.
+구현 시 구조화 payload를 추가하더라도, 문서 기준 기본 계약은 위 형태를 유지합니다.
 
-대신 아래처럼 나누는 게 좋습니다.
+## 6. 이벤트 계약
 
-- Presence FSM
-- Interaction FSM
-- Activity FSM
-- UI FSM
-- Smart-home task FSM
-
-그리고 상위 오케스트레이터가 이 상태들을 함께 보고 최종 행동을 결정합니다.
-
-### 4.2 이벤트는 "의미 + 신뢰도 + 시각"을 가져야 함
-
-추천 이벤트 예시:
+문서 간 구현 차이를 줄이기 위해 모든 핵심 이벤트는 아래 형식을 따릅니다.
 
 ```json
 {
-  "topic": "vision.gesture.detected",
+  "topic": "voice.intent.detected",
+  "source": "audio_worker",
   "timestamp": "2026-04-15T10:23:11.245Z",
-  "source": "vision_worker",
-  "confidence": 0.91,
+  "confidence": 0.95,
   "payload": {
-    "gesture": "gun_pose",
-    "bbox": [120, 40, 300, 280]
+    "intent": "camera.capture",
+    "text": "사진 찍어줘"
   }
 }
 ```
 
-이렇게 해두면:
+필수 필드:
 
-- 낮은 신뢰도 이벤트 무시 가능
-- 디버깅 쉬움
-- 후처리 규칙 추가 쉬움
+- `topic`
+- `source`
+- `timestamp`
+- `payload`
 
-### 4.3 반응 규칙은 행동과 서비스 명령을 함께 만들 수 있어야 함
+권장 필드:
 
-예:
+- `confidence`
+- `trace_id`
 
-- `"날씨 알려줘"` -> TTS 응답 + 얼굴 표정 변화
-- `"사진 찍어줘"` -> 카운트다운 UI + 셔터 + 저장 알림
-- `"게임 모드로 바꿔줘"` -> 얼굴 UI 축소 + 버튼 생성 + 상태 전환
+## 7. 명령어 처리 원칙
 
-즉, 한 입력이 항상 하나의 출력만 만들지 않습니다.
-그래서 액션 플래너가 필요합니다.
+문서에서 `"emo dance!"`와 `"RIO dance!"`를 각각 다른 기능으로 취급하지 않습니다.
 
-### 4.4 Presence Logic을 별도 모듈로 두기
+원칙:
 
-이 명세에서는 존재 감지가 핵심입니다.
+- 문장 단위가 아니라 `intent` 단위로 처리
+- alias는 설정 파일에서 관리
+- 상위 로직은 항상 정규화된 intent를 기준으로 분기
 
-예:
+즉, 문서의 예시 문장은 예시일 뿐이며 구현의 기준 키는 intent입니다.
 
-- 얼굴 없음 + 음성 감지 -> 놀람
-- n분 동안 얼굴 없음 -> 졸음
-- 다시 얼굴 등장 -> 반김
-- 재등장 직후 음성 -> 깜짝 반응
+## 8. 실패 처리 원칙
 
-이런 규칙은 단순 얼굴 검출 모듈에 넣지 말고, 별도 `presence logic`이 시간 맥락까지 포함해 관리해야 합니다.
+### 8.1 네트워크 실패
 
-## 5. 대표 기능별 이벤트 흐름
+- home-client 호출 실패
+- weather API 실패
 
-### 5.1 "사진 찍어줘"
+위 상황에서도:
 
-```text
-mic input
--> speech pipeline
--> voice.command.detected(photo_capture)
--> behavior engine
--> action planner
--> UI countdown + shutter sfx + camera capture + saved notification
-```
+- 표정 반응
+- 실패 사운드
+- HUD 메시지
 
-### 5.2 얼굴이 없는데 음성이 들림
+는 반드시 남깁니다.
 
-```text
-voice.segment.detected
--> state says face_present = false
--> reaction rule fires startled motion
--> tracking mode requested
--> vision face search starts
-```
+### 8.2 센서 실패
 
-### 5.3 오래 방치되다가 다시 얼굴 등장
+- 카메라 없음 -> face tracking 비활성, 음성/터치만 유지
+- 터치스크린 없음 -> 음성/비전 반응만 유지
+- 마이크 없음 -> 비전/터치 기반 반응만 유지
 
-```text
-vision.face.lost
--> absence duration accumulates
--> sleepy state entered
--> dream animation starts
--> vision.face.detected
--> reappearance event emitted
--> greeting / welcome behavior
-```
+즉, 기능이 일부 빠져도 시스템 전체는 계속 살아 있어야 합니다.
 
-### 5.4 스마트홈 명령
+## 9. 우선 구현 모듈
 
-```text
-voice.command.detected(thinq.aircon_on)
--> skill handler validates device + network
--> service adapter sends command
--> success/failure event
--> TTS + expression feedback
-```
-
-## 6. 추천 모듈 경계
-
-### 음성
-
-- speech capture
-- VAD
-- STT
-- intent parser
-- command normalizer
-
-### 비전
-
-- camera input
-- face detection
-- face tracking
-- hand / gesture recognition
-- head direction classifier
-- photo pose recognizer
-
-### 로직
-
-- presence logic
-- timer scheduler
-- behavior engine
-- game controller
-- smart-home controller
-
-### 출력
-
-- face renderer
-- UI overlay renderer
-- motor controller
-- sound / TTS controller
-- notification controller
-
-## 7. Raspberry Pi 기준 현실적인 권장사항
-
-- 얼굴 추적과 STT를 동시에 항상 최고 품질로 돌리면 과부하가 날 수 있음
-- 카메라 파이프라인과 STT 파이프라인은 별도 프로세스로 분리 권장
-- 추론 빈도는 기능별로 다르게 설정
-  - face presence: 높음
-  - gesture recognition: 중간
-  - full STT: 음성 구간에서만
-- 네트워크 장애 시에도 로컬 반응은 살아 있어야 함
-
-즉, `외부 API가 죽어도 emo pet 자체는 살아 있는 구조`가 좋습니다.
-
-## 8. 나중에 코드로 옮길 때의 추천 구현 순서
-
-1. 공통 이벤트 모델 정의
-2. 상태 저장소와 Presence FSM
-3. Audio worker / Vision worker 뼈대
-4. Behavior engine + action planner
-5. UI / motor / sound 어댑터
-6. Timer / weather / photo
-7. ThinQ 및 기타 스마트홈 연동
-
+1. `core/events`
+2. `core/state`
+3. `domains/presence`
+4. `domains/speech`
+5. `domains/behavior`
+6. `adapters/display`
+7. `adapters/speaker`
+8. `adapters/home_client`
+9. `domains/timers`
+10. `domains/photo`
