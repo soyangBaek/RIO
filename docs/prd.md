@@ -116,6 +116,8 @@
 | `smarthome.robot_cleaner.start` | "로봇 청소기 실행시켜줘" | home-client 제어 요청 |
 | `smarthome.tv.on` | "티비 켜줘" | home-client 제어 요청 |
 | `smarthome.music.play` | "음악 틀어줘" | home-client 제어 요청 |
+| `system.cancel` | "취소", "그만" | 현재 Listening/Executing 중단 |
+| `system.ack` | "응", "알았어", "확인" | Alerting 해제, 확인 피드백 |
 
 ### 6.2 명령 정규화 원칙
 

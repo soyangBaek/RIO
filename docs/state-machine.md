@@ -79,6 +79,9 @@ stateDiagram-v2
 - `confirmed_user_and_interacting`
   - `face_present == true`
   - 그리고 최근 상호작용 이벤트(voice/touch/gesture)가 존재
+- `gentle_wake`
+  - `face_detected == true` (얼굴 감지만을 깨움 신호로 사용)
+  - 음성/터치 단독으로는 `Sleepy -> Idle` 전이를 유발하지 않음 (갑작스런 자극은 `startled` oneshot으로 처리)
 
 즉 `Idle`은 "확실히 누가 앞에 보인다"보다 넓은 개념입니다.
 얼굴 없이 먼저 말이 들린 경우에도 `Away -> Idle`로 진입할 수 있습니다.
@@ -145,13 +148,15 @@ stateDiagram-v2
 1. `Alerting`은 `Idle`, `Listening`, `Executing`을 모두 선점할 수 있습니다.
 2. `Alerting -> Idle`로 복귀한 뒤, 중단된 작업을 자동 복원하지 않습니다.
    작업 재시도/재개는 도메인 로직이 별도로 결정합니다.
-3. `Executing(photo)` 중에는 새 intent를 무시합니다. 예외는 `cancel`, `ack` 계열만 허용합니다.
+3. `Executing(photo)` 중에는 새 intent를 무시합니다. 예외는 `system.cancel`, `system.ack`만 허용합니다.
+   `timer.expired`가 발생해도 Alerting 선점을 보류하고 촬영 시퀀스 종료 직후 처리합니다 (촬영 시퀀스가 짧기 때문).
 4. `Executing(smarthome|weather|timer_setup)` 중에는 최신 `deferred_intent` 1개만 저장합니다.
    기존 보류 intent가 있으면 새 것으로 덮어씁니다.
 5. `Executing -> Idle` 직후 `deferred_intent`가 있으면 즉시 `Idle -> Executing(kind)` 또는 `Idle -> Listening`으로 재진입합니다.
    어느 경로로 재진입할지는 intent가 이미 확정됐는지 여부에 따라 결정합니다.
 6. `Executing(game)`, `Executing(dance)`는 장시간 연출일 수 있으므로 기본적으로 신규 intent를 무시하고,
-   `exit`, `cancel`, `high_priority_alert`만 받습니다.
+   `system.cancel`, `high_priority_alert`만 받습니다.
+7. `high_priority_alert`의 정의: MVP에서는 `timer.expired`만 해당합니다. Phase 2에서 추가되는 알림은 이 목록에 명시적으로 추가합니다.
 
 ## 5. Oneshot Events (상태 아님)
 
