@@ -1,9 +1,9 @@
 {
   "id": "63",
   "subject": "Unit test intent parser (T-063)",
-  "description": "tests/unit/test_intent_parser.py — alias 매칭, 한국어/영어 변형, low-confidence 분류 테스트.",
+  "description": "tests/unit/test_intent_parser.py ??alias 매칭, ?�국???�어 변?? low-confidence 분류 ?�스??",
   "activeForm": "Unit testing intent parser",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "26"

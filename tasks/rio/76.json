@@ -1,9 +1,9 @@
 {
   "id": "76",
   "subject": "Populate scenes.yaml (T-076)",
-  "description": "configs/scenes.yaml — oneshot priority/duration 기본값, Executing(kind)별 UI/사운드 연출, 씬별 asset/mood/duration 매핑.",
+  "description": "configs/scenes.yaml ??oneshot priority/duration 기본�? Executing(kind)�?UI/?�운???�출, ?�별 asset/mood/duration 매핑.",
   "activeForm": "Populating scenes.yaml",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "10"

@@ -1,13 +1,69 @@
-# Intent aliases
+# Intent aliases – intent별 음성 인식 트리거 문구
+# 각 intent에 대해 매칭할 한국어/영어 alias 리스트
 intents:
-  dance.start: []
-  camera.capture: []
-  ui.game_mode.enter: []
-  timer.create: []
-  weather.current: []
-  smarthome.aircon.on: []
-  smarthome.light.on: []
-  smarthome.robot_cleaner.start: []
-  smarthome.tv.on: []
-  smarthome.music.play: []
+  dance.start:
+    - "춤 춰"
+    - "댄스"
+    - "dance"
+    - "춤 시작"
+    - "춤춰줘"
+  camera.capture:
+    - "사진 찍어"
+    - "사진"
+    - "찍어"
+    - "capture"
+    - "photo"
+    - "셀카"
+    - "사진 찍어줘"
+  ui.game_mode.enter:
+    - "게임"
+    - "게임 하자"
+    - "game"
+    - "게임 모드"
+  timer.create:
+    - "타이머"
+    - "timer"
+    - "알람"
+    - "알려줘"
+  weather.current:
+    - "날씨"
+    - "weather"
+    - "오늘 날씨"
+    - "기온"
+  smarthome.aircon.on:
+    - "에어컨 켜"
+    - "에어컨"
+    - "aircon"
+    - "에어컨 켜줘"
+  smarthome.light.on:
+    - "불 켜"
+    - "조명"
+    - "light on"
+    - "불 켜줘"
+  smarthome.robot_cleaner.start:
+    - "청소기"
+    - "로봇 청소기"
+    - "청소"
+    - "청소기 돌려"
+  smarthome.tv.on:
+    - "TV 켜"
+    - "텔레비전"
+    - "tv on"
+    - "TV 켜줘"
+  smarthome.music.play:
+    - "음악 틀어"
+    - "노래"
+    - "music"
+    - "음악 틀어줘"
+  system.cancel:
+    - "취소"
+    - "cancel"
+    - "그만"
+    - "멈춰"
+  system.ack:
+    - "알겠어"
+    - "확인"
+    - "ok"
+    - "ack"
+    - "알았어"
 

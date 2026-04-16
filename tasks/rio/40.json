@@ -1,9 +1,9 @@
 {
   "id": "40",
   "subject": "Implement camera stream (T-040)",
-  "description": "src/app/adapters/vision/camera_stream.py — OpenCV VideoCapture 기반 프레임 리더. 해상도/FPS 설정 robot.yaml 참조.",
+  "description": "src/app/adapters/vision/camera_stream.py ??OpenCV VideoCapture 기반 ?�레??리더. ?�상??FPS ?�정 robot.yaml 참조.",
   "activeForm": "Implementing camera stream",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "41",
     "43",

@@ -1,9 +1,9 @@
 {
   "id": "26",
   "subject": "Implement intent parser (T-026)",
-  "description": "src/app/domains/speech/intent_parser.py — STT 텍스트를 canonical intent ID로 매핑. triggers.yaml alias 처리. low-confidence/unknown 분류. intent_match_confidence_min 적용.",
+  "description": "src/app/domains/speech/intent_parser.py ??STT ?�스?��? canonical intent ID�?매핑. triggers.yaml alias 처리. low-confidence/unknown 분류. intent_match_confidence_min ?�용.",
   "activeForm": "Implementing intent parser",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "39",
     "63",

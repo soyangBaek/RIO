@@ -1,9 +1,9 @@
 {
   "id": "1",
   "subject": "Create event models (T-001)",
-  "description": "src/app/core/events/models.py — 공통 이벤트 envelope dataclass 정의 (timestamp, topic, payload, trace_id, source). architecture §3, project-layout §5.events 참조. 모든 워커/메인이 공유하는 이벤트 포맷.",
+  "description": "src/app/core/events/models.py ??공통 ?�벤??envelope dataclass ?�의 (timestamp, topic, payload, trace_id, source). architecture §3, project-layout §5.events 참조. 모든 ?�커/메인??공유?�는 ?�벤???�맷.",
   "activeForm": "Creating event models",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "2",
     "3",

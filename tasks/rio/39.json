@@ -1,9 +1,9 @@
 {
   "id": "39",
   "subject": "Implement intent normalizer adapter (T-039)",
-  "description": "src/app/adapters/audio/intent_normalizer.py — STT 텍스트를 intent_parser에 넘기고 voice.intent.* 이벤트 발행. 워커 내부에서 호출.",
+  "description": "src/app/adapters/audio/intent_normalizer.py ??STT ?�스?��? intent_parser???�기�?voice.intent.* ?�벤??발행. ?�커 ?��??�서 ?�출.",
   "activeForm": "Implementing intent normalizer",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "50"
   ],

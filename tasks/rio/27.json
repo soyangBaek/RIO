@@ -1,9 +1,9 @@
 {
   "id": "27",
   "subject": "Implement timer parser (T-027)",
-  "description": "src/app/domains/speech/timer_parser.py — 자연어 시간 파싱(5분 있다, 오후 3시에 등). timer.create intent payload 생성. 실패 시 VOICE-08 confused oneshot.",
+  "description": "src/app/domains/speech/timer_parser.py ???�연???�간 ?�싱(5�??�다, ?�후 3?�에 ??. timer.create intent payload ?�성. ?�패 ??VOICE-08 confused oneshot.",
   "activeForm": "Implementing timer parser",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "64"
   ],

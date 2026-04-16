@@ -1,9 +1,9 @@
 {
   "id": "46",
   "subject": "Implement weather normalizer (T-046)",
-  "description": "src/app/adapters/weather/normalizer.py — 날씨 API 응답을 내부 포맷으로 변환 (temperature, condition, icon key). TTS/HUD 소비.",
+  "description": "src/app/adapters/weather/normalizer.py ???�씨 API ?�답???��? ?�맷?�로 변??(temperature, condition, icon key). TTS/HUD ?�비.",
   "activeForm": "Implementing weather normalizer",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "47"
   ],

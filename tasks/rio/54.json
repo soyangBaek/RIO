@@ -1,9 +1,9 @@
 {
   "id": "54",
   "subject": "Implement games service (T-054)",
-  "description": "src/app/domains/games/service.py — MVP는 게임 모드 UI 진입/이탈 로직만. 실제 게임 콘텐츠는 Phase 2. scenarios VOICE-06 대응.",
+  "description": "src/app/domains/games/service.py ??MVP??게임 모드 UI 진입/?�탈 로직�? ?�제 게임 콘텐츠는 Phase 2. scenarios VOICE-06 ?�??",
   "activeForm": "Implementing games service",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "31"

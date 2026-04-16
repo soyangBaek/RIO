@@ -1,9 +1,9 @@
 {
   "id": "8",
   "subject": "Implement Context FSM (T-008)",
-  "description": "src/app/core/state/context_fsm.py — Away/Idle/Engaged/Sleepy 전이 규칙. user_evidence_detected, confirmed_user_and_interacting, long_idle, no_face_long_timeout, gentle_wake 전이. thresholds.yaml 값 사용. 순수 함수 (state, event) → new_state.",
+  "description": "src/app/core/state/context_fsm.py ??Away/Idle/Engaged/Sleepy ?�이 규칙. user_evidence_detected, confirmed_user_and_interacting, long_idle, no_face_long_timeout, gentle_wake ?�이. thresholds.yaml �??�용. ?�수 ?�수 (state, event) ??new_state.",
   "activeForm": "Implementing Context FSM",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "12",
     "59"

@@ -1,9 +1,9 @@
 {
   "id": "23",
   "subject": "Implement TTS output (T-023)",
-  "description": "src/app/adapters/speaker/tts.py — Text-to-Speech 출력. 엔진 선택(pyttsx3/Google Cloud). 날씨 브리핑, 알림 메시지 발화.",
+  "description": "src/app/adapters/speaker/tts.py ??Text-to-Speech 출력. ?�진 ?�택(pyttsx3/Google Cloud). ?�씨 브리?? ?�림 메시지 발화.",
   "activeForm": "Implementing TTS",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [],
   "metadata": {

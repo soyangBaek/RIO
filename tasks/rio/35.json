@@ -1,9 +1,9 @@
 {
   "id": "35",
   "subject": "Implement smart-home service (T-035)",
-  "description": "src/app/domains/smart_home/service.py — smart-home intent 오케스트레이션. home_client 호출 → 성공/실패 이벤트. scenarios VOICE-10~14, INT-07/08 대응.",
+  "description": "src/app/domains/smart_home/service.py ??smart-home intent ?��??�트?�이?? home_client ?�출 ???�공/?�패 ?�벤?? scenarios VOICE-10~14, INT-07/08 ?�??",
   "activeForm": "Implementing smart-home service",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "67"
   ],

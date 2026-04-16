@@ -1,9 +1,9 @@
 {
   "id": "32",
   "subject": "Implement photo service (T-032)",
-  "description": "src/app/domains/photo/service.py — camera.capture 실행. 카운트다운 → 셔터 → 저장 → 피드백 시퀀스. photo 잠금 상태 유지. scenarios VOICE-05, INT-05, INT-11 대응.",
+  "description": "src/app/domains/photo/service.py ??camera.capture ?�행. 카운?�다?????�터 ???�?????�드�??�퀀?? photo ?�금 ?�태 ?��?. scenarios VOICE-05, INT-05, INT-11 ?�??",
   "activeForm": "Implementing photo service",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "66"
   ],

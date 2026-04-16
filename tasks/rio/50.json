@@ -1,9 +1,9 @@
 {
   "id": "50",
   "subject": "Implement audio worker (T-050)",
-  "description": "src/app/workers/audio_worker.py — 별도 프로세스 진입점. capture → VAD → STT → intent_normalizer 파이프라인. voice.* 이벤트를 bus에 publish. heartbeat 발행.",
+  "description": "src/app/workers/audio_worker.py ??별도 ?�로?�스 진입?? capture ??VAD ??STT ??intent_normalizer ?�이?�라?? voice.* ?�벤?��? bus??publish. heartbeat 발행.",
   "activeForm": "Implementing audio worker",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "58"
   ],

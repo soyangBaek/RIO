@@ -1,9 +1,9 @@
 {
   "id": "31",
   "subject": "Implement executor registry (T-031)",
-  "description": "src/app/domains/behavior/executor_registry.py — Executing(kind) → 도메인 서비스 handler 라우팅. photo/timers/smart_home/weather/game/dance 매핑.",
+  "description": "src/app/domains/behavior/executor_registry.py ??Executing(kind) ???�메???�비??handler ?�우?? photo/timers/smart_home/weather/game/dance 매핑.",
   "activeForm": "Implementing executor registry",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "32",
     "33",

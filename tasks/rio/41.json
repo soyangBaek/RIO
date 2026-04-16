@@ -1,9 +1,9 @@
 {
   "id": "41",
   "subject": "Implement face detector (T-041)",
-  "description": "src/app/adapters/vision/face_detector.py — MediaPipe Face Detection 또는 OpenCV DNN. face_confidence_min 적용. vision.face.detected 이벤트 생성.",
+  "description": "src/app/adapters/vision/face_detector.py ??MediaPipe Face Detection ?�는 OpenCV DNN. face_confidence_min ?�용. vision.face.detected ?�벤???�성.",
   "activeForm": "Implementing face detector",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "42",
     "51"
@@ -24,6 +24,6 @@
     "source_docs": [
       "configs/thresholds.yaml face_confidence_min"
     ],
-    "language_notes": "RPi CPU 부족 시 C++/OpenCV 네이티브 교체 후보."
+    "language_notes": "RPi CPU 부�???C++/OpenCV ?�이?�브 교체 ?�보."
   }
 }

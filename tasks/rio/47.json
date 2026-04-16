@@ -1,9 +1,9 @@
 {
   "id": "47",
   "subject": "Implement weather client (T-047)",
-  "description": "src/app/adapters/weather/client.py — 날씨 API HTTP 호출(requests). http_timeout_ms/retry 적용. 실패 시 scenarios INT-06b.",
+  "description": "src/app/adapters/weather/client.py ???�씨 API HTTP ?�출(requests). http_timeout_ms/retry ?�용. ?�패 ??scenarios INT-06b.",
   "activeForm": "Implementing weather client",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "68"
   ],

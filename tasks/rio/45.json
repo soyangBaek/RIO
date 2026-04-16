@@ -1,9 +1,9 @@
 {
   "id": "45",
   "subject": "Implement webcam snapshot (T-045)",
-  "description": "src/app/adapters/camera/capture.py — 웹캠 단일 프레임 캡처 → JPEG 저장. photo service에서 호출.",
+  "description": "src/app/adapters/camera/capture.py ???�캠 ?�일 ?�레??캡처 ??JPEG ?�?? photo service?�서 ?�출.",
   "activeForm": "Implementing webcam snapshot",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "44"

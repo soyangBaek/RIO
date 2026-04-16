@@ -1,9 +1,9 @@
 {
   "id": "49",
   "subject": "Implement home-client HTTP (T-049)",
-  "description": "src/app/adapters/home_client/client.py — PUT http://[HOME_CLIENT_IP]/device/control. {\"content\": \"...\"} body. timeout/retry 적용. 성공/실패 이벤트 변환. OPS-02 대응.",
+  "description": "src/app/adapters/home_client/client.py ??PUT http://[HOME_CLIENT_IP]/device/control. {\"content\": \"...\"} body. timeout/retry ?�용. ?�공/?�패 ?�벤??변?? OPS-02 ?�??",
   "activeForm": "Implementing home-client HTTP",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "48"

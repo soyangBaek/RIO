@@ -1,9 +1,9 @@
 {
   "id": "11",
   "subject": "Implement scene selector (T-011)",
-  "description": "src/app/core/state/scene_selector.py — 순수 함수 (Context, Activity, active_oneshot) → (Mood, UI). Mood 우선순위: Alerting > oneshot > Executing/Listening > Context. UI 매트릭스 state-machine §4 표 준수. Listening/Executing/Alerting은 Context 무시 잠금.",
+  "description": "src/app/core/state/scene_selector.py ???�수 ?�수 (Context, Activity, active_oneshot) ??(Mood, UI). Mood ?�선?�위: Alerting > oneshot > Executing/Listening > Context. UI 매트�?�� state-machine §4 ??준?? Listening/Executing/Alerting?� Context 무시 ?�금.",
   "activeForm": "Implementing scene selector",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "12",
     "30",

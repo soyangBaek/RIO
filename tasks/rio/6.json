@@ -1,9 +1,9 @@
 {
   "id": "6",
   "subject": "Implement state store (T-006)",
-  "description": "src/app/core/state/store.py — 전역 상태 저장소. 단일 프로세스 내 thread-safe 접근. authoritative + extended state 통합 관리.",
+  "description": "src/app/core/state/store.py ???�역 ?�태 ?�?�소. ?�일 ?�로?�스 ??thread-safe ?�근. authoritative + extended state ?�합 관�?",
   "activeForm": "Implementing state store",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "7",
     "10"

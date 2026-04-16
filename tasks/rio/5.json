@@ -1,9 +1,9 @@
 {
   "id": "5",
   "subject": "Define state models (T-005)",
-  "description": "src/app/core/state/models.py — Context enum(Away/Idle/Engaged/Sleepy), Activity enum(Idle/Listening/Executing/Alerting), Mood/UI enums, ExtendedState dataclass, Oneshot dataclass. state-machine.md의 전 상태 타입 정의.",
+  "description": "src/app/core/state/models.py ??Context enum(Away/Idle/Engaged/Sleepy), Activity enum(Idle/Listening/Executing/Alerting), Mood/UI enums, ExtendedState dataclass, Oneshot dataclass. state-machine.md?????�태 ?�???�의.",
   "activeForm": "Defining state models",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "6",
     "7",

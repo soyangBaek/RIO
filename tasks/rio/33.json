@@ -1,9 +1,9 @@
 {
   "id": "33",
   "subject": "Implement timer service (T-033)",
-  "description": "src/app/domains/timers/service.py — 타이머 등록(timer_scheduler 사용), 만료 시 Alerting 전이. 여러 타이머 관리, scenarios INT-10 대응.",
+  "description": "src/app/domains/timers/service.py ???�?�머 ?�록(timer_scheduler ?�용), 만료 ??Alerting ?�이. ?�러 ?�?�머 관�? scenarios INT-10 ?�??",
   "activeForm": "Implementing timer service",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "13",

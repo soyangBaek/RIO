@@ -1,9 +1,9 @@
 {
   "id": "37",
   "subject": "Implement VAD (T-037)",
-  "description": "src/app/adapters/audio/vad.py — Voice Activity Detector. webrtcvad 또는 silero-vad. voice.started/voice.ended 이벤트 발행.",
+  "description": "src/app/adapters/audio/vad.py ??Voice Activity Detector. webrtcvad ?�는 silero-vad. voice.started/voice.ended ?�벤??발행.",
   "activeForm": "Implementing VAD",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "38",
     "50"
@@ -24,6 +24,6 @@
     "source_docs": [
       "docs/project-layout.md §7.audio"
     ],
-    "language_notes": "지연 민감 시 Rust+PyO3 DSP 교체 후보."
+    "language_notes": "지??민감 ??Rust+PyO3 DSP 교체 ?�보."
   }
 }

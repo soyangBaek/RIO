@@ -1,9 +1,9 @@
 {
   "id": "61",
   "subject": "Unit test oneshot dispatcher (T-061)",
-  "description": "tests/unit/test_oneshot.py — ONE-01~05 우선순위/중첩/coalesce 규칙 검증.",
+  "description": "tests/unit/test_oneshot.py ??ONE-01~05 ?�선?�위/중첩/coalesce 규칙 검�?",
   "activeForm": "Unit testing oneshot",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "10"

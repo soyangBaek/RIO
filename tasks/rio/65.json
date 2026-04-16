@@ -1,9 +1,9 @@
 {
   "id": "65",
   "subject": "Integration test voice to execution (T-065)",
-  "description": "tests/integration/test_voice_to_execution.py — 음성 입력 → Listening → intent → Executing → Idle 전체 플로우. main.py 구동 필요.",
+  "description": "tests/integration/test_voice_to_execution.py ???�성 ?�력 ??Listening ??intent ??Executing ??Idle ?�체 ?�로?? main.py 구동 ?�요.",
   "activeForm": "Integration testing voice flow",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "58"

@@ -1,9 +1,9 @@
 {
   "id": "62",
   "subject": "Unit test scene selector (T-062)",
-  "description": "tests/unit/test_scene_selector.py — state-machine §4 Mood/UI 매트릭스 전 조합 검증. Alerting 오버라이드, Listening/Executing 잠금.",
+  "description": "tests/unit/test_scene_selector.py ??state-machine §4 Mood/UI 매트�?�� ??조합 검�? Alerting ?�버?�이?? Listening/Executing ?�금.",
   "activeForm": "Unit testing scene selector",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "11"

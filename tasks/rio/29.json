@@ -1,9 +1,9 @@
 {
   "id": "29",
   "subject": "Implement interrupt policies (T-029)",
-  "description": "src/app/domains/behavior/interrupts.py — Alerting 우선권, photo 잠금, game/dance 잠금, deferred_intent 저장/재시도 정책. scenarios POL-01~08 구현.",
+  "description": "src/app/domains/behavior/interrupts.py ??Alerting ?�선�? photo ?�금, game/dance ?�금, deferred_intent ?�???�시???�책. scenarios POL-01~08 구현.",
   "activeForm": "Implementing interrupt policies",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "58"
   ],

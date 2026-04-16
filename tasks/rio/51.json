@@ -1,9 +1,9 @@
 {
   "id": "51",
   "subject": "Implement vision worker (T-051)",
-  "description": "src/app/workers/vision_worker.py — 별도 프로세스 진입점. camera_stream → face_detector → face_tracker / gesture_detector. vision.* 이벤트 publish. heartbeat 발행.",
+  "description": "src/app/workers/vision_worker.py ??별도 ?�로?�스 진입?? camera_stream ??face_detector ??face_tracker / gesture_detector. vision.* ?�벤??publish. heartbeat 발행.",
   "activeForm": "Implementing vision worker",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "58"
   ],

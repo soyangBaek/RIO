@@ -1,9 +1,9 @@
 {
   "id": "75",
   "subject": "Populate devices.yaml (T-075)",
-  "description": "configs/devices.yaml — home-client base_url, 장치 ID 매핑(aircon/light/robot_cleaner/tv/music). 실 장치 확인 필요.",
+  "description": "configs/devices.yaml ??home-client base_url, ?�치 ID 매핑(aircon/light/robot_cleaner/tv/music). ???�치 ?�인 ?�요.",
   "activeForm": "Populating devices.yaml",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [],
   "metadata": {

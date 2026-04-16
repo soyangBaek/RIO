@@ -1,9 +1,9 @@
 {
   "id": "60",
   "subject": "Unit test activity FSM (T-060)",
-  "description": "tests/unit/test_activity_fsm.py — Idle/Listening/Executing/Alerting 전이 + interrupt 단위 테스트.",
+  "description": "tests/unit/test_activity_fsm.py ??Idle/Listening/Executing/Alerting ?�이 + interrupt ?�위 ?�스??",
   "activeForm": "Unit testing activity FSM",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "9"

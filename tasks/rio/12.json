@@ -1,9 +1,9 @@
 {
   "id": "12",
   "subject": "Implement reducers pipeline (T-012)",
-  "description": "src/app/core/state/reducers.py — extended_state 갱신 → Context/Activity FSM 전이 → oneshot dispatch → scene selector 파이프라인. 단일 이벤트 처리 순서를 공식화. architecture §4 메인 루프와 일대일 대응.",
+  "description": "src/app/core/state/reducers.py ??extended_state 갱신 ??Context/Activity FSM ?�이 ??oneshot dispatch ??scene selector ?�이?�라?? ?�일 ?�벤??처리 ?�서�?공식?? architecture §4 메인 루프?� ?��????�??",
   "activeForm": "Implementing reducers",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "29",
     "30",

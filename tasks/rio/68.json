@@ -1,9 +1,9 @@
 {
   "id": "68",
   "subject": "Integration test weather lookup (T-068)",
-  "description": "tests/integration/test_weather_lookup.py — 날씨 API mock → HUD/TTS 출력, 실패 시 confused oneshot(INT-06b).",
+  "description": "tests/integration/test_weather_lookup.py ???�씨 API mock ??HUD/TTS 출력, ?�패 ??confused oneshot(INT-06b).",
   "activeForm": "Integration testing weather",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "47"

@@ -1,9 +1,9 @@
 {
   "id": "2",
   "subject": "Define topic registry (T-002)",
-  "description": "src/app/core/events/topics.py — 이벤트 topic 상수 정의 (audio.*, vision.*, touch.*, timer.*, system.*, voice.intent.detected 등). scenarios.md의 이벤트 이름과 정합성 맞추기.",
+  "description": "src/app/core/events/topics.py ???�벤??topic ?�수 ?�의 (audio.*, vision.*, touch.*, timer.*, system.*, voice.intent.detected ??. scenarios.md???�벤???�름�??�합??맞추�?",
   "activeForm": "Defining topic registry",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "3"
   ],

@@ -1,9 +1,9 @@
 {
   "id": "48",
   "subject": "Implement home-client mapper (T-048)",
-  "description": "src/app/adapters/home_client/mapper.py — intent → home-client 요청 페이로드 매핑. devices.yaml 룩업.",
+  "description": "src/app/adapters/home_client/mapper.py ??intent ??home-client ?�청 ?�이로드 매핑. devices.yaml 룩업.",
   "activeForm": "Implementing home-client mapper",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "49"
   ],

@@ -1,9 +1,9 @@
 {
   "id": "69",
   "subject": "Simulation face event replay (T-069)",
-  "description": "tests/simulation/face_event_replay.py — 카메라 없이 vision.face.* 이벤트 재생. SYS-* 시나리오 재현 도구.",
+  "description": "tests/simulation/face_event_replay.py ??카메???�이 vision.face.* ?�벤???�생. SYS-* ?�나리오 ?�현 ?�구.",
   "activeForm": "Simulating face events",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "71"
   ],

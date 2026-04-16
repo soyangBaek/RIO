@@ -1,9 +1,9 @@
 {
   "id": "53",
   "subject": "Implement gesture mapper (T-053)",
-  "description": "src/app/domains/gesture/mapper.py — 제스처 → intent/event 매핑 (예: V-sign → camera.capture). Phase 2.",
+  "description": "src/app/domains/gesture/mapper.py ???�스�???intent/event 매핑 (?? V-sign ??camera.capture). Phase 2.",
   "activeForm": "Implementing gesture mapper",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "52",

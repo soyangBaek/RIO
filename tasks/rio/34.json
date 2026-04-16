@@ -1,9 +1,9 @@
 {
   "id": "34",
   "subject": "Define smart-home payloads (T-034)",
-  "description": "src/app/domains/smart_home/payloads.py — intent → home-client PUT 바디 변환. aircon/light/robot_cleaner/tv/music on/off 템플릿. devices.yaml 매핑 사용.",
+  "description": "src/app/domains/smart_home/payloads.py ??intent ??home-client PUT 바디 변?? aircon/light/robot_cleaner/tv/music on/off ?�플�? devices.yaml 매핑 ?�용.",
   "activeForm": "Defining smart-home payloads",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "35"
   ],

@@ -1,9 +1,9 @@
 {
   "id": "59",
   "subject": "Unit test context FSM (T-059)",
-  "description": "tests/unit/test_context_fsm.py — Away/Idle/Engaged/Sleepy 전이 단위 테스트. scenarios SYS-* 기반 케이스 커버.",
+  "description": "tests/unit/test_context_fsm.py ??Away/Idle/Engaged/Sleepy ?�이 ?�위 ?�스?? scenarios SYS-* 기반 케?�스 커버.",
   "activeForm": "Unit testing context FSM",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "8"

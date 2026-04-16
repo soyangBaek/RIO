@@ -1,9 +1,9 @@
 {
   "id": "30",
   "subject": "Implement effect planner (T-030)",
-  "description": "src/app/domains/behavior/effect_planner.py — 상태 전이를 display/speaker/service 명령으로 변환. scene 선택 결과에 따른 출력 계획.",
+  "description": "src/app/domains/behavior/effect_planner.py ???�태 ?�이�?display/speaker/service 명령?�로 변?? scene ?�택 결과???�른 출력 계획.",
   "activeForm": "Implementing effect planner",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "31"
   ],

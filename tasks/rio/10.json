@@ -1,9 +1,9 @@
 {
   "id": "10",
   "subject": "Implement oneshot dispatcher (T-010)",
-  "description": "src/app/core/state/oneshot.py — startled/confused/welcome/happy oneshot 관리. 우선순위 preempt, 동일 우선순위 coalesce(20%/80% 규칙), 하위 drop, no-queue. state-machine.md §3 및 scenarios ONE-01~05 참조.",
+  "description": "src/app/core/state/oneshot.py ??startled/confused/welcome/happy oneshot 관�? ?�선?�위 preempt, ?�일 ?�선?�위 coalesce(20%/80% 규칙), ?�위 drop, no-queue. state-machine.md §3 �?scenarios ONE-01~05 참조.",
   "activeForm": "Implementing oneshot dispatcher",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "12",
     "61",

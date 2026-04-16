@@ -1,9 +1,9 @@
 {
   "id": "67",
   "subject": "Integration test smart-home flow (T-067)",
-  "description": "tests/integration/test_smart_home_flow.py — smart-home intent → home-client mock → 성공/실패 경로(INT-07/08, OPS-02).",
+  "description": "tests/integration/test_smart_home_flow.py ??smart-home intent ??home-client mock ???�공/?�패 경로(INT-07/08, OPS-02).",
   "activeForm": "Integration testing smart-home",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "35"

@@ -1,9 +1,9 @@
 {
   "id": "24",
   "subject": "Aggregate presence signals (T-024)",
-  "description": "src/app/domains/presence/signals.py — face/voice/touch 증거를 집계. user_evidence_detected 판단. extended_state 값을 읽어 계산.",
+  "description": "src/app/domains/presence/signals.py ??face/voice/touch 증거�?집계. user_evidence_detected ?�단. extended_state 값을 ?�어 계산.",
   "activeForm": "Aggregating presence signals",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "25"
   ],

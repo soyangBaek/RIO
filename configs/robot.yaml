@@ -1,11 +1,23 @@
 # RIO hardware baseline
 display:
-  width: 0
-  height: 0
+  width: 480
+  height: 320
+  fps: 60
+  fullscreen: false
+
 touchscreen:
   enabled: true
+  resolution_x: 480
+  resolution_y: 320
+
 webcam:
   device_index: 0
+  resolution_width: 640
+  resolution_height: 480
+  mirror: true
+
 audio:
   input_device: default
   output_device: default
+  sample_rate: 16000
+  chunk_size: 1024

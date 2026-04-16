@@ -1,9 +1,9 @@
 {
   "id": "64",
   "subject": "Unit test timer parser (T-064)",
-  "description": "tests/unit/test_timer_parser.py — \"5분 있다\", \"30초 뒤\", 실패 케이스 검증.",
+  "description": "tests/unit/test_timer_parser.py ??\"5�??�다\", \"30�???", ?�패 케?�스 검�?",
   "activeForm": "Unit testing timer parser",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "27"

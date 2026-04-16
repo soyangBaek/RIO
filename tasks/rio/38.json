@@ -1,9 +1,9 @@
 {
   "id": "38",
   "subject": "Implement STT adapter (T-038)",
-  "description": "src/app/adapters/audio/stt.py — Speech-to-Text adapter. 엔진 교체 가능(Whisper local / Google Cloud). stt_confidence_min 미만은 voice.intent.unknown 발행. OPS-05b degraded 처리.",
+  "description": "src/app/adapters/audio/stt.py ??Speech-to-Text adapter. ?�진 교체 가??Whisper local / Google Cloud). stt_confidence_min 미만?� voice.intent.unknown 발행. OPS-05b degraded 처리.",
   "activeForm": "Implementing STT adapter",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "50"
   ],

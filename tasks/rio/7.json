@@ -1,9 +1,9 @@
 {
   "id": "7",
   "subject": "Implement extended state updater (T-007)",
-  "description": "src/app/core/state/extended_state.py — face_present, last_face_seen_at, last_user_evidence_at, last_interaction_at, away_started_at, active_executing_kind, deferred_intent, timers, inflight_requests, capabilities 갱신 로직. 이벤트 수신 시 먼저 호출.",
+  "description": "src/app/core/state/extended_state.py ??face_present, last_face_seen_at, last_user_evidence_at, last_interaction_at, away_started_at, active_executing_kind, deferred_intent, timers, inflight_requests, capabilities 갱신 로직. ?�벤???�신 ??먼�? ?�출.",
   "activeForm": "Implementing extended state",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "12",
     "24"

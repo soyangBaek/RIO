@@ -1,9 +1,9 @@
 {
   "id": "3",
   "subject": "Implement queue bus (T-003)",
-  "description": "src/app/core/bus/queue_bus.py — multiprocessing.Queue 기반 이벤트 버스. 워커→메인 단방향. bounded queue, overflow 시 drop_oldest 정책. publish/poll API. acceptance: publish→poll 1ms 이내.",
+  "description": "src/app/core/bus/queue_bus.py ??multiprocessing.Queue 기반 ?�벤??버스. ?�커?�메???�방?? bounded queue, overflow ??drop_oldest ?�책. publish/poll API. acceptance: publish?�poll 1ms ?�내.",
   "activeForm": "Implementing queue bus",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "4",
     "13",
@@ -32,6 +32,6 @@
       "docs/architecture.md §3",
       "docs/project-layout.md §5.bus"
     ],
-    "language_notes": "Python multiprocessing.Queue. 지연 민감 시 Rust+PyO3 교체 후보."
+    "language_notes": "Python multiprocessing.Queue. 지??민감 ??Rust+PyO3 교체 ?�보."
   }
 }

@@ -1,9 +1,9 @@
 {
   "id": "25",
   "subject": "Derive presence helpers (T-025)",
-  "description": "src/app/domains/presence/helpers.py — is_searching_for_user, recent_face_loss, just_reappeared 파생 상황 계산. confirmed_user_and_interacting 판단. thresholds.yaml 값 사용.",
+  "description": "src/app/domains/presence/helpers.py ??is_searching_for_user, recent_face_loss, just_reappeared ?�생 ?�황 계산. confirmed_user_and_interacting ?�단. thresholds.yaml �??�용.",
   "activeForm": "Deriving presence helpers",
-  "status": "pending",
+  "status": "done",
   "blocks": [],
   "blockedBy": [
     "24"

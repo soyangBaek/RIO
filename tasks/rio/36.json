@@ -1,9 +1,9 @@
 {
   "id": "36",
   "subject": "Implement audio capture (T-036)",
-  "description": "src/app/adapters/audio/capture.py — 마이크 입력 스트림 (PyAudio 또는 sounddevice). 16kHz PCM. 워커 프로세스에서 사용.",
+  "description": "src/app/adapters/audio/capture.py ??마이???�력 ?�트�?(PyAudio ?�는 sounddevice). 16kHz PCM. ?�커 ?�로?�스?�서 ?�용.",
   "activeForm": "Implementing audio capture",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "37",
     "50"

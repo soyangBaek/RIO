@@ -1,9 +1,9 @@
 {
   "id": "58",
   "subject": "Implement main orchestrator (T-058)",
-  "description": "src/app/main.py — 오케스트레이터 진입점. bus 초기화, 워커 프로세스 start/stop, 이벤트 루프(extended_state → reducers → oneshot → scene_selector → effect_planner → executor_registry), degraded mode/cleanup. architecture §4 한 이벤트씩 처리 순서 구현.",
+  "description": "src/app/main.py ???��??�트?�이??진입?? bus 초기?? ?�커 ?�로?�스 start/stop, ?�벤??루프(extended_state ??reducers ??oneshot ??scene_selector ??effect_planner ??executor_registry), degraded mode/cleanup. architecture §4 ???�벤?�씩 처리 ?�서 구현.",
   "activeForm": "Implementing main orchestrator",
-  "status": "pending",
+  "status": "done",
   "blocks": [
     "65"
   ],
