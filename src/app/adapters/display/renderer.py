@@ -128,13 +128,31 @@ class PygameBackend:
                 cx, cy = p["center"]
                 w = self._nx(p["width"])
                 bounds = (self._nx(cx) - w // 2, self._ny(cy) - 4, w, 12)
-                self._pg.draw.arc(self._screen, (30, 30, 40), bounds, 3.14, 0, 2)
+                self._pg.draw.arc(self._screen, (240, 240, 245), bounds, 3.14, 0, 3)
             elif kind == "mouth":
                 cx, cy = p["center"]
                 w = self._nx(p["width"])
                 bounds = (self._nx(cx) - w // 2, self._ny(cy) - 8, w, 24)
                 self._pg.draw.arc(self._screen, p.get("color", (30, 30, 40)),
                                   bounds, 3.14, 0, 3)
+            elif kind == "ripple":
+                cx, cy = p["center"]
+                r = max(4, self._nx(p.get("radius", 0.05)))
+                c = p.get("color", (255, 255, 255))
+                self._pg.draw.circle(self._screen, c, (self._nx(cx), self._ny(cy)), r, 3)
+                self._pg.draw.circle(self._screen, c, (self._nx(cx), self._ny(cy)), r // 2)
+            elif kind == "heart":
+                cx, cy = p["center"]
+                r = max(4, self._nx(p.get("radius", 0.06)))
+                c = p.get("color", (255, 120, 160))
+                px, py = self._nx(cx), self._ny(cy)
+                # simple heart: two circles + triangle
+                hr = r // 2
+                self._pg.draw.circle(self._screen, c, (px - hr, py - hr), hr)
+                self._pg.draw.circle(self._screen, c, (px + hr, py - hr), hr)
+                self._pg.draw.polygon(self._screen, c, [
+                    (px - r, py - hr // 2), (px + r, py - hr // 2), (px, py + r),
+                ])
             elif kind in ("text", "badge", "spinner", "weather", "timer_list"):
                 text = p.get("text") or kind
                 size_key = p.get("size", "sm")
@@ -220,6 +238,16 @@ class Renderer:
                 temperature_c=data.get("temperature_c"),
                 condition=data.get("condition"),
             )
+        elif topic == topics.TOUCH_TAP_DETECTED:
+            x = event.payload.get("x")
+            y = event.payload.get("y")
+            if x is not None and y is not None:
+                self._show_touch_ripple(float(x), float(y), "tap")
+        elif topic == topics.TOUCH_STROKE_DETECTED:
+            path = event.payload.get("path")
+            if path and len(path) > 0:
+                last = path[-1]
+                self._show_touch_ripple(float(last[0]), float(last[1]), "stroke")
         elif topic == topics.SYSTEM_DEGRADED_ENTERED and not event.payload.get("recovered"):
             cap = event.payload.get("lost_capability")
             if cap:
@@ -259,8 +287,51 @@ class Renderer:
         from .eye_tracking import make_eye_drawables
         return make_eye_drawables(mood, self._face_center, self._eye_style)
 
+    # -- touch feedback ------------------------------------------------------
+    _RIPPLE_SLOT = "touch_ripple"
+    _RIPPLE_DURATION_S = 0.4
+
+    def _show_touch_ripple(self, x: float, y: float, kind: str) -> None:
+        """Push a brief ripple/heart drawable on the Action Overlay layer."""
+        import time as _time
+        self._ripple_expire = _time.monotonic() + self._RIPPLE_DURATION_S
+        overlay = self._composition.layer(Layer.ACTION_OVERLAY)
+        # Remove previous ripple if still present.
+        overlay.drawables[:] = [
+            d for d in overlay.drawables
+            if d.payload.get("slot") != self._RIPPLE_SLOT
+        ]
+        if kind == "stroke":
+            overlay.add(Drawable(
+                kind="heart",
+                payload={"center": (x, y), "radius": 0.06, "slot": self._RIPPLE_SLOT,
+                         "color": (255, 120, 160)},
+                z=50,
+            ))
+        else:
+            overlay.add(Drawable(
+                kind="ripple",
+                payload={"center": (x, y), "radius": 0.05, "slot": self._RIPPLE_SLOT,
+                         "color": (255, 255, 255)},
+                z=50,
+            ))
+
+    def _expire_ripple(self) -> None:
+        expire = getattr(self, "_ripple_expire", None)
+        if expire is None:
+            return
+        import time as _time
+        if _time.monotonic() >= expire:
+            overlay = self._composition.layer(Layer.ACTION_OVERLAY)
+            overlay.drawables[:] = [
+                d for d in overlay.drawables
+                if d.payload.get("slot") != self._RIPPLE_SLOT
+            ]
+            self._ripple_expire = None
+
     # -- frame output -------------------------------------------------------
     def render_frame(self) -> None:
+        self._expire_ripple()
         self._backend.begin_frame()
         for layer, drawables in self._composition.draw_order():
             for d in drawables:

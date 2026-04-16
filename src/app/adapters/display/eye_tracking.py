@@ -65,7 +65,7 @@ def make_eye_drawables(
     style: EyeStyle = EyeStyle(),
 ) -> List[Drawable]:
     """Build the per-eye :class:`Drawable` list for the Core Face layer."""
-    # Closed-eye moods short-circuit: render lids regardless of face position.
+    # Closed-eye moods: render lids only (no sclera/pupil).
     if mood in (Mood.INACTIVE, Mood.SLEEPY):
         return [
             Drawable(
@@ -88,14 +88,27 @@ def make_eye_drawables(
             ),
         ]
 
+    # Happy mood: ^_^ smile eyes — arc only, no sclera/pupil.
+    if mood is Mood.HAPPY:
+        return [
+            Drawable(
+                kind="eye_arc",
+                payload={"center": style.left_center, "width": style.sclera_radius * 2},
+                z=0,
+            ),
+            Drawable(
+                kind="eye_arc",
+                payload={"center": style.right_center, "width": style.sclera_radius * 2},
+                z=0,
+            ),
+        ]
+
     dx, dy = compute_pupil_offset(face_center, style.max_pupil_shift)
 
-    # Surprised: larger pupil. Happy: smaller pupil + arc.
+    # Surprised: larger pupil for dramatic effect.
     pupil_r = style.pupil_radius
     if mood is Mood.SURPRISED:
         pupil_r = style.pupil_radius * 1.4
-    elif mood is Mood.HAPPY:
-        pupil_r = style.pupil_radius * 0.85
 
     drawables: List[Drawable] = []
     for side_name, center in (
@@ -121,14 +134,6 @@ def make_eye_drawables(
                 z=1,
             )
         )
-        if mood is Mood.HAPPY:
-            drawables.append(
-                Drawable(
-                    kind="eye_arc",
-                    payload={"center": (cx, cy), "width": style.sclera_radius * 2},
-                    z=2,
-                )
-            )
     return drawables
 
 

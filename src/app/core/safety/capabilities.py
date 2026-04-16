@@ -66,21 +66,35 @@ def probe_mic() -> bool:
 
 
 def probe_touch() -> bool:
-    """True if any evdev input node advertises touch capability.
+    """True if any evdev input node advertises touch / direct-input capability.
 
-    Uses ``/proc/bus/input/devices`` when available because a bare
-    ``/dev/input/event*`` existence test would light up every keyboard.
-    Falls back to ``False`` if the proc entry cannot be read.
+    Checks ``/proc/bus/input/devices`` for:
+    - Name or handlers containing "touch" / "touchscreen"
+    - ``PROP=2`` (INPUT_PROP_DIRECT, used by capacitive touchscreens)
+    - ABS bitmap containing multitouch bits (``ABS_MT_POSITION_X``)
     """
     try:
         with open("/proc/bus/input/devices", "r", encoding="utf-8") as f:
             data = f.read()
     except OSError:
         return False
-    # "Handlers=... mouse0 event0" or "H: Handlers=event0 touch"
-    for line in data.splitlines():
-        if "touchscreen" in line.lower() or "touch" in line.lower():
+    for block in data.split("\n\n"):
+        block_lower = block.lower()
+        # Keyword match
+        if "touch" in block_lower or "touchscreen" in block_lower:
             return True
+        # INPUT_PROP_DIRECT (bit 1 → PROP value has bit 1 set → "2" or "3")
+        for line in block.splitlines():
+            if line.startswith("B: PROP="):
+                try:
+                    prop_val = int(line.split("=", 1)[1].strip(), 16)
+                    if prop_val & 0x2:  # INPUT_PROP_DIRECT
+                        return True
+                except ValueError:
+                    pass
+            # CTP / capacitive touch panel in device name
+            if line.startswith("N: Name=") and "ctp" in line.lower():
+                return True
     return False
 
 

@@ -29,6 +29,8 @@ from typing import Optional
 from .adapters.display import Renderer, default_loader, make_backend as make_display_backend
 from .adapters.home_client import HomeClientAdapter, HomeClientConfig
 from .adapters.speaker import NullSFX, SFXPlayer, NullTTS, PyTtsx3TTS
+from .adapters.touch import EvdevTouchInput, NullTouchInput
+from .adapters.touch.gesture_mapper import TouchGestureMapper
 from .core.bus import EventBus, Router
 from .core.events import topics
 from .core.events.models import Event
@@ -128,6 +130,15 @@ class Orchestrator:
         # Effect planner for SFX / TTS reactions.
         self._effects = EffectPlanner(sfx=self._sfx, tts=self._tts)
 
+        # Touch input — publish events into the bus so they flow through the
+        # same reducer pipeline as worker events.
+        self._touch_mapper = TouchGestureMapper(publish=self._bus.publish)
+        if probed.touch:
+            # Auto-detect device path and axis ranges from evdev capabilities.
+            self._touch_input = EvdevTouchInput()
+        else:
+            self._touch_input = NullTouchInput()
+
         # Heartbeat monitor.
         self._heartbeat = HeartbeatMonitor(
             publish=self._bus.publish, timeout_ms=5_000,
@@ -164,6 +175,7 @@ class Orchestrator:
         )
         self._audio_proc.start()
         self._vision_proc.start()
+        self._touch_input.start(self._touch_mapper.on_sample)
         _log.info("orchestrator started")
 
     def run_until_stopped(self) -> None:
@@ -178,6 +190,7 @@ class Orchestrator:
 
     def shutdown(self) -> None:
         self._stop.set()
+        self._touch_input.stop()
         self._scheduler.shutdown()
         for proc in (self._audio_proc, self._vision_proc):
             if proc is not None:

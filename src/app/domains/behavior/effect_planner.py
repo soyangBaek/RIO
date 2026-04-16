@@ -76,6 +76,14 @@ class EffectPlanner:
         if topic == topics.SMARTHOME_RESULT:
             self._on_smarthome_result(event)
             return
+        if topic == topics.TOUCH_TAP_DETECTED:
+            self._sfx.play("success")  # short attention beep
+            return
+        if topic == topics.TOUCH_STROKE_DETECTED:
+            # happy oneshot handles the main feedback; this just ensures
+            # the satisfaction tone plays even if oneshot is suppressed.
+            self._sfx.play("satisfaction")
+            return
 
     # -- individual handlers ------------------------------------------------
     def _on_oneshot(self, event: Event) -> None:
