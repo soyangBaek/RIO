@@ -29,7 +29,12 @@ class HeartbeatMonitor:
             age = (current - status.last_seen_at).total_seconds()
             if age < self.timeout_seconds:
                 continue
-            lost_capability = "camera" if "vision" in worker else "microphone"
+            if "vision" in worker:
+                lost_capability = "camera"
+            elif "touch" in worker:
+                lost_capability = "touch"
+            else:
+                lost_capability = "microphone"
             degraded.append(
                 Event.create(
                     SYSTEM_DEGRADED_ENTERED,
@@ -47,4 +52,3 @@ class HeartbeatMonitor:
             payload={"worker": worker, "status": "ok"},
             timestamp=now or datetime.now(timezone.utc),
         )
-

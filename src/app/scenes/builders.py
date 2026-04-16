@@ -43,6 +43,26 @@ def smarthome_feedback(asset: SceneAsset | None = None) -> SceneBlueprint:
     return _build("smarthome_feedback", asset)
 
 
+def wave_greeting(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("wave_greeting", asset)
+
+
+def finger_gun_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("finger_gun_reaction", asset)
+
+
+def peekaboo_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("peekaboo_reaction", asset)
+
+
+def tap_attention(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("tap_attention", asset)
+
+
+def game_direction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("game_direction", asset)
+
+
 def petting_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
     return _build("petting_reaction", asset)
 

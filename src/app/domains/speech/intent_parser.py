@@ -6,6 +6,8 @@ from functools import lru_cache
 
 import yaml
 
+from src.app.core.config import resolve_repo_path
+
 
 DEFAULT_INTENT_MATCH_CONFIDENCE_MIN = 0.6
 
@@ -35,7 +37,7 @@ def normalize_text(text: str) -> str:
 @lru_cache(maxsize=4)
 def load_triggers(path: str = "configs/triggers.yaml") -> dict[str, list[str]]:
     try:
-        with open(path, "r", encoding="utf-8") as fh:
+        with resolve_repo_path(path).open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
     except FileNotFoundError:
         data = {}
@@ -65,6 +67,55 @@ def _token_overlap_score(normalized_text: str, alias: str) -> float:
     return overlap / max(len(alias_tokens), len(text_tokens))
 
 
+def _parse_dynamic_smarthome(
+    text: str,
+    normalized_text: str,
+    *,
+    stt_confidence: float,
+) -> IntentParseResult | None:
+    temp_match = re.search(r"(-?\d{1,2})\s*도(?:로)?", text)
+    if temp_match is None:
+        temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
+    if temp_match is None:
+        return None
+
+    intent_keywords = (
+        "온도",
+        "temperature",
+        "맞춰",
+        "설정",
+        "set",
+        "에어컨",
+        "aircon",
+        "air conditioner",
+    )
+    if not any(keyword in normalized_text for keyword in intent_keywords):
+        return None
+
+    temperature_c = int(temp_match.group(1))
+    if temperature_c < 16 or temperature_c > 30:
+        return IntentParseResult(
+            intent=None,
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            reason="temperature_out_of_range",
+        )
+
+    return IntentParseResult(
+        intent="smarthome.aircon.set_temperature",
+        confidence=stt_confidence,
+        text=text,
+        normalized_text=normalized_text,
+        matched_alias="__dynamic_aircon_temperature__",
+        payload={
+            "device_key": "aircon",
+            "action": "set_temperature",
+            "temperature_c": temperature_c,
+        },
+    )
+
+
 def parse_intent(
     text: str,
     *,
@@ -90,6 +141,14 @@ def parse_intent(
             normalized_text=normalized_text,
             reason="low_stt_confidence",
         )
+
+    dynamic_smarthome = _parse_dynamic_smarthome(
+        text,
+        normalized_text,
+        stt_confidence=stt_confidence,
+    )
+    if dynamic_smarthome is not None:
+        return dynamic_smarthome
 
     trigger_map = triggers or load_triggers(triggers_path)
     best_intent: str | None = None

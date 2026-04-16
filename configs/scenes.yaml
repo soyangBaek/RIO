@@ -28,6 +28,21 @@ scenes:
   smarthome_feedback:
     overlay: "assets/ui/smarthome_badge.txt"
     sfx: ["success"]
+  wave_greeting:
+    overlay: "assets/animations/wave.txt"
+    sfx: ["welcome"]
+  finger_gun_reaction:
+    overlay: "assets/animations/finger_gun.txt"
+    sfx: ["startled"]
+  peekaboo_reaction:
+    overlay: "assets/animations/peekaboo.txt"
+    sfx: ["happy"]
+  tap_attention:
+    overlay: "assets/ui/tap.txt"
+    sfx: ["tap"]
+  game_direction:
+    overlay: "assets/ui/game_direction.txt"
+    sfx: ["game_move"]
   petting_reaction:
     overlay: "assets/animations/petting.txt"
     sfx: ["happy"]

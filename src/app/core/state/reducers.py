@@ -102,8 +102,16 @@ class ReducerPipeline:
             candidate_oneshot = OneshotName.STARTLED
         elif event.topic == topics.VOICE_INTENT_UNKNOWN:
             candidate_oneshot = OneshotName.CONFUSED
+        elif event.topic == topics.TOUCH_TAP_DETECTED and previous.context_state == ContextState.SLEEPY:
+            candidate_oneshot = OneshotName.STARTLED
         elif event.topic == topics.TOUCH_STROKE_DETECTED:
             candidate_oneshot = OneshotName.HAPPY
+        elif event.topic == topics.VISION_GESTURE_DETECTED:
+            gesture = event.payload.get("gesture")
+            if gesture in {"wave", "peekaboo"}:
+                candidate_oneshot = OneshotName.WELCOME
+            elif gesture == "finger_gun":
+                candidate_oneshot = OneshotName.STARTLED
         elif event.topic == topics.SMARTHOME_RESULT:
             candidate_oneshot = (
                 OneshotName.HAPPY if event.payload.get("ok") else OneshotName.CONFUSED

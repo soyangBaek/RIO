@@ -8,6 +8,7 @@ from typing import Mapping
 
 import yaml
 
+from src.app.core.config import resolve_repo_path
 from src.app.core.state.models import Oneshot, OneshotName
 
 
@@ -20,7 +21,7 @@ DEFAULT_ONESHOT_SETTINGS: dict[str, dict[str, int]] = {
 
 
 def load_oneshot_settings(path: str | Path = "configs/scenes.yaml") -> dict[str, dict[str, int]]:
-    cfg_path = Path(path)
+    cfg_path = resolve_repo_path(path)
     if not cfg_path.exists():
         return deepcopy(DEFAULT_ONESHOT_SETTINGS)
     with cfg_path.open("r", encoding="utf-8") as handle:
@@ -78,4 +79,3 @@ class OneshotDispatcher:
         if current.elapsed_ratio(now) >= 0.8:
             return OneshotDecision(active=candidate, changed=True)
         return OneshotDecision(active=current, changed=False)
-

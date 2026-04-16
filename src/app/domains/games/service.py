@@ -27,6 +27,7 @@ class GamesService:
             payload={
                 "task_id": task_id,
                 "kind": ActionKind.GAME.value,
+                "ui_mode": "game",
                 "message": "Game mode ready",
             },
             trace_id=request.trace_id,

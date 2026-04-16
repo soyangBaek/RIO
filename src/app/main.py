@@ -17,6 +17,7 @@ from src.app.adapters.display.renderer import Renderer
 from src.app.adapters.home_client.client import HomeClient
 from src.app.adapters.speaker.sfx import SFXPlayer
 from src.app.adapters.speaker.tts import TTSPlayer
+from src.app.adapters.touch.input import TouchInputAdapter
 from src.app.adapters.vision.camera_stream import CameraStream
 from src.app.adapters.vision.face_detector import FaceDetector
 from src.app.adapters.vision.face_tracker import FaceTracker
@@ -24,6 +25,7 @@ from src.app.adapters.vision.gesture_detector import GestureDetector
 from src.app.adapters.weather.client import WeatherClient
 from src.app.core.bus.queue_bus import QueueBus
 from src.app.core.bus.router import EventRouter
+from src.app.core.config import resolve_repo_path
 from src.app.core.events import topics
 from src.app.core.events.models import Event
 from src.app.core.safety.capabilities import detect_capabilities
@@ -42,11 +44,12 @@ from src.app.domains.photo.service import PhotoService
 from src.app.domains.smart_home.service import SmartHomeService
 from src.app.domains.timers.service import TimerService
 from src.app.workers.audio_worker import AudioWorker
+from src.app.workers.touch_worker import TouchWorker
 from src.app.workers.vision_worker import VisionWorker
 
 
 def _load_yaml(path: str) -> dict[str, object]:
-    file_path = Path(path)
+    file_path = resolve_repo_path(path)
     if not file_path.exists():
         return {}
     with file_path.open("r", encoding="utf-8") as handle:
@@ -118,6 +121,7 @@ class RioOrchestrator:
     registry: ExecutorRegistry = field(default_factory=ExecutorRegistry)
     audio_worker: AudioWorker | None = None
     vision_worker: VisionWorker | None = None
+    touch_worker: TouchWorker | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
 
@@ -143,6 +147,14 @@ class RioOrchestrator:
                 tracker=FaceTracker(sample_hz=sample_hz),
                 gesture_detector=GestureDetector(),
             )
+        if self.touch_worker is None:
+            robot_cfg = _load_yaml("configs/robot.yaml")
+            touch_cfg = (robot_cfg.get("touchscreen") or {}) if isinstance(robot_cfg, dict) else {}
+            if bool(touch_cfg.get("enabled", True)):
+                self.touch_worker = TouchWorker(
+                    bus=self.bus,
+                    adapter=TouchInputAdapter(),
+                )
         self._register_default_handlers()
 
     def _register_default_handlers(self) -> None:
@@ -151,6 +163,8 @@ class RioOrchestrator:
         thresholds_cfg = _load_yaml("configs/thresholds.yaml")
         home_client = HomeClient(
             base_url=str((devices_cfg.get("home_client") or {}).get("base_url", "http://127.0.0.1")),
+            control_path=str((devices_cfg.get("home_client") or {}).get("control_path", "/device/control")),
+            control_url=((devices_cfg.get("home_client") or {}).get("control_url")),
             http_timeout_ms=int((thresholds_cfg.get("task") or {}).get("http_timeout_ms", 3000)),
             retry_count=int((thresholds_cfg.get("task") or {}).get("http_retry_count", 1)),
         )
@@ -264,6 +278,8 @@ class RioOrchestrator:
             generated.extend(self.audio_worker.run_once(now=when))
         if self.vision_worker:
             generated.extend(self.vision_worker.run_once(now=when))
+        if self.touch_worker:
+            generated.extend(self.touch_worker.run_once(now=when))
         for event in self.scheduler.poll_due(now=when):
             self.bus.publish(event)
             generated.append(event)

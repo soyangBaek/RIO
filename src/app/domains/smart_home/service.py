@@ -31,7 +31,7 @@ class SmartHomeService:
             timestamp=datetime.now(timezone.utc),
         )
         try:
-            command = build_smart_home_command(request.intent)
+            command = build_smart_home_command(request.intent, payload=request.payload)
         except Exception as exc:
             failed = Event.create(
                 topics.TASK_FAILED,
@@ -52,7 +52,11 @@ class SmartHomeService:
                 "task_id": task_id,
                 "intent": request.intent,
                 "device_id": command.device_id,
+                "action": command.action,
+                "params": command.params,
                 "content": command.content,
+                "request_url": self._request_url(),
+                "transport": "http",
             },
             trace_id=request.trace_id,
         )
@@ -61,7 +65,7 @@ class SmartHomeService:
             ok = bool(response.get("ok", True))
             message = str(
                 response.get("message")
-                or (f"{command.display_name} {command.action} 완료" if ok else f"{command.display_name} 제어 실패")
+                or (f"{command.display_name} {command.action_label} 완료" if ok else f"{command.display_name} 제어 실패")
             )
         except Exception as exc:  # pragma: no cover - defensive
             ok = False
@@ -77,6 +81,9 @@ class SmartHomeService:
                 "ok": ok,
                 "message": message,
                 "device_id": command.device_id,
+                "action": command.action,
+                "params": command.params,
+                "request_url": response.get("request_url"),
                 "response": response,
             },
             trace_id=request.trace_id,
@@ -92,4 +99,14 @@ class SmartHomeService:
             },
             trace_id=request.trace_id,
         )
-        return ExecutionResult(events=[started, request_sent, result, terminal], metadata={"command": command.content})
+        return ExecutionResult(
+            events=[started, request_sent, result, terminal],
+            metadata={"command": command.content, "params": command.params},
+        )
+
+    def _request_url(self) -> str | None:
+        resolver = getattr(self.client, "resolve_control_url", None)
+        if callable(resolver):
+            value = resolver()
+            return str(value) if value is not None else None
+        return None

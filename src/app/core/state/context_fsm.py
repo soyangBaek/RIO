@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from src.app.core.config import resolve_repo_path
 from src.app.core.events.models import Event
 from src.app.core.events import topics
 from src.app.core.state.models import ContextState, ExtendedState
@@ -39,7 +40,7 @@ class ContextThresholds:
 
 def load_thresholds(path: str | Path = "configs/thresholds.yaml") -> ContextThresholds:
     data = DEFAULT_THRESHOLDS
-    cfg_path = Path(path)
+    cfg_path = resolve_repo_path(path)
     if cfg_path.exists():
         with cfg_path.open("r", encoding="utf-8") as handle:
             loaded = yaml.safe_load(handle) or {}
@@ -146,4 +147,3 @@ def transition_context(
         return current
 
     return current
-

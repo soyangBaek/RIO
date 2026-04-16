@@ -1,5 +1,9 @@
 home_client:
   base_url: "http://127.0.0.1"
+  control_path: "/device/control"
+  # If your ThinkQ bridge exposes a full endpoint URL, set it here and it
+  # will override base_url + control_path.
+  # control_url: "http://192.168.0.20:8123/api/thinq/control"
 weather:
   base_url: "https://api.example.invalid/weather"
 devices:
@@ -7,6 +11,10 @@ devices:
     id: "aircon.living_room"
     name: "에어컨"
     template: "{device_id}:{action}"
+    actions:
+      set_temperature:
+        template: "{device_id}:set_temperature:{temperature_c}"
+        label: "온도 설정"
   light:
     id: "light.main"
     name: "거실 조명"

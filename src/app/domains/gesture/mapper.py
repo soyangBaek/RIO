@@ -14,21 +14,25 @@ def map_gesture_event(event: Event, *, now: datetime | None = None) -> list[Even
     if gesture == "v_sign":
         return [
             Event.create(
+                topics.VOICE_ACTIVITY_STARTED,
+                "gesture.mapper",
+                payload={"gesture": gesture, "synthetic": True},
+                trace_id=event.trace_id,
+                timestamp=when,
+            ),
+            Event.create(
                 topics.VOICE_INTENT_DETECTED,
                 "gesture.mapper",
                 payload={"intent": "camera.capture", "gesture": gesture},
                 trace_id=event.trace_id,
                 timestamp=when,
-            )
-        ]
-    if gesture == "wave":
-        return [
+            ),
             Event.create(
-                topics.TOUCH_TAP_DETECTED,
+                topics.VOICE_ACTIVITY_ENDED,
                 "gesture.mapper",
                 payload={"gesture": gesture, "synthetic": True},
                 trace_id=event.trace_id,
                 timestamp=when,
-            )
+            ),
         ]
     return []

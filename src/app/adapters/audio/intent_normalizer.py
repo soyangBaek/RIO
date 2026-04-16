@@ -44,6 +44,7 @@ class IntentNormalizer:
             "text": transcript,
             "matched_alias": parsed.matched_alias,
         }
+        payload.update(parsed.payload)
         if parsed.intent == "timer.create":
             timer_parse = parse_timer_text(transcript, now=when)
             if not timer_parse.ok:

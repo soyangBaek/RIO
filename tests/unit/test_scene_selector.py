@@ -62,6 +62,16 @@ class SceneSelectorTest(unittest.TestCase):
         scene = select_scene(ContextState.IDLE, ActivityState.IDLE, ExtendedState(), oneshot)
         self.assertEqual(scene.mood, Mood.WELCOME)
 
+    def test_game_ui_mode_persists_game_ui_and_attentive_mood(self) -> None:
+        scene = select_scene(
+            ContextState.IDLE,
+            ActivityState.IDLE,
+            ExtendedState(ui_mode="game"),
+            None,
+        )
+        self.assertEqual(scene.ui, UIState.GAME_UI)
+        self.assertEqual(scene.mood, Mood.ATTENTIVE)
+
 
 if __name__ == "__main__":
     unittest.main()

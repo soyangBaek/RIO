@@ -69,10 +69,16 @@ INTENT_TO_ACTION_KIND: dict[str, ActionKind] = {
     "timer.create": ActionKind.TIMER_SETUP,
     "weather.current": ActionKind.WEATHER,
     "smarthome.aircon.on": ActionKind.SMARTHOME,
+    "smarthome.aircon.off": ActionKind.SMARTHOME,
+    "smarthome.aircon.set_temperature": ActionKind.SMARTHOME,
     "smarthome.light.on": ActionKind.SMARTHOME,
+    "smarthome.light.off": ActionKind.SMARTHOME,
+    "smarthome.robot_cleaner.stop": ActionKind.SMARTHOME,
     "smarthome.robot_cleaner.start": ActionKind.SMARTHOME,
     "smarthome.tv.on": ActionKind.SMARTHOME,
+    "smarthome.tv.off": ActionKind.SMARTHOME,
     "smarthome.music.play": ActionKind.SMARTHOME,
+    "smarthome.music.stop": ActionKind.SMARTHOME,
 }
 
 
@@ -121,11 +127,13 @@ class Oneshot:
 class ExtendedState:
     face_present: bool = False
     last_face_seen_at: datetime | None = None
+    last_face_lost_at: datetime | None = None
     last_user_evidence_at: datetime | None = None
     last_interaction_at: datetime | None = None
     away_started_at: datetime | None = None
     active_executing_kind: ActionKind | None = None
     deferred_intent: dict[str, Any] | None = None
+    ui_mode: str | None = None
     timers: dict[str, TimerRecord] = field(default_factory=dict)
     inflight_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     capabilities: CapabilityState = field(default_factory=CapabilityState)
@@ -157,4 +165,3 @@ class ReductionResult:
     scene: DerivedScene
     emitted_events: list[Any] = field(default_factory=list)
     triggered_oneshot: Oneshot | None = None
-

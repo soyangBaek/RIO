@@ -39,12 +39,17 @@ def apply_extended_state(
         current.last_face_seen_at = when
     elif event.topic == topics.VISION_FACE_LOST:
         current.face_present = False
+        current.last_face_lost_at = when
     elif event.topic == topics.TASK_STARTED:
         task_id = str(event.payload.get("task_id", "unknown"))
         current.inflight_requests[task_id] = dict(event.payload)
     elif event.topic in {topics.TASK_SUCCEEDED, topics.TASK_FAILED}:
         task_id = str(event.payload.get("task_id", "unknown"))
         current.inflight_requests.pop(task_id, None)
+        if event.payload.get("clear_ui_mode"):
+            current.ui_mode = None
+        elif event.payload.get("ui_mode"):
+            current.ui_mode = str(event.payload.get("ui_mode"))
     elif event.topic == topics.ACTIVITY_STATE_CHANGED:
         if event.payload.get("to") == "Executing":
             kind = event.payload.get("kind")
@@ -68,6 +73,8 @@ def apply_extended_state(
             current.capabilities.touch_available = False
         elif lost == "speaker":
             current.capabilities.speaker_available = False
+    elif event.topic == topics.VOICE_INTENT_DETECTED and event.payload.get("intent") == "system.cancel":
+        current.ui_mode = None
 
     if event.topic in USER_EVIDENCE_TOPICS or event.topic == topics.VOICE_INTENT_DETECTED:
         current.last_user_evidence_at = when
@@ -87,4 +94,3 @@ def set_capabilities(extended: ExtendedState, capabilities: CapabilityState) -> 
     current = deepcopy(extended)
     current.capabilities = deepcopy(capabilities)
     return current
-

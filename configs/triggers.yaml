@@ -24,18 +24,33 @@ intents:
     - "알람 맞춰줘"
   weather.current:
     - "날씨 알려줘"
+    - "날씨 조회"
     - "오늘 날씨"
     - "weather"
     - "what's the weather"
   smarthome.aircon.on:
     - "에어컨 켜줘"
+    - "에어컨 켜기"
     - "aircon on"
     - "turn on aircon"
+  smarthome.aircon.off:
+    - "에어컨 꺼줘"
+    - "에어컨 꺼"
+    - "에어컨 끄기"
+    - "aircon off"
+    - "turn off aircon"
   smarthome.light.on:
     - "불 켜줘"
     - "조명 켜줘"
+    - "불 켜기"
+    - "조명 켜기"
     - "light on"
     - "turn on the light"
+  smarthome.light.off:
+    - "불 꺼줘"
+    - "조명 꺼줘"
+    - "불 끄기"
+    - "조명 끄기"
   smarthome.robot_cleaner.start:
     - "로봇 청소기 실행시켜줘"
     - "청소기 돌려줘"

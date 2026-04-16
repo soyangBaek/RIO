@@ -21,7 +21,7 @@ ONESHOT_TO_MOOD = {
 }
 
 
-def _ui_for(activity: ActivityState, context: ContextState, kind: ActionKind | None) -> UIState:
+def _ui_for(activity: ActivityState, context: ContextState, kind: ActionKind | None, ui_mode: str | None) -> UIState:
     if activity == ActivityState.LISTENING:
         return UIState.LISTENING_UI
     if activity == ActivityState.ALERTING:
@@ -32,6 +32,8 @@ def _ui_for(activity: ActivityState, context: ContextState, kind: ActionKind | N
         if kind == ActionKind.GAME:
             return UIState.GAME_UI
         return UIState.NORMAL_FACE
+    if ui_mode == "game":
+        return UIState.GAME_UI
     if context == ContextState.SLEEPY:
         return UIState.SLEEP_UI
     return UIState.NORMAL_FACE
@@ -40,6 +42,7 @@ def _ui_for(activity: ActivityState, context: ContextState, kind: ActionKind | N
 def _mood_for(
     context: ContextState,
     activity: ActivityState,
+    ui_mode: str | None,
     active_oneshot: Oneshot | None,
 ) -> Mood:
     if activity == ActivityState.ALERTING:
@@ -47,6 +50,8 @@ def _mood_for(
     if active_oneshot is not None:
         return ONESHOT_TO_MOOD[active_oneshot.name]
     if activity in {ActivityState.LISTENING, ActivityState.EXECUTING}:
+        return Mood.ATTENTIVE
+    if ui_mode == "game":
         return Mood.ATTENTIVE
     if context == ContextState.AWAY:
         return Mood.INACTIVE
@@ -63,8 +68,8 @@ def select_scene(
     extended: ExtendedState,
     active_oneshot: Oneshot | None,
 ) -> DerivedScene:
-    ui = _ui_for(activity, context, extended.active_executing_kind)
-    mood = _mood_for(context, activity, active_oneshot)
+    ui = _ui_for(activity, context, extended.active_executing_kind, extended.ui_mode)
+    mood = _mood_for(context, activity, extended.ui_mode, active_oneshot)
     dimmed = activity == ActivityState.IDLE and context == ContextState.AWAY
     search_indicator = activity == ActivityState.LISTENING and not extended.face_present
     return DerivedScene(
@@ -73,4 +78,3 @@ def select_scene(
         search_indicator=search_indicator,
         dimmed=dimmed,
     )
-

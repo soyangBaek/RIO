@@ -7,6 +7,7 @@ from src.app.adapters.vision.camera_stream import CameraStream
 from src.app.adapters.vision.face_detector import FaceDetector
 from src.app.adapters.vision.face_tracker import FaceTracker
 from src.app.adapters.vision.gesture_detector import GestureDetector
+from src.app.adapters.vision.interaction_tracker import VisionInteractionTracker
 from src.app.core.bus.queue_bus import QueueBus
 from src.app.core.events import topics
 from src.app.core.events.models import Event
@@ -20,6 +21,7 @@ class VisionWorker:
     detector: FaceDetector
     tracker: FaceTracker
     gesture_detector: GestureDetector
+    interaction_tracker: VisionInteractionTracker = field(default_factory=VisionInteractionTracker)
     worker_name: str = "vision_worker"
     _face_present: bool = field(default=False, init=False, repr=False)
 
@@ -29,6 +31,7 @@ class VisionWorker:
         frame = self.stream.read()
         detection = self.detector.detect(frame, now=when)
         if detection is not None:
+            was_face_present = self._face_present
             self._face_present = True
             self.bus.publish(detection)
             published.append(detection)
@@ -36,8 +39,17 @@ class VisionWorker:
             for event in self.tracker.update(center, now=when):
                 self.bus.publish(event)
                 published.append(event)
+            for event in self.interaction_tracker.on_face_detected(
+                center,
+                was_face_present=was_face_present,
+                trace_id=detection.trace_id,
+                now=when,
+            ):
+                self.bus.publish(event)
+                published.append(event)
         elif self._face_present:
             self._face_present = False
+            self.interaction_tracker.on_face_lost(now=when)
             lost = Event.create(topics.VISION_FACE_LOST, "vision_worker", timestamp=when)
             self.bus.publish(lost)
             published.append(lost)

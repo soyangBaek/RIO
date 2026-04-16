@@ -24,6 +24,20 @@ class EffectPlan:
 
 
 def _scene_key(result: ReductionResult, event: Event) -> str:
+    if event.topic == topics.VISION_GESTURE_DETECTED:
+        gesture = event.payload.get("gesture")
+        if gesture == "wave":
+            return "wave_greeting"
+        if gesture == "finger_gun":
+            return "finger_gun_reaction"
+        if gesture == "peekaboo":
+            return "peekaboo_reaction"
+        if gesture in {"head_left", "head_right"}:
+            return "game_direction"
+    if event.topic == topics.TOUCH_TAP_DETECTED:
+        return "tap_attention"
+    if event.topic == topics.TOUCH_STROKE_DETECTED:
+        return "petting_reaction"
     if result.triggered_oneshot is not None:
         mapping = {
             "startled": "startled_then_track",
@@ -69,6 +83,14 @@ def _tts_messages(event: Event) -> list[str]:
     if event.topic == topics.TIMER_EXPIRED:
         label = event.payload.get("label") or "타이머"
         return [f"{label} 시간이 됐어."]
+    if event.topic == topics.VISION_GESTURE_DETECTED:
+        gesture = event.payload.get("gesture")
+        if gesture == "wave":
+            return ["안녕!"]
+        if gesture == "peekaboo":
+            return ["찾았다!"]
+        if gesture == "finger_gun":
+            return ["빵야!"]
     if event.topic == topics.SMARTHOME_RESULT:
         if event.payload.get("ok"):
             return [event.payload.get("message") or "명령을 완료했어."]
@@ -83,6 +105,8 @@ def _tts_messages(event: Event) -> list[str]:
         return [f"지금 날씨는 {condition}, 기온은 {temperature}도야."]
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.PHOTO.value:
         return ["사진을 찍었어."]
+    if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:
+        return ["게임 모드로 들어갈게."]
     if event.topic == topics.TASK_FAILED:
         return [event.payload.get("message") or "작업을 완료하지 못했어."]
     return []
@@ -92,12 +116,28 @@ def _sfx_names(result: ReductionResult, event: Event) -> list[str]:
     names: list[str] = []
     if result.triggered_oneshot is not None:
         names.append(result.triggered_oneshot.name.value)
-    if event.topic == topics.TIMER_EXPIRED:
+    if event.topic == topics.TOUCH_TAP_DETECTED:
+        names.append("tap")
+    elif event.topic == topics.TOUCH_STROKE_DETECTED:
+        names.append("happy")
+    elif event.topic == topics.VISION_GESTURE_DETECTED:
+        gesture = event.payload.get("gesture")
+        if gesture == "wave":
+            names.append("welcome")
+        elif gesture == "finger_gun":
+            names.append("startled")
+        elif gesture == "peekaboo":
+            names.append("happy")
+        elif gesture in {"head_left", "head_right"}:
+            names.append("game_move")
+    elif event.topic == topics.TIMER_EXPIRED:
         names.append("alert")
     elif event.topic == topics.SMARTHOME_RESULT:
         names.append("success" if event.payload.get("ok") else "error")
     elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.PHOTO.value:
         names.append("shutter")
+    elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:
+        names.append("success")
     elif event.topic == topics.TASK_FAILED:
         names.append("error")
     return names

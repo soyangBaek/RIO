@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import yaml
 
+from src.app.core.config import resolve_repo_path
 from src.app.core.state.models import ActivityState, ContextState, ExtendedState
 
 
@@ -30,7 +31,7 @@ class PresenceFacts:
 
 def load_presence_thresholds(path: str = "configs/thresholds.yaml") -> PresenceThresholds:
     try:
-        with open(path, "r", encoding="utf-8") as fh:
+        with resolve_repo_path(path).open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
     except FileNotFoundError:
         data = {}
