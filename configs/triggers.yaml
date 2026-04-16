@@ -1,13 +1,56 @@
-# Intent aliases
-intents:
-  dance.start: []
-  camera.capture: []
-  ui.game_mode.enter: []
-  timer.create: []
-  weather.current: []
-  smarthome.aircon.on: []
-  smarthome.light.on: []
-  smarthome.robot_cleaner.start: []
-  smarthome.tv.on: []
-  smarthome.music.play: []
+# Canonical intent alias table.
+#
+# ``app.domains.speech.aliases_from_triggers_yaml`` accepts either a bare
+# list of aliases or ``{aliases: [...], patterns: [...]}``. Patterns are
+# reserved for future slot extraction; today only aliases are consumed.
+# Keep the lists concise — the fuzzy matcher handles polite-suffix variants.
 
+intents:
+  camera.capture:
+    aliases:
+      - 사진 찍어줘
+      - 사진 찍어
+      - 찍어줘
+      - 사진
+      - photo
+      - take a photo
+
+  timer.create:
+    aliases:
+      - 타이머
+      - 알림
+      - 알려줘
+      - set a timer
+
+  weather.current:
+    aliases:
+      - 날씨 알려줘
+      - 오늘 날씨
+      - 날씨
+      - what's the weather
+
+  smarthome.aircon.on:
+    aliases: [에어컨 켜줘, 에어컨 켜, 냉방 켜줘]
+  smarthome.aircon.off:
+    aliases: [에어컨 꺼줘, 에어컨 꺼, 냉방 꺼줘]
+  smarthome.light.on:
+    aliases: [불 켜줘, 불 켜, 조명 켜줘]
+  smarthome.light.off:
+    aliases: [불 꺼줘, 불 꺼, 조명 꺼줘]
+  smarthome.robot_cleaner.start:
+    aliases: [청소기 시작, 청소기 돌려, 청소해줘]
+  smarthome.tv.on:
+    aliases: [TV 켜줘, 티비 켜줘, 티비 켜]
+  smarthome.music.play:
+    aliases: [음악 틀어줘, 음악 재생, 노래 틀어줘]
+
+  dance.start:
+    aliases: [춤춰, 춤춰봐, 댄스, 댄스 시작, emo dance, rio dance]
+
+  ui.game_mode.enter:
+    aliases: [게임 모드, 게임 시작, 게임 켜줘]
+
+  system.cancel:
+    aliases: [취소, 그만, 됐어, stop, cancel]
+  system.ack:
+    aliases: [응, 알았어, 오케이, 네, 확인]

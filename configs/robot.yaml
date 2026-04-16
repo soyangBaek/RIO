@@ -1,11 +1,36 @@
-# RIO hardware baseline
+# RIO hardware baseline.
+# Defaults target a Raspberry Pi 4 with a 7" touchscreen, USB webcam, and
+# a 3.5mm / HDMI speaker. Override via a per-host file when the deployment
+# differs (e.g., a 10" panel or a USB mic array).
+
 display:
-  width: 0
-  height: 0
+  width: 800            # pixels
+  height: 480           # pixels
+  fps: 30
+
 touchscreen:
   enabled: true
+  device: null          # autodetect via /proc/bus/input/devices
+
 webcam:
-  device_index: 0
+  device_index: 0       # /dev/video0
+  frame_width: 640
+  frame_height: 480
+  fps: 15
+
 audio:
-  input_device: default
+  input_device: default # sounddevice index or string
   output_device: default
+  sample_rate_hz: 16000
+  tts_voice: null       # fall back to platform default
+  tts_rate: 180
+
+stt:
+  engine: faster_whisper
+  model_size: tiny.en   # pinned per T-038
+  language: null        # null = auto (slower); set to "ko" for Korean
+  device: cpu
+  compute_type: int8
+
+photo_storage:
+  base_dir: ~/rio/captures

@@ -1,5 +1,20 @@
-# Smart-home device mapping
-home_client:
-  base_url: "http://127.0.0.1"
-devices: {}
+# Smart-home device mapping.
+#
+# ``home_client`` is the local bridge RIO speaks to. Point the URL at the
+# deployed instance on the local network. The ``devices`` map substitutes
+# Korean labels used inside the natural-language command sent to the bridge
+# (``에어컨`` → ``거실 에어컨`` etc.). Unset keys fall back to the generic
+# labels in ``app.domains.smart_home.payloads``.
 
+home_client:
+  base_url: "http://127.0.0.1:8080"
+  endpoint: "/device/control"
+  timeout_ms: 3000
+  retry_count: 1
+
+devices:
+  aircon: 에어컨
+  light: 불
+  robot_cleaner: 청소기
+  tv: TV
+  music: 음악
