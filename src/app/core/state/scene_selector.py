@@ -62,7 +62,7 @@ def _derive_mood(
 
     # 5. Idle → Context 기반
     if context == ContextState.AWAY:
-        return Mood.INACTIVE
+        return Mood.SLEEPY
     if context == ContextState.IDLE:
         return Mood.CALM
     if context == ContextState.ENGAGED:

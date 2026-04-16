@@ -25,7 +25,6 @@ _MOOD_EXPRESSION = {
     Mood.ATTENTIVE: "attentive",
     Mood.CALM: "neutral",
     Mood.SLEEPY: "sleepy",
-    Mood.INACTIVE: "inactive",
 }
 
 # UILayout → overlay 매핑

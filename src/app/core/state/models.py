@@ -52,7 +52,6 @@ class Mood(Enum):
     ATTENTIVE = "attentive"
     CALM = "calm"
     SLEEPY = "sleepy"
-    INACTIVE = "inactive"
 
 
 # ── UI 레이아웃 (Scene Selector 출력) ───────────────────────

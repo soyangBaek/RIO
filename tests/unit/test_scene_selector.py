@@ -18,7 +18,7 @@ from src.app.core.state.store import ActiveOneshot
 class TestSceneSelector(unittest.TestCase):
     def test_away_idle_dim(self):
         mood, ui = derive_scene(ContextState.AWAY, ActivityState.IDLE, None)
-        self.assertEqual(mood, Mood.INACTIVE)
+        self.assertEqual(mood, Mood.SLEEPY)
         self.assertEqual(ui, UILayout.NORMAL_FACE_DIM)
 
     def test_idle_idle_calm(self):

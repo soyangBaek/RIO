@@ -40,7 +40,7 @@ ACTIVITY_COLORS = {
 MOOD_COLORS = {
     "alert": "#f38ba8", "startled": "#f38ba8", "happy": "#a6e3a1", "welcome": "#a6e3a1",
     "confused": "#f9e2af", "attentive": "#89b4fa", "calm": "#89dceb",
-    "sleepy": "#6c7086", "inactive": "#6c7086",
+    "sleepy": "#6c7086",
 }
 UI_COLORS = {
     "NormalFace": "#89dceb", "NormalFace(dim)": "#6c7086", "ListeningUI": "#89b4fa",

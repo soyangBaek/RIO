@@ -68,9 +68,9 @@ scenes:
     expression: "attentive"
     mood: "attentive"
 
-  inactive_dim:
-    expression: "inactive"
-    mood: "inactive"
+  sleepy_dim:
+    expression: "sleepy"
+    mood: "sleepy"
     dim: true
 
   listening:

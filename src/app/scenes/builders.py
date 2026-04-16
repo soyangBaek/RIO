@@ -50,8 +50,8 @@ class SceneBuilder:
             return "attentive_face"
         if mood == Mood.CALM:
             return "calm_face"
-        if mood == Mood.INACTIVE:
-            return "inactive_dim"
+        if mood == Mood.SLEEPY and ui == UILayout.NORMAL_FACE_DIM:
+            return "sleepy_dim"
 
         return "calm_face"
 

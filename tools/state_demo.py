@@ -85,7 +85,7 @@ def color_mood(mood: Mood) -> str:
     colors = {
         "alert": C.RED, "startled": C.RED, "happy": C.GREEN, "welcome": C.GREEN,
         "confused": C.YELLOW, "attentive": C.BLUE, "calm": C.CYAN,
-        "sleepy": C.DIM, "inactive": C.DIM,
+        "sleepy": C.DIM,
     }
     c = colors.get(mood.value, C.RESET)
     return f"{c}{mood.value}{C.RESET}"
