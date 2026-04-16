@@ -62,11 +62,15 @@ flowchart LR
 
 ### 2.1 프로세스 구성
 
-RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다.
+RIO는 아키텍처 목표로 아래 3구성 요소를 기준으로 합니다.
 
 1. `Main Orchestrator`
 2. `Audio Worker`
 3. `Vision Worker`
+
+다만 현재 저장소의 기본 런타임(`RioOrchestrator`, `scripts/live_interaction_test.py`)은
+`AudioWorker`, `VisionWorker`, `TouchWorker`를 동일 프로세스 안에서 polling하는 형태입니다.
+이벤트 버스와 워커 경계를 먼저 유지해 두고, 추후 필요할 때 실제 프로세스 분리로 확장할 수 있게 설계되어 있습니다.
 
 이 구조를 고정하는 이유:
 
@@ -89,7 +93,7 @@ RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다
   - 제스처 인식
   - 재등장 감지
 - `Main Orchestrator` (내부 모듈로 실행)
-  - Touchscreen input adapter
+  - Touchscreen input adapter / `TouchWorker` in-process polling
   - Timer scheduler
   - Service adapters (`home_client`, `weather`, `camera`) 요청 및 응답 처리
   - Display adapter, Speaker adapter
@@ -112,6 +116,9 @@ RIO는 초기 구현에서 아래 3프로세스 구조를 기준으로 합니다
 
 - 프로세스 간: `queue 기반 이벤트 전달`
 - 메인 프로세스 내부: `event router + extended state update + reducers + effect planner`
+
+현재 기본 런타임에서는 이 큐를 동일 프로세스 안에서 drain하며,
+`QueueBus` 자체는 multiprocessing queue를 사용해 향후 분리를 염두에 둔 형태를 유지합니다.
 
 문서 기준에서는 MQTT, ZeroMQ, 웹소켓 같은 외부 브로커를 기본값으로 두지 않습니다.
 초기 구현은 내부 큐 기반으로 충분합니다.

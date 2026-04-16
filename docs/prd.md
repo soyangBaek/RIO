@@ -96,6 +96,8 @@
 
 이렇게 나누는 이유는, 현재 문서는 실제 구현에 바로 쓰이기 위한 문서이므로
 초기 릴리즈 범위와 후속 확장 범위를 명확히 분리해야 하기 때문입니다.
+아래 항목은 feature-complete 기준으로는 여전히 Phase 2 범위이며,
+현재 저장소에는 일부 반응형 프로토타입이 선반영될 수 있습니다.
 
 ## 6. 명령 체계
 
@@ -112,7 +114,10 @@
 | `timer.create` | "~분 있다 알려줘" | 타이머 생성 |
 | `weather.current` | "날씨 알려줘" | 날씨 조회 후 응답 |
 | `smarthome.aircon.on` | "에어컨 켜줘" | home-client 제어 요청 |
+| `smarthome.aircon.off` | "에어컨 꺼줘" | home-client 제어 요청 |
+| `smarthome.aircon.set_temperature` | "온도 28도로 맞춰줘" | home-client 제어 요청 |
 | `smarthome.light.on` | "불 켜줘" | home-client 제어 요청 |
+| `smarthome.light.off` | "불 꺼줘" | home-client 제어 요청 |
 | `smarthome.robot_cleaner.start` | "로봇 청소기 실행시켜줘" | home-client 제어 요청 |
 | `smarthome.tv.on` | "티비 켜줘" | home-client 제어 요청 |
 | `smarthome.music.play` | "음악 틀어줘" | home-client 제어 요청 |
@@ -160,7 +165,8 @@
 | V자 손동작 | 사진 촬영 트리거 |
 
 위 표의 기능 중 `얼굴 검출`, `얼굴 중심 이동`, `장기 미검출`, `재등장`은 MVP 기준입니다.
-제스처 중심 기능은 Phase 2 범위로 구현합니다.
+제스처 중심 기능은 feature-complete 기준으로는 Phase 2 범위이며,
+현재 저장소에는 `V자 손동작`과 일부 반응형 gesture가 프로토타입 수준으로 선반영될 수 있습니다.
 
 ### 7.4 Touchscreen / Logic Input
 
@@ -177,19 +183,23 @@ RIO는 스마트홈 제어를 직접 벤더 SDK에 붙이지 않고, 우선 `로
 ### 8.1 통신 계약
 
 - Method: `PUT`
-- Endpoint: `http://[HOME_CLIENT_IP]/device/control`
+- Endpoint: 기본 `http://[HOME_CLIENT_IP]/device/control`
+  - 실제 구현에서는 `configs/devices.yaml`의 `base_url + control_path` 또는 `control_url`로 구성
 - Body:
 
 ```json
 {
-  "content": "에어컨 켜줘"
+  "content": "aircon.living_room:on"
 }
 ```
 
 ### 8.2 원칙
 
 - 음성 명령은 먼저 intent로 정규화합니다.
-- intent는 최종적으로 사람이 읽을 수 있는 control message 또는 구조화된 payload로 변환됩니다.
+- MVP 현재 구현에서는 intent를 canonical control message string으로 변환해 `content`에 담아 전송합니다.
+  - 예: `aircon.living_room:on`
+  - 예: `aircon.living_room:set_temperature:28`
+  - 예: `light.main:off`
 - 실패하더라도 RIO는 표정과 사운드로 결과를 반드시 피드백합니다.
 
 ## 9. UI 구조

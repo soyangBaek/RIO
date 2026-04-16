@@ -54,12 +54,15 @@
 | `VOICE-08` | `timer.create` 시간 파싱 실패 | `Activity: Executing(timer_setup) -> Idle`, `oneshot=confused` | 파싱 실패 피드백 후 복귀 |
 | `VOICE-09` | `weather.current` | `Activity: Listening -> Executing(weather)` | 날씨 조회, HUD, 아이콘, TTS 브리핑 |
 | `VOICE-10` | `smarthome.aircon.on` | `Activity: Listening -> Executing(smarthome)` | 에어컨 제어 요청과 결과 피드백 |
-| `VOICE-11` | `smarthome.light.on` | `Activity: Listening -> Executing(smarthome)` | 조명 제어 요청과 결과 피드백 |
-| `VOICE-12` | `smarthome.robot_cleaner.start` | `Activity: Listening -> Executing(smarthome)` | 로봇청소기 제어 요청과 결과 피드백 |
-| `VOICE-13` | `smarthome.tv.on` | `Activity: Listening -> Executing(smarthome)` | TV 제어 요청과 결과 피드백 |
-| `VOICE-14` | `smarthome.music.play` | `Activity: Listening -> Executing(smarthome)` | 음악 재생 요청과 결과 피드백 |
-| `VOICE-15` | `system.cancel` (Listening 중) | `Activity: Listening -> Idle` | 현재 듣기 취소, 조용한 복귀 |
-| `VOICE-16` | `system.ack` (Alerting 중) | `Activity: Alerting -> Idle` | 알림 확인 피드백 후 복귀 (§2.4 `POL-06`과 연계) |
+| `VOICE-11` | `smarthome.aircon.off` | `Activity: Listening -> Executing(smarthome)` | 에어컨 종료 요청과 결과 피드백 |
+| `VOICE-12` | `smarthome.aircon.set_temperature` | `Activity: Listening -> Executing(smarthome)` | 온도 설정 요청과 결과 피드백 |
+| `VOICE-13` | `smarthome.light.on` | `Activity: Listening -> Executing(smarthome)` | 조명 제어 요청과 결과 피드백 |
+| `VOICE-14` | `smarthome.light.off` | `Activity: Listening -> Executing(smarthome)` | 조명 종료 요청과 결과 피드백 |
+| `VOICE-15` | `smarthome.robot_cleaner.start` | `Activity: Listening -> Executing(smarthome)` | 로봇청소기 제어 요청과 결과 피드백 |
+| `VOICE-16` | `smarthome.tv.on` | `Activity: Listening -> Executing(smarthome)` | TV 제어 요청과 결과 피드백 |
+| `VOICE-17` | `smarthome.music.play` | `Activity: Listening -> Executing(smarthome)` | 음악 재생 요청과 결과 피드백 |
+| `VOICE-18` | `system.cancel` (Listening 중) | `Activity: Listening -> Idle` | 현재 듣기 취소, 조용한 복귀 |
+| `VOICE-19` | `system.ack` (Alerting 중) | `Activity: Alerting -> Idle` | 알림 확인 피드백 후 복귀 (§2.4 `POL-06`과 연계) |
 
 ### 2.3 상호작용 / 연출
 
@@ -134,12 +137,15 @@ state-machine.md §6.4 override 규칙을 검증합니다.
 
 ### 3.1 제스처 기반 놀이 / 고급 상호작용
 
+아래 항목은 feature-complete 기준의 Phase 2 목표입니다.
+현재 저장소에는 `wave`, `finger_gun`, `peekaboo`, `head_left/right`, `v_sign`에 대한 프로토타입 반응 경로가 일부 선반영되어 있습니다.
+
 | ID | 입력 | 상태 / 처리 | 기대 동작 |
 |---|---|---|---|
 | `P2-01` | 손 흔들기 | gesture 인식 | slow blink 또는 인사 반응 |
-| `P2-02` | 손가락 총 모양 | gesture 인식 | 쓰러짐 모션 |
-| `P2-03` | 고개 좌/우 방향 | head direction 인식 | 참참참 승패 판정 |
-| `P2-04` | 얼굴 가림 후 재등장 | 패턴 인식 | 숨바꼭질 반응 |
+| `P2-02` | 손가락 총 모양 | gesture 인식 | 현재는 `빵야!`/놀람 반응, 최종 목표는 쓰러짐 연출 |
+| `P2-03` | 고개 좌/우 방향 | head direction 인식 | 현재는 방향 피드백, 최종 목표는 참참참 승패 판정 |
+| `P2-04` | 얼굴 가림 후 재등장 | 패턴 인식 | 현재는 `peekaboo`/반김 반응, 최종 목표는 숨바꼭질 반응 |
 | `P2-05` | V자 손동작 | gesture → `camera.capture` intent 합류 | 음성 없이 `Executing(photo)` 진입, MVP 촬영 시퀀스 재사용 |
 
 ## 4. 시나리오별 핵심 출력 규칙

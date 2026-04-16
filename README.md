@@ -39,6 +39,7 @@ RIO는 Raspberry Pi 위에서 동작하는 `desktop pet + smart-home hub` 프로
 ## 문서 목록
 
 - [PRD / 기준 문서](./docs/prd.md)
+- [Current Behaviors](./docs/current-behaviors.md)
 - [Architecture](./docs/architecture.md)
 - [State Machine](./docs/state-machine.md)
 - [Scenario Catalog](./docs/scenarios.md)
@@ -46,5 +47,5 @@ RIO는 Raspberry Pi 위에서 동작하는 `desktop pet + smart-home hub` 프로
 
 ## 현재 상태
 
-현재는 구현 전에 구조를 맞추는 단계입니다.
-코드보다 먼저 `무엇을 어떤 순서로 만들지`, `상태를 어떻게 나눌지`, `센서와 액션을 어떤 계약으로 연결할지`를 문서로 고정해두었습니다.
+기본 구조와 입력/반응 플로우는 구현되어 있으며, `scripts/live_interaction_test.py`로 현재 동작을 직접 검증할 수 있습니다.
+실행 가능한 입력과 현재 반응은 [docs/current-behaviors.md](./docs/current-behaviors.md)에 정리되어 있습니다.

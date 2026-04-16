@@ -10,11 +10,13 @@ RIO/
 ├── README.md
 ├── docs/
 │   ├── prd.md
+│   ├── current-behaviors.md
 │   ├── architecture.md
 │   ├── state-machine.md
 │   ├── scenarios.md
 │   └── project-layout.md
 ├── configs/
+│   ├── README.md
 │   ├── robot.yaml
 │   ├── thresholds.yaml
 │   ├── triggers.yaml
@@ -32,7 +34,8 @@ RIO/
 │       │   ├── bus/
 │       │   ├── state/
 │       │   ├── scheduler/
-│       │   └── safety/
+│       │   ├── safety/
+│       │   └── config.py
 │       ├── workers/
 │       ├── adapters/
 │       │   ├── audio/
@@ -54,6 +57,10 @@ RIO/
 │       │   └── timers/
 │       ├── scenes/
 │       └── main.py
+├── scripts/
+│   ├── demo_reactions.py
+│   ├── live_interaction_test.py
+│   └── live_vision_state_test.py
 └── tests/
     ├── unit/
     ├── integration/
@@ -263,7 +270,9 @@ RIO의 공통 기반 계층입니다.
 
 ## 6. `src/app/workers/`
 
-별도 프로세스로 실행되는 워커 진입점입니다.
+런타임에서 입력을 polling하는 워커 구성요소입니다.
+현재 저장소의 기본 런너(`RioOrchestrator`, `scripts/live_interaction_test.py`)는 이 워커들을 메인 오케스트레이터 안에서 직접 호출하며,
+필요 시 프로세스 경계로 확장할 수 있도록 책임 단위만 먼저 분리해두었습니다.
 
 - `audio_worker.py`
   - 마이크 캡처
@@ -276,16 +285,23 @@ RIO의 공통 기반 계층입니다.
   - 얼굴 검출 / 이동 추적
   - gesture 추론
   - `vision.*` 이벤트 발행
+- `touch_worker.py`
+  - 터치 입력 샘플 수집
+  - 탭/스트로크 변환
+  - `touch.*` 이벤트와 heartbeat 발행
 
 ## 6.1 `src/app/main.py`
 
 메인 오케스트레이터 진입점입니다.
 
 - `core/bus` 초기화
-- worker 프로세스 시작과 종료 관리
+- worker 객체 초기화와 polling
 - 이벤트 루프 실행
 - `extended state -> reducers -> oneshot -> scene selector -> effect planner -> executor registry` 순서 연결
 - degraded mode와 종료 시 cleanup 수행
+
+추가로 현재 저장소에는 `core/config.py`가 있어,
+문서/스크립트/테스트 어디에서 실행하더라도 repo-relative 경로로 설정 파일과 데이터 경로를 찾을 수 있게 해줍니다.
 
 ## 7. `src/app/adapters/`
 
@@ -297,11 +313,13 @@ RIO의 공통 기반 계층입니다.
 - VAD
 - STT adapter
 - intent normalization helper
+- live 테스트용 터미널 transcript 입력
 - 권장 초기 파일:
   - `capture.py`
   - `vad.py`
   - `stt.py`
   - `intent_normalizer.py`
+  - `terminal_input.py`
 
 ### `speaker/`
 
@@ -317,11 +335,13 @@ RIO의 공통 기반 계층입니다.
 - 카메라 프레임 수신
 - OpenCV / MediaPipe 처리
 - 얼굴/손동작 이벤트 생성
+- 얼굴 재등장 / 고개 방향 같은 상호작용 이벤트 추적
 - 권장 초기 파일:
   - `camera_stream.py`
   - `face_detector.py`
   - `face_tracker.py`
   - `gesture_detector.py`
+  - `interaction_tracker.py`
 
 ### `touch/`
 
@@ -404,7 +424,8 @@ RIO 화면 렌더러의 핵심입니다.
 
 ### `gesture/`
 
-- 현재는 Phase 2 중심 도메인입니다.
+- Phase 2에서 확장된 제스처 중심 도메인이지만,
+  현재 저장소에도 `wave`, `finger_gun`, `peekaboo`, `head_left/right`, `v_sign` 같은 반응형/실행형 프로토타입이 일부 선반영되어 있습니다.
 - 손총, V자, 손 흔들기, 고개 방향 규칙을 정의합니다.
 - 권장 초기 파일:
   - `catalog.py`
@@ -441,8 +462,8 @@ RIO 화면 렌더러의 핵심입니다.
 ### `games/`
 
 - 게임 모드 진입과 게임 콘텐츠 실행
-- MVP에서는 게임 모드 UI 전환을 먼저 구현하고,
-  실제 게임 로직은 이후 확장합니다.
+- 현재는 게임 모드 UI 전환과 방향 피드백 중심이며,
+  실제 게임 콘텐츠/판정 로직은 이후 확장합니다.
 - 권장 초기 파일:
   - `service.py`
 
@@ -505,7 +526,11 @@ RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 
 - 마이크 없이 transcript event 주입
 - 긴 시나리오 재생
 
-## 11. 구현 시작 순서
+## 11. 초기 구현 순서 (기록)
+
+아래 순서는 저장소를 처음 세울 때의 권장 부트스트랩 순서입니다.
+현재 저장소는 이 단계를 지난 상태이므로, 새 기능을 붙일 때는 이 순서를 그대로 따르기보다
+현재 파일 책임과 테스트 경계를 기준으로 수정 범위를 잡는 편이 맞습니다.
 
 1. `core/events`, `core/bus`, `core/state`
 2. `workers/audio_worker.py`, `workers/vision_worker.py`

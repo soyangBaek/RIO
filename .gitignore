@@ -98,4 +98,6 @@ secrets.yml
 /output/
 /outputs/
 /data/
+/scripts/data/
+/tasks/
 *.bak
