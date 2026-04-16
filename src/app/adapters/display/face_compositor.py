@@ -29,6 +29,14 @@ COLOR_TONGUE = (162, 178, 106)      # #A2B26A
 COLOR_HIGHLIGHT = (255, 255, 255)
 COLOR_BLUSH = (255, 200, 216)
 
+# ── Mood alias ───────────────────────────────────────────────
+# 같은 표정 파일을 공유하는 mood들. 밝기(opacity)는 caller가 제어.
+# 예) inactive == sleepy 표정 + dim overlay (Away+Idle에서 사용)
+_MOOD_ALIASES = {
+    "inactive": "sleepy",
+}
+
+
 # ── Figma 비율 (코드 fallback용) ─────────────────────────────
 _EYE_CY = 0.376
 _EYE_LEFT_CX = 0.261
@@ -205,13 +213,15 @@ class FaceCompositor:
     # ── 상태 업데이트 ──────────────────────────────────────────
 
     def set_mood(self, mood: str) -> None:
+        # alias 해석: inactive → sleepy (표정은 같고 밝기만 다름, opacity는 caller 제어)
+        resolved = _MOOD_ALIASES.get(mood, mood)
         old = self._mood
-        self._mood = mood
+        self._mood = resolved
         # oneshot 전환 감지
-        if old != mood and old in self._images and mood in self._images:
+        if old != resolved and old in self._images and resolved in self._images:
             self._transition = _OneshotTransition(
                 from_mood=old,
-                to_mood=mood,
+                to_mood=resolved,
                 started_at=time.monotonic(),
                 duration=0.35,
             )

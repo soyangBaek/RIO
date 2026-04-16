@@ -37,7 +37,7 @@ MOODS_PRIMARY = [
     (pygame.K_6, "confused", "혼란 oneshot"),
     (pygame.K_7, "sleepy", "졸림"),
     (pygame.K_8, "alert", "경고/알림"),
-    (pygame.K_9, "sleepy", "졸림/Away dim"),
+    (pygame.K_9, "inactive", "Away dim (sleepy + dim)"),
 ]
 
 MOODS_SECONDARY = [
@@ -77,7 +77,7 @@ SCENARIOS = {
     pygame.K_F6: ("sleep → wake", lambda f: [
         ("calm", 0.0),
         ("sleepy", 1.0),
-        ("sleepy", 3.0),         # 완전 수면 (dim)
+        ("inactive", 3.0),       # 완전 수면 (sleepy + dim)
         ("welcome", 6.0),        # 재등장
         ("calm", 7.5),           # 복귀
     ]),
@@ -150,6 +150,10 @@ class FaceDemo:
         if current_step_mood != self.current_mood:
             self.current_mood = current_step_mood
             self.face.set_mood(current_step_mood)
+            # inactive 단계에서는 자동 dim
+            auto_dim = (current_step_mood == "inactive")
+            self.dim = auto_dim
+            self.face.set_opacity(0.3 if auto_dim else 1.0)
 
         # 시나리오 종료 확인
         last_t = self.scenario_steps[-1][1]
@@ -233,6 +237,10 @@ class FaceDemo:
                                 self.scenario_active = False
                                 self.current_mood = mood
                                 self.face.set_mood(mood)
+                                # inactive는 dim을 자동 적용 (sleepy 표정 + 어두움)
+                                auto_dim = (mood == "inactive")
+                                self.dim = auto_dim
+                                self.face.set_opacity(0.3 if auto_dim else 1.0)
                                 break
 
             # 시나리오 업데이트
