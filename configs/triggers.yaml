@@ -7,6 +7,7 @@ intents:
     - "춤춰"
     - "댄스 모드"
   camera.capture:
+    - "사진"
     - "사진 찍어줘"
     - "사진 찍자"
     - "take a photo"

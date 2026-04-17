@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 import yaml
 
@@ -41,7 +42,6 @@ from src.app.domains.behavior.executor_registry import ExecutionRequest, Executi
 from src.app.domains.behavior.interrupts import InterruptAction, evaluate_interrupt
 from src.app.domains.games.service import GamesService
 from src.app.domains.gesture.mapper import map_gesture_event
-from src.app.domains.photo.service import PhotoService
 from src.app.domains.smart_home.service import SmartHomeService
 from src.app.domains.timers.service import TimerService
 from src.app.workers.audio_worker import AudioWorker
@@ -89,6 +89,80 @@ def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequ
 
 
 DANCE_DURATION_SECONDS = 10.0
+PHOTO_COUNTDOWN_SECONDS = 3.0
+
+
+def _photo_execution_handler_factory(
+    orchestrator: "RioOrchestrator",
+) -> Callable[[ExecutionRequest], ExecutionResult]:
+    countdown_list = list(range(int(PHOTO_COUNTDOWN_SECONDS), 0, -1))
+
+    def handler(request: ExecutionRequest) -> ExecutionResult:
+        existing = orchestrator._photo_timer
+        if existing is not None and existing.is_alive():
+            return ExecutionResult(events=[])
+
+        task_id = str(request.payload.get("task_id") or request.trace_id or uuid4().hex)
+        trace_id = request.trace_id
+        now = datetime.now(timezone.utc)
+        orchestrator.photo_countdown_end_at = now + timedelta(seconds=PHOTO_COUNTDOWN_SECONDS)
+
+        started = Event.create(
+            topics.TASK_STARTED,
+            "photo.handler",
+            payload={
+                "task_id": task_id,
+                "kind": ActionKind.PHOTO.value,
+                "countdown": list(countdown_list),
+            },
+            trace_id=trace_id,
+            timestamp=now,
+        )
+
+        def finish() -> None:
+            photo_path: str | None = None
+            error_message: str | None = None
+            try:
+                if orchestrator.webcam_capture is not None:
+                    photo_path = orchestrator.webcam_capture.capture(trace_id=trace_id)
+            except Exception as exc:
+                error_message = str(exc)
+
+            orchestrator.photo_countdown_end_at = None
+            if error_message is not None or photo_path is None:
+                failed = Event.create(
+                    topics.TASK_FAILED,
+                    "photo.handler",
+                    payload={
+                        "task_id": task_id,
+                        "kind": ActionKind.PHOTO.value,
+                        "message": error_message or "photo capture unavailable",
+                    },
+                    trace_id=trace_id,
+                )
+                orchestrator.bus.publish(failed)
+                return
+
+            succeeded = Event.create(
+                topics.TASK_SUCCEEDED,
+                "photo.handler",
+                payload={
+                    "task_id": task_id,
+                    "kind": ActionKind.PHOTO.value,
+                    "photo_path": photo_path,
+                    "countdown": list(countdown_list),
+                },
+                trace_id=trace_id,
+            )
+            orchestrator.bus.publish(succeeded)
+
+        timer = threading.Timer(PHOTO_COUNTDOWN_SECONDS, finish)
+        timer.daemon = True
+        timer.start()
+        orchestrator._photo_timer = timer
+        return ExecutionResult(events=[started])
+
+    return handler
 
 
 def _dance_execution_handler_factory(
@@ -145,7 +219,10 @@ class RioOrchestrator:
     touch_worker: TouchWorker | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
+    webcam_capture: "WebcamCapture | None" = None
+    photo_countdown_end_at: "datetime | None" = None
     _dance_timer: "threading.Timer | None" = None
+    _photo_timer: "threading.Timer | None" = None
 
     def __post_init__(self) -> None:
         self.reducer = ReducerPipeline(self.store)
@@ -196,7 +273,8 @@ class RioOrchestrator:
             retry_count=int((thresholds_cfg.get("task") or {}).get("http_retry_count", 1)),
         )
         photo_storage = PhotoStorage(root_dir=Path(str((robot_cfg.get("photo") or {}).get("storage_dir", "data/photos"))))
-        self.registry.register(ActionKind.PHOTO, PhotoService(WebcamCapture(photo_storage)))
+        self.webcam_capture = WebcamCapture(photo_storage)
+        self.registry.register(ActionKind.PHOTO, _photo_execution_handler_factory(self))
         self.registry.register(ActionKind.TIMER_SETUP, TimerService(self.scheduler))
         self.registry.register(ActionKind.SMARTHOME, SmartHomeService(home_client))
         self.registry.register(ActionKind.GAME, GamesService())

@@ -15,4 +15,4 @@ audio:
   input_device: "hw:2,0"
   output_device: "hw:0,0"
 photo:
-  storage_dir: "data/photos"
+  storage_dir: "/home/willtek/Pictures"

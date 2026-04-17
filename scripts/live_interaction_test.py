@@ -1168,6 +1168,7 @@ def draw_ui_overlay(
     now_s: float,
     gesture: str | None,
     asset_key: str | None = None,
+    photo_countdown_remaining: float | None = None,
 ) -> None:
     x1, y1, x2, y2 = face_rect
     accent = palette["accent"]
@@ -1240,6 +1241,24 @@ def draw_ui_overlay(
             cv2.line(image, (sx, sy), (sx + dx, sy), bracket_color, 4, cv2.LINE_AA)
             cv2.line(image, (sx, sy), (sx, sy + dy), bracket_color, 4, cv2.LINE_AA)
         cv2.circle(image, (x2 - 52, y1 + 52), 10, rgb(255, 96, 82), -1, cv2.LINE_AA)
+
+        if photo_countdown_remaining is not None and photo_countdown_remaining > 0:
+            count_number = max(1, int(math.ceil(photo_countdown_remaining)))
+            count_text = str(count_number)
+            cx = (x1 + x2) // 2
+            cy = (y1 + y2) // 2
+            pulse_scale = 1.0 + 0.25 * (photo_countdown_remaining - math.floor(photo_countdown_remaining))
+            font_scale = 9.0 * pulse_scale
+            thickness = 18
+            (text_w, text_h), _ = cv2.getTextSize(count_text, cv2.FONT_HERSHEY_DUPLEX, font_scale, thickness)
+            text_org = (cx - text_w // 2, cy + text_h // 2)
+            alpha_composite(
+                image,
+                lambda layer: cv2.circle(layer, (cx, cy), int(max(text_w, text_h) * 0.72), rgb(0, 0, 0), -1, cv2.LINE_AA),
+                alpha=0.42,
+            )
+            cv2.putText(image, count_text, text_org, cv2.FONT_HERSHEY_DUPLEX, font_scale, rgb(0, 0, 0), thickness + 6, cv2.LINE_AA)
+            cv2.putText(image, count_text, text_org, cv2.FONT_HERSHEY_DUPLEX, font_scale, rgb(255, 238, 178), thickness, cv2.LINE_AA)
 
     if ui == "GameUI" or overlay_key == "game_direction":
         arrow_color = mix_color(accent, rgb(184, 255, 168), 0.22)
@@ -1315,6 +1334,11 @@ def draw_robot_face(
     draw_rounded_rect(canvas, (x1, y1), (x2, y2), palette["panel_edge"], radius=48, thickness=4)
 
     asset_key = choose_face_asset_key(rio, render_frame)
+    countdown_remaining: float | None = None
+    if rio.photo_countdown_end_at is not None:
+        delta = (rio.photo_countdown_end_at - datetime.now(timezone.utc)).total_seconds()
+        if delta > 0:
+            countdown_remaining = delta
     if draw_face_asset_panel(
         canvas,
         rect=face_rect,
@@ -1332,6 +1356,7 @@ def draw_robot_face(
             now_s=now_s,
             gesture=last_gesture,
             asset_key=asset_key,
+            photo_countdown_remaining=countdown_remaining,
         )
 
         badge_text = details["current_action"]
@@ -1470,6 +1495,11 @@ def draw_robot_face(
         draw_heart(canvas, (x2 - 92, y1 + 122), 18, scale_color(palette["cheek"], 1.05))
         draw_heart(canvas, (x2 - 138, y1 + 98), 14, scale_color(palette["cheek"], 1.0))
 
+    countdown_remaining_v: float | None = None
+    if rio.photo_countdown_end_at is not None:
+        delta = (rio.photo_countdown_end_at - datetime.now(timezone.utc)).total_seconds()
+        if delta > 0:
+            countdown_remaining_v = delta
     draw_ui_overlay(
         canvas,
         face_rect=face_rect,
@@ -1479,6 +1509,7 @@ def draw_robot_face(
         overlay_name=render_frame.overlay.name,
         now_s=now_s,
         gesture=last_gesture,
+        photo_countdown_remaining=countdown_remaining_v,
     )
 
     badge_text = details["current_action"]
@@ -1829,6 +1860,10 @@ def main() -> int:
     preview_enabled = not args.no_preview
     service_mode = "real-http" if args.real_services else "mock"
 
+    latest_frame_holder: list[Any] = [None]
+    if rio.webcam_capture is not None:
+        rio.webcam_capture.frame_getter = lambda: latest_frame_holder[0]
+
     print_help()
     ensure_initial_frame(rio)
     print_snapshot(
@@ -1851,6 +1886,8 @@ def main() -> int:
                 gesture_detector,
                 had_face=had_face,
             )
+            if camera_frame is not None:
+                latest_frame_holder[0] = camera_frame
             if detected_gesture is not None:
                 last_gesture = detected_gesture
 

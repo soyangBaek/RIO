@@ -10,6 +10,7 @@ SFX_FILES: dict[str, str] = {
     "startled": "assets/sounds/shocked-emote.mp3",
     "welcome": "assets/sounds/pleased-emote.mp3",
     "dance": "assets/sounds/dance.mp3",
+    "shutter": "assets/sounds/camera_shutter.mp3",
 }
 
 

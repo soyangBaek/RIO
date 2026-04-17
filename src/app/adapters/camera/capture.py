@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Callable
 
 from src.app.adapters.camera.storage import PhotoStorage
 
@@ -15,10 +16,24 @@ _DUMMY_JPEG = base64.b64decode(
 @dataclass(slots=True)
 class WebcamCapture:
     storage: PhotoStorage
+    frame_getter: Callable[[], Any] | None = field(default=None)
 
     def capture(self, *, trace_id: str | None = None) -> str:
         del trace_id
         target = self.storage.next_photo_path()
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(_DUMMY_JPEG)
+
+        frame = self.frame_getter() if self.frame_getter is not None else None
+        encoded: bytes | None = None
+        if frame is not None:
+            try:
+                import cv2
+
+                ok, buf = cv2.imencode(".jpg", frame)
+                if ok:
+                    encoded = buf.tobytes()
+            except Exception:
+                encoded = None
+
+        target.write_bytes(encoded if encoded is not None else _DUMMY_JPEG)
         return str(target)
