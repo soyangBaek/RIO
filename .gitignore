@@ -99,5 +99,6 @@ secrets.yml
 /outputs/
 /data/
 /scripts/data/
+/scripts/voice_sandbox/recordings/
 /tasks/
 *.bak

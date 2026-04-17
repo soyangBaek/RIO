@@ -9,6 +9,13 @@ import yaml
 
 from src.app.adapters.audio.capture import AudioCapture
 from src.app.adapters.audio.intent_normalizer import IntentNormalizer
+from src.app.adapters.audio.live_voice_backend import (
+    ASRParams,
+    AudioParams,
+    BackendConfig,
+    LiveVoiceBackend,
+    VADParams,
+)
 from src.app.adapters.audio.stt import SpeechToTextAdapter
 from src.app.adapters.audio.vad import VoiceActivityDetector
 from src.app.adapters.camera.capture import WebcamCapture
@@ -54,6 +61,50 @@ def _load_yaml(path: str) -> dict[str, object]:
         return {}
     with file_path.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
+    """configs/voice.yaml 을 읽어 LiveVoiceBackend 를 구성. 파일 없거나 의존성
+    (sounddevice/silero/whisper) 임포트 실패 시 None 반환 — 본체는 stub 으로 계속 동작."""
+    cfg = _load_yaml("configs/voice.yaml")
+    if not cfg:
+        return None
+
+    audio = (cfg.get("audio") or {}) if isinstance(cfg, dict) else {}
+    vad = (cfg.get("vad") or {}) if isinstance(cfg, dict) else {}
+    asr = (cfg.get("asr") or {}) if isinstance(cfg, dict) else {}
+    concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
+
+    backend_cfg = BackendConfig(
+        audio=AudioParams(
+            device=audio.get("device"),
+            sample_rate=int(audio.get("sample_rate", 16000)),
+            channels=int(audio.get("channels", 1)),
+            blocksize=int(audio.get("blocksize", 512)),
+            dtype=str(audio.get("dtype", "float32")),
+            mic_gain_percent=audio.get("mic_gain_percent"),
+            gain_target_source=audio.get("gain_target_source"),
+        ),
+        vad=VADParams(
+            threshold=float(vad.get("threshold", 0.85)),
+            min_silence_duration_ms=int(vad.get("min_silence_duration_ms", 300)),
+            speech_pad_ms=int(vad.get("speech_pad_ms", 30)),
+            min_speech_ms=int(vad.get("min_speech_ms", 150)),
+            sample_rate=int(audio.get("sample_rate", 16000)),
+        ),
+        asr=ASRParams(
+            model=str(asr.get("model", "base")),
+            language=str(asr.get("language", "ko")),
+            beam_size=int(asr.get("beam_size", 1)),
+            compute_type=str(asr.get("compute_type", "int8")),
+            device=str(asr.get("device", "cpu")),
+            no_speech_threshold=float(asr.get("no_speech_threshold", 0.6)),
+            condition_on_previous_text=bool(asr.get("condition_on_previous_text", True)),
+            min_logprob=float(asr.get("min_logprob", -1.0)),
+        ),
+        drop_while_busy=bool(concurrency.get("drop_while_busy", True)),
+    )
+    return LiveVoiceBackend(capture=capture, config=backend_cfg)
 
 
 def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequest], ExecutionResult]:
@@ -122,6 +173,7 @@ class RioOrchestrator:
     audio_worker: AudioWorker | None = None
     vision_worker: VisionWorker | None = None
     touch_worker: TouchWorker | None = None
+    voice_backend: LiveVoiceBackend | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
 
@@ -130,13 +182,18 @@ class RioOrchestrator:
         capabilities = detect_capabilities()
         self.store.mutate(lambda state: setattr(state, "extended", set_capabilities(state.extended, capabilities)))
         if self.audio_worker is None:
+            # capture 를 공유해서 LiveVoiceBackend 가 이 큐에 cooked frame 을 주입하고
+            # AudioWorker 가 tick 마다 꺼내 기존 VAD/STT/Normalizer 로 이벤트 발행.
+            shared_capture = AudioCapture()
             self.audio_worker = AudioWorker(
                 bus=self.bus,
-                capture=AudioCapture(),
+                capture=shared_capture,
                 vad=VoiceActivityDetector(),
                 stt=SpeechToTextAdapter(),
                 normalizer=IntentNormalizer(),
             )
+            if self.voice_backend is None:
+                self.voice_backend = _build_voice_backend(shared_capture)
         if self.vision_worker is None:
             thresholds = _load_yaml("configs/thresholds.yaml")
             sample_hz = float((thresholds.get("presence") or {}).get("face_moved_sample_hz", 10))
@@ -298,3 +355,18 @@ class RioOrchestrator:
     def run_once(self, *, now: datetime | None = None) -> list[Event]:
         self.pump_workers(now=now)
         return self.drain_bus()
+
+    # ── context manager: voice backend 의 mic/VAD/Whisper 스레드 기동/정지 ───
+    def __enter__(self) -> "RioOrchestrator":
+        if self.voice_backend is not None:
+            self.voice_backend.start()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        # voice backend 를 먼저 중지 → capture.feed() 호출이 끝난 뒤 worker 가 잔여 frame 처리
+        if self.voice_backend is not None:
+            try:
+                self.voice_backend.stop()
+            except Exception:
+                pass
+            self.voice_backend = None
