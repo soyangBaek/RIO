@@ -48,6 +48,13 @@ def transition_activity(
     if current == ActivityState.EXECUTING:
         if event.topic in {topics.TASK_SUCCEEDED, topics.TASK_FAILED}:
             return ActivityState.IDLE, None
+        if event.topic == topics.VOICE_INTENT_DETECTED:
+            intent = event.payload.get("intent")
+            if intent in {"system.cancel", "system.ack"} and active_kind in {
+                ActionKind.DANCE,
+                ActionKind.GAME,
+            }:
+                return ActivityState.IDLE, None
         return current, active_kind
 
     return current, active_kind

@@ -138,6 +138,8 @@ def _sfx_names(result: ReductionResult, event: Event) -> list[str]:
         names.append("shutter")
     elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:
         names.append("success")
+    elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.TIMER_SETUP.value:
+        names.append("timer_registered")
     elif event.topic == topics.TASK_FAILED:
         names.append("error")
     return names

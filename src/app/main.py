@@ -90,6 +90,7 @@ def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequ
 
 DANCE_DURATION_SECONDS = 10.0
 PHOTO_COUNTDOWN_SECONDS = 3.0
+ALERT_AUTO_DISMISS_SECONDS = 15.0
 
 
 def _photo_execution_handler_factory(
@@ -223,6 +224,7 @@ class RioOrchestrator:
     photo_countdown_end_at: "datetime | None" = None
     _dance_timer: "threading.Timer | None" = None
     _photo_timer: "threading.Timer | None" = None
+    _alert_timeout_timer: "threading.Timer | None" = None
 
     def __post_init__(self) -> None:
         self.reducer = ReducerPipeline(self.store)
@@ -354,6 +356,14 @@ class RioOrchestrator:
             for produced_event in execution.events:
                 produced.extend(self.process_event(produced_event))
 
+        if reduction.previous.activity_state != reduction.current.activity_state:
+            self._handle_alert_timeout(
+                reduction.previous.activity_state,
+                reduction.current.activity_state,
+                event.trace_id,
+            )
+            self._handle_long_action_cancel(reduction, event)
+
         if (
             reduction.previous.activity_state != reduction.current.activity_state
             and reduction.current.activity_state == ActivityState.IDLE
@@ -361,6 +371,52 @@ class RioOrchestrator:
             produced.extend(self._maybe_replay_deferred())
 
         return produced
+
+    def _handle_long_action_cancel(self, reduction, event: Event) -> None:
+        if event.topic != topics.VOICE_INTENT_DETECTED:
+            return
+        intent = event.payload.get("intent")
+        if intent not in {"system.cancel", "system.ack"}:
+            return
+        if reduction.current.activity_state != ActivityState.IDLE:
+            return
+        previous_kind = reduction.previous.extended.active_executing_kind
+        if previous_kind == ActionKind.DANCE:
+            self.sfx.stop("dance")
+            pending = self._dance_timer
+            if pending is not None and pending.is_alive():
+                pending.cancel()
+            self._dance_timer = None
+
+    def _handle_alert_timeout(
+        self,
+        previous: ActivityState,
+        current: ActivityState,
+        trace_id: str | None,
+    ) -> None:
+        if current == ActivityState.ALERTING and previous != ActivityState.ALERTING:
+            def _auto_dismiss() -> None:
+                self.bus.publish(
+                    Event.create(
+                        topics.SYSTEM_ALERT_TIMEOUT,
+                        "orchestrator.alert_timeout",
+                        payload={"reason": "auto_dismiss"},
+                        trace_id=trace_id,
+                    )
+                )
+
+            existing = self._alert_timeout_timer
+            if existing is not None and existing.is_alive():
+                existing.cancel()
+            timer = threading.Timer(ALERT_AUTO_DISMISS_SECONDS, _auto_dismiss)
+            timer.daemon = True
+            timer.start()
+            self._alert_timeout_timer = timer
+        elif previous == ActivityState.ALERTING and current != ActivityState.ALERTING:
+            existing = self._alert_timeout_timer
+            if existing is not None and existing.is_alive():
+                existing.cancel()
+            self._alert_timeout_timer = None
 
     def run_until_idle(self, *, max_cycles: int = 32, now: datetime | None = None) -> list[Event]:
         processed: list[Event] = []

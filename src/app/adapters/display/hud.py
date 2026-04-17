@@ -35,4 +35,12 @@ def build_hud_message(event: Event) -> str | None:
         return "Game mode ready"
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == "photo":
         return "Photo saved"
+    if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == "timer_setup":
+        delay = event.payload.get("delay_seconds")
+        if isinstance(delay, (int, float)) and delay > 0:
+            total = int(delay)
+            if total >= 60 and total % 60 == 0:
+                return f"Timer set: {total // 60} min"
+            return f"Timer set: {total}s"
+        return "Timer set"
     return None

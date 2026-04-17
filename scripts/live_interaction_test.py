@@ -1876,6 +1876,8 @@ def main() -> int:
 
     try:
         while True:
+            for due_event in rio.scheduler.poll_due():
+                rio.process_event(due_event)
             rio.drain_bus()
 
             had_face, detected_gesture, camera_frame, face_event = process_frame(
