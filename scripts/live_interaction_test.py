@@ -1558,7 +1558,7 @@ def draw_status_sidebar(
     inset_x2, inset_y2 = x2 - 22, y1 + 22 + 186
     draw_rounded_rect(canvas, (inset_x1, inset_y1), (inset_x2, inset_y2), rgb(18, 28, 42), radius=24)
     if hasattr(camera_frame, "shape"):
-        inset = camera_frame.copy()
+        inset = cv2.flip(camera_frame, 1)
         inset_h = inset_y2 - inset_y1
         inset_w = inset_x2 - inset_x1
         inset = cv2.resize(inset, (inset_w, inset_h))
