@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -87,24 +88,44 @@ def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequ
     return handler
 
 
-def _dance_execution_handler(request: ExecutionRequest) -> ExecutionResult:
-    started = Event.create(
-        topics.TASK_STARTED,
-        "dance.handler",
-        payload={"task_id": request.payload.get("task_id", request.trace_id or "dance"), "kind": ActionKind.DANCE.value},
-        trace_id=request.trace_id,
-    )
-    succeeded = Event.create(
-        topics.TASK_SUCCEEDED,
-        "dance.handler",
-        payload={
-            "task_id": request.payload.get("task_id", request.trace_id or "dance"),
-            "kind": ActionKind.DANCE.value,
-            "message": "Dance routine finished",
-        },
-        trace_id=request.trace_id,
-    )
-    return ExecutionResult(events=[started, succeeded])
+DANCE_DURATION_SECONDS = 10.0
+
+
+def _dance_execution_handler_factory(
+    orchestrator: "RioOrchestrator",
+) -> Callable[[ExecutionRequest], ExecutionResult]:
+    def handler(request: ExecutionRequest) -> ExecutionResult:
+        task_id = request.payload.get("task_id", request.trace_id or "dance")
+        trace_id = request.trace_id
+        started = Event.create(
+            topics.TASK_STARTED,
+            "dance.handler",
+            payload={"task_id": task_id, "kind": ActionKind.DANCE.value},
+            trace_id=trace_id,
+        )
+        orchestrator.sfx.play("dance")
+
+        def finish() -> None:
+            orchestrator.sfx.stop("dance")
+            succeeded = Event.create(
+                topics.TASK_SUCCEEDED,
+                "dance.handler",
+                payload={
+                    "task_id": task_id,
+                    "kind": ActionKind.DANCE.value,
+                    "message": "Dance routine finished",
+                },
+                trace_id=trace_id,
+            )
+            orchestrator.bus.publish(succeeded)
+
+        timer = threading.Timer(DANCE_DURATION_SECONDS, finish)
+        timer.daemon = True
+        timer.start()
+        orchestrator._dance_timer = timer
+        return ExecutionResult(events=[started])
+
+    return handler
 
 
 @dataclass(slots=True)
@@ -124,6 +145,7 @@ class RioOrchestrator:
     touch_worker: TouchWorker | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
+    _dance_timer: "threading.Timer | None" = None
 
     def __post_init__(self) -> None:
         self.reducer = ReducerPipeline(self.store)
@@ -178,7 +200,7 @@ class RioOrchestrator:
         self.registry.register(ActionKind.TIMER_SETUP, TimerService(self.scheduler))
         self.registry.register(ActionKind.SMARTHOME, SmartHomeService(home_client))
         self.registry.register(ActionKind.GAME, GamesService())
-        self.registry.register(ActionKind.DANCE, _dance_execution_handler)
+        self.registry.register(ActionKind.DANCE, _dance_execution_handler_factory(self))
         self.registry.register(ActionKind.WEATHER, _weather_execution_handler(weather_client))
 
     def publish(self, event: Event) -> None:

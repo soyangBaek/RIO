@@ -9,6 +9,7 @@ from src.app.core.config import resolve_repo_path
 SFX_FILES: dict[str, str] = {
     "startled": "assets/sounds/shocked-emote.mp3",
     "welcome": "assets/sounds/pleased-emote.mp3",
+    "dance": "assets/sounds/dance.mp3",
 }
 
 
@@ -19,6 +20,7 @@ class SFXPlayer:
     history: list[str] = field(default_factory=list)
     _initialized: bool = False
     _sounds: dict[str, object] = field(default_factory=dict)
+    _channels: dict[str, object] = field(default_factory=dict)
 
     def _ensure_mixer(self) -> bool:
         if self._initialized:
@@ -57,7 +59,18 @@ class SFXPlayer:
             sound = self._load(name)
             if sound is not None:
                 try:
-                    sound.play()
+                    channel = sound.play()
+                    if channel is not None:
+                        self._channels[name] = channel
                 except Exception:
                     pass
         return name
+
+    def stop(self, name: str) -> None:
+        channel = self._channels.pop(name, None)
+        if channel is None:
+            return
+        try:
+            channel.stop()
+        except Exception:
+            pass

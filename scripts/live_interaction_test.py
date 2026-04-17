@@ -1167,12 +1167,23 @@ def draw_ui_overlay(
     overlay_name: str | None,
     now_s: float,
     gesture: str | None,
+    asset_key: str | None = None,
 ) -> None:
     x1, y1, x2, y2 = face_rect
     accent = palette["accent"]
     panel_edge = palette["panel_edge"]
     overlay_key = Path(overlay_name).stem if overlay_name else ""
     pulse = 0.5 + 0.5 * math.sin(now_s * 4.2)
+
+    if asset_key == "dance_face":
+        dance_colors = (rgb(255, 60, 60), rgb(60, 200, 90), rgb(60, 120, 255))
+        phase_idx = int(now_s * 2.0) % len(dance_colors)
+        flash_color = dance_colors[phase_idx]
+        alpha_composite(
+            image,
+            lambda layer: cv2.rectangle(layer, (x1, y1), (x2, y2), flash_color, -1, cv2.LINE_AA),
+            alpha=0.20,
+        )
 
     if ui == "ListeningUI":
         alpha_composite(
@@ -1320,6 +1331,7 @@ def draw_robot_face(
             overlay_name=render_frame.overlay.name,
             now_s=now_s,
             gesture=last_gesture,
+            asset_key=asset_key,
         )
 
         badge_text = details["current_action"]
@@ -1829,6 +1841,8 @@ def main() -> int:
 
     try:
         while True:
+            rio.drain_bus()
+
             had_face, detected_gesture, camera_frame, face_event = process_frame(
                 rio,
                 stream,
