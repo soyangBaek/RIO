@@ -57,7 +57,7 @@ class PhotoSequenceIntegrationTest(unittest.TestCase):
         self.assertEqual(orchestrator.store.snapshot().activity_state, ActivityState.ALERTING)
         self.assertEqual(len(orchestrator.held_alerts), 0)
         self.assertIn("shutter", orchestrator.sfx.history)
-        self.assertTrue(any("사진" in text for text in orchestrator.tts.history))
+        self.assertTrue(any("Photo" in text for text in orchestrator.tts.history))
 
 
 if __name__ == "__main__":

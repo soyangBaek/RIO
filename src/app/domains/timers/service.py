@@ -30,7 +30,7 @@ class TimerService:
     def __call__(self, request: ExecutionRequest) -> ExecutionResult:
         task_id = str(request.payload.get("task_id") or uuid4().hex)
         delay_seconds = float(request.payload.get("delay_seconds") or 0)
-        label = str(request.payload.get("label") or request.payload.get("spoken_text") or "타이머")
+        label = str(request.payload.get("label") or request.payload.get("spoken_text") or "Timer")
 
         started = Event.create(
             topics.TASK_STARTED,

@@ -51,30 +51,30 @@ from src.app.main import RioOrchestrator
 
 
 INTENT_LABELS = {
-    "camera.capture": "사진 촬영",
-    "weather.current": "날씨 조회",
-    "smarthome.aircon.on": "에어컨 켜기",
-    "smarthome.aircon.off": "에어컨 끄기",
-    "smarthome.aircon.set_temperature": "에어컨 온도 설정",
-    "smarthome.light.on": "조명 켜기",
-    "smarthome.light.off": "조명 끄기",
-    "smarthome.robot_cleaner.start": "로봇청소기 시작",
-    "smarthome.tv.on": "TV 켜기",
-    "smarthome.music.play": "음악 재생",
-    "ui.game_mode.enter": "게임 모드 전환",
-    "dance.start": "댄스 모드 실행",
-    "timer.create": "타이머 생성",
-    "system.cancel": "현재 동작 취소",
-    "system.ack": "알림 확인",
+    "camera.capture": "Photo capture",
+    "weather.current": "Weather lookup",
+    "smarthome.aircon.on": "AC on",
+    "smarthome.aircon.off": "AC off",
+    "smarthome.aircon.set_temperature": "AC set temperature",
+    "smarthome.light.on": "Light on",
+    "smarthome.light.off": "Light off",
+    "smarthome.robot_cleaner.start": "Start robot cleaner",
+    "smarthome.tv.on": "TV on",
+    "smarthome.music.play": "Play music",
+    "ui.game_mode.enter": "Game mode",
+    "dance.start": "Dance mode",
+    "timer.create": "Create timer",
+    "system.cancel": "Cancel action",
+    "system.ack": "Ack alert",
 }
 
 ACTION_LABELS = {
-    ActionKind.PHOTO: "사진 촬영",
-    ActionKind.WEATHER: "날씨 조회",
-    ActionKind.SMARTHOME: "스마트홈 제어",
-    ActionKind.TIMER_SETUP: "타이머 등록",
-    ActionKind.GAME: "게임 모드 전환",
-    ActionKind.DANCE: "댄스 모드 실행",
+    ActionKind.PHOTO: "Photo capture",
+    ActionKind.WEATHER: "Weather lookup",
+    ActionKind.SMARTHOME: "Smart home",
+    ActionKind.TIMER_SETUP: "Timer setup",
+    ActionKind.GAME: "Game mode",
+    ActionKind.DANCE: "Dance mode",
 }
 
 RECENT_ACTION_HOLD_MS = 1500
@@ -101,7 +101,7 @@ def configure_mock_services(rio: RioOrchestrator) -> None:
                 Event.create(
                     topics.WEATHER_RESULT,
                     "live.weather",
-                    payload={"ok": True, "condition": "맑음", "temperature_c": 22.0},
+                    payload={"ok": True, "condition": "Clear", "temperature_c": 22.0},
                     trace_id=request.trace_id,
                 ),
                 Event.create(
@@ -145,7 +145,7 @@ def configure_mock_services(rio: RioOrchestrator) -> None:
                     "live.smarthome",
                     payload={
                         "ok": True,
-                        "message": f"'{spoken}' 명령을 처리했어.",
+                        "message": f"Processed '{spoken}' command.",
                         "request_url": "mock://home-client/device/control",
                         "response": {
                             "ok": True,
@@ -214,11 +214,14 @@ def describe_recent_intent(rio: RioOrchestrator) -> str:
         return "-"
     if latest_unknown is not None and latest_unknown.timestamp > event.timestamp:
         return "-"
-    text = str(event.payload.get("text") or "").strip()
     intent = str(event.payload.get("intent") or "")
+    label = INTENT_LABELS.get(intent)
+    if label:
+        return label
+    text = str(event.payload.get("text") or "").strip()
     if text:
         return trim_text(text)
-    return INTENT_LABELS.get(intent, intent or "-")
+    return intent or "-"
 
 
 def describe_current_action(rio: RioOrchestrator) -> str:
@@ -226,32 +229,32 @@ def describe_current_action(rio: RioOrchestrator) -> str:
     if snapshot.activity_state == ActivityState.ALERTING:
         timer_event = find_recent_event(rio, topics.TIMER_EXPIRED)
         label = timer_event.payload.get("label") if timer_event else None
-        return f"타이머 알림 출력 중 ({label})" if label else "타이머 알림 출력 중"
+        return f"Timer alert ({label})" if label else "Timer alert"
 
     if snapshot.activity_state == ActivityState.EXECUTING:
         kind = snapshot.extended.active_executing_kind
-        label = ACTION_LABELS.get(kind, "동작 실행")
+        label = ACTION_LABELS.get(kind, "Action running")
         if kind == ActionKind.PHOTO:
-            return "사진 촬영 시퀀스 실행 중"
+            return "Running photo sequence"
         if kind == ActionKind.WEATHER:
-            return "날씨를 조회하는 중"
+            return "Looking up weather"
         if kind == ActionKind.SMARTHOME:
             intent_text = describe_recent_intent(rio)
             if intent_text != "-":
-                return f"스마트홈 명령 실행 중: {intent_text}"
-            return "스마트홈 명령 실행 중"
+                return f"Running smart home: {intent_text}"
+            return "Running smart home"
         if kind == ActionKind.TIMER_SETUP:
-            return "타이머를 등록하는 중"
+            return "Setting up timer"
         if kind == ActionKind.GAME:
-            return "게임 모드로 전환하는 중"
+            return "Entering game mode"
         if kind == ActionKind.DANCE:
-            return "댄스 모드를 실행하는 중"
-        return f"{label} 실행 중"
+            return "Running dance mode"
+        return f"Running {label}"
 
     if snapshot.activity_state == ActivityState.LISTENING:
         if snapshot.extended.face_present:
-            return "사용자의 명령을 듣는 중"
-        return "사용자를 찾으며 명령을 듣는 중"
+            return "Listening for command"
+        return "Searching & listening"
 
     latest_unknown = find_recent_event(rio, topics.VOICE_INTENT_UNKNOWN)
     recent_smarthome_result = find_recent_event(rio, topics.SMARTHOME_RESULT)
@@ -275,57 +278,57 @@ def describe_current_action(rio: RioOrchestrator) -> str:
     )
     if latest_completed is not None:
         if latest_completed.topic == topics.VOICE_INTENT_UNKNOWN:
-            return "명령을 이해하지 못해 다시 기다리는 중"
+            return "Didn't understand, waiting"
         if latest_completed.topic == topics.SMARTHOME_RESULT:
             intent_text = describe_recent_intent(rio)
-            status = "완료" if latest_completed.payload.get("ok") else "실패"
+            status = "OK" if latest_completed.payload.get("ok") else "failed"
             if intent_text != "-":
-                return f"스마트홈 명령 {status}: {intent_text}"
-            return f"스마트홈 명령 {status}"
+                return f"Smart home {status}: {intent_text}"
+            return f"Smart home {status}"
         if latest_completed.topic == topics.SMARTHOME_REQUEST_SENT:
             intent_text = describe_recent_intent(rio)
             if intent_text != "-":
-                return f"스마트홈 명령 전송: {intent_text}"
-            return "스마트홈 명령 전송 중"
+                return f"Smart home sent: {intent_text}"
+            return "Sending smart home"
         if latest_completed.topic == topics.WEATHER_RESULT:
-            return "날씨 조회 완료" if latest_completed.payload.get("ok", True) else "날씨 조회 실패"
+            return "Weather OK" if latest_completed.payload.get("ok", True) else "Weather failed"
         if latest_completed.topic in {topics.TASK_SUCCEEDED, topics.TASK_FAILED}:
             kind = str(latest_completed.payload.get("kind") or "")
             if kind == ActionKind.SMARTHOME.value:
                 intent_text = describe_recent_intent(rio)
-                status = "완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "실패"
+                status = "OK" if latest_completed.topic == topics.TASK_SUCCEEDED else "failed"
                 if intent_text != "-":
-                    return f"스마트홈 명령 {status}: {intent_text}"
-                return f"스마트홈 명령 {status}"
+                    return f"Smart home {status}: {intent_text}"
+                return f"Smart home {status}"
             if kind == ActionKind.WEATHER.value:
-                return "날씨 조회 완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "날씨 조회 실패"
+                return "Weather OK" if latest_completed.topic == topics.TASK_SUCCEEDED else "Weather failed"
             if kind == ActionKind.PHOTO.value:
-                return "사진 촬영 완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "사진 촬영 실패"
+                return "Photo OK" if latest_completed.topic == topics.TASK_SUCCEEDED else "Photo failed"
             if kind == ActionKind.TIMER_SETUP.value:
-                return "타이머 등록 완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "타이머 등록 실패"
+                return "Timer set" if latest_completed.topic == topics.TASK_SUCCEEDED else "Timer set failed"
             if kind == ActionKind.GAME.value:
-                return "게임 모드 전환 완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "게임 모드 전환 실패"
+                return "Game mode ready" if latest_completed.topic == topics.TASK_SUCCEEDED else "Game mode failed"
             if kind == ActionKind.DANCE.value:
-                return "댄스 모드 실행 완료" if latest_completed.topic == topics.TASK_SUCCEEDED else "댄스 모드 실행 실패"
+                return "Dance mode ready" if latest_completed.topic == topics.TASK_SUCCEEDED else "Dance mode failed"
 
     if snapshot.active_oneshot is not None:
         oneshot = snapshot.active_oneshot.name.value
         if oneshot == "startled":
-            return "깜짝 반응을 보여주는 중"
+            return "Surprised reaction"
         if oneshot == "welcome":
-            return "사용자를 반겨주는 중"
+            return "Greeting user"
         if oneshot == "happy":
-            return "기뻐하는 반응을 보여주는 중"
+            return "Happy reaction"
         if oneshot == "confused":
-            return "명령을 이해하지 못해 되묻는 중"
+            return "Asking to clarify"
 
     if snapshot.context_state == ContextState.AWAY:
-        return "사용자를 기다리며 대기 중"
+        return "Waiting for user"
     if snapshot.context_state == ContextState.SLEEPY:
-        return "졸음 상태로 쉬는 중"
+        return "Sleepy, resting"
     if snapshot.context_state == ContextState.ENGAGED:
-        return "사용자를 따라보며 상호작용 대기 중"
-    return "기본 대기 상태"
+        return "Following user"
+    return "Idle"
 
 
 def describe_last_result(rio: RioOrchestrator) -> str:
@@ -342,19 +345,19 @@ def describe_last_result(rio: RioOrchestrator) -> str:
     )
     if latest_domain is not None:
         if latest_domain.topic == topics.SMARTHOME_RESULT:
-            prefix = "스마트홈 성공" if latest_domain.payload.get("ok") else "스마트홈 실패"
+            prefix = "Smart home OK" if latest_domain.payload.get("ok") else "Smart home failed"
             message = trim_text(str(latest_domain.payload.get("message") or ""))
             return f"{prefix}: {message}" if message != "-" else prefix
         if latest_domain.topic == topics.WEATHER_RESULT:
             if latest_domain.payload.get("ok", True):
-                condition = latest_domain.payload.get("condition", "알 수 없음")
+                condition = latest_domain.payload.get("condition", "Unknown")
                 temperature = latest_domain.payload.get("temperature_c")
                 if temperature is None:
-                    return f"날씨 조회 완료: {condition}"
-                return f"날씨 조회 완료: {condition}, {temperature}도"
-            return trim_text(str(latest_domain.payload.get("message") or "날씨 조회 실패"))
+                    return f"Weather OK: {condition}"
+                return f"Weather OK: {condition}, {temperature}C"
+            return trim_text(str(latest_domain.payload.get("message") or "Weather failed"))
         if latest_domain.topic == topics.VOICE_INTENT_UNKNOWN:
-            return trim_text(str(latest_domain.payload.get("reason") or "명령 해석 실패"))
+            return trim_text(str(latest_domain.payload.get("reason") or "Intent parse failed"))
 
     latest = max([event for event in [task_failed, task_succeeded] if event is not None], key=lambda event: event.timestamp, default=None)
     if latest is None:
@@ -363,25 +366,25 @@ def describe_last_result(rio: RioOrchestrator) -> str:
     if latest.topic == topics.WEATHER_RESULT:
         return "-"
     if latest.topic == topics.TASK_FAILED:
-        kind = str(latest.payload.get("kind") or "작업")
-        message = trim_text(str(latest.payload.get("message") or "실행 실패"))
-        return f"{kind} 실패: {message}"
+        kind = str(latest.payload.get("kind") or "task")
+        message = trim_text(str(latest.payload.get("message") or "failed"))
+        return f"{kind} failed: {message}"
     if latest.topic == topics.TASK_SUCCEEDED:
         kind = str(latest.payload.get("kind") or "task")
         if kind == ActionKind.PHOTO.value:
-            path = trim_text(str(latest.payload.get("photo_path") or "사진 저장 완료"))
-            return f"사진 촬영 완료: {path}"
+            path = trim_text(str(latest.payload.get("photo_path") or "photo saved"))
+            return f"Photo OK: {path}"
         if kind == ActionKind.GAME.value:
-            return "게임 모드 전환 완료"
+            return "Game mode ready"
         if kind == ActionKind.DANCE.value:
-            return "댄스 모드 실행 완료"
+            return "Dance mode ready"
         if kind == ActionKind.TIMER_SETUP.value:
-            label = trim_text(str(latest.payload.get("label") or "타이머"))
+            label = trim_text(str(latest.payload.get("label") or "timer"))
             delay_seconds = latest.payload.get("delay_seconds")
             if delay_seconds:
-                return f"타이머 등록 완료: {label} ({delay_seconds}초)"
-            return f"타이머 등록 완료: {label}"
-        return f"{kind} 실행 완료"
+                return f"Timer set: {label} ({delay_seconds}s)"
+            return f"Timer set: {label}"
+        return f"{kind} done"
     return "-"
 
 
@@ -1177,6 +1180,39 @@ def draw_ui_overlay(
             lambda layer: cv2.circle(layer, ((x1 + x2) // 2, (y1 + y2) // 2), int((x2 - x1) * (0.38 + pulse * 0.06)), accent, 7, cv2.LINE_AA),
             alpha=0.22,
         )
+        speaker_color = rgb(20, 20, 20)
+        sx = (x1 + x2) // 2
+        sy = y2 - 56
+        body_pts = np.array(
+            [
+                (sx - 16, sy - 7),
+                (sx - 5, sy - 7),
+                (sx + 6, sy - 14),
+                (sx + 6, sy + 14),
+                (sx - 5, sy + 7),
+                (sx - 16, sy + 7),
+            ],
+            dtype=np.int32,
+        )
+        cv2.fillPoly(image, [body_pts], speaker_color, cv2.LINE_AA)
+        for idx, base_radius in enumerate((9, 15)):
+            wave_alpha = max(0.0, min(1.0, pulse - idx * 0.22))
+            if wave_alpha > 0.05:
+                alpha_composite(
+                    image,
+                    lambda layer, r=base_radius: cv2.ellipse(
+                        layer,
+                        (sx + 10, sy),
+                        (r, r),
+                        0,
+                        -38,
+                        38,
+                        speaker_color,
+                        2,
+                        cv2.LINE_AA,
+                    ),
+                    alpha=wave_alpha,
+                )
         if search_indicator:
             sweep_x = int(x1 + ((math.sin(now_s * 2.7) + 1.0) * 0.5) * (x2 - x1))
             alpha_composite(

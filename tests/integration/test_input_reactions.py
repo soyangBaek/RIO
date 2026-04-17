@@ -37,8 +37,8 @@ class InputReactionIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.WELCOME)
-        self.assertIn("안녕!", orchestrator.tts.history)
-        self.assertIn("안녕!", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Hello!", orchestrator.tts.history)
+        self.assertIn("Hello!", [frame.hud.message for frame in orchestrator.renderer.history])
 
     def test_finger_gun_triggers_startled_feedback(self) -> None:
         orchestrator = RioOrchestrator()
@@ -51,8 +51,8 @@ class InputReactionIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.STARTLED)
-        self.assertIn("빵야!", orchestrator.tts.history)
-        self.assertIn("빵야!", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Bang!", orchestrator.tts.history)
+        self.assertIn("Bang!", [frame.hud.message for frame in orchestrator.renderer.history])
 
     def test_v_sign_triggers_photo_capture_flow(self) -> None:
         orchestrator = RioOrchestrator()
@@ -65,15 +65,15 @@ class InputReactionIntegrationTest(unittest.TestCase):
             )
         )
 
-        self.assertTrue(any("사진" in text for text in orchestrator.tts.history))
-        self.assertIn("사진 저장 완료", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertTrue(any("Photo" in text for text in orchestrator.tts.history))
+        self.assertIn("Photo saved", [frame.hud.message for frame in orchestrator.renderer.history])
 
     def test_touch_stroke_triggers_happy_reaction(self) -> None:
         orchestrator = RioOrchestrator()
         orchestrator.process_event(Event.create(topics.TOUCH_STROKE_DETECTED, "test", payload={"path": [(0, 0), (30, 0)]}))
 
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.HAPPY)
-        self.assertIn("좋아!", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Yay!", [frame.hud.message for frame in orchestrator.renderer.history])
         self.assertIn("happy", orchestrator.sfx.history)
 
     def test_game_mode_persists_and_head_direction_feedback_is_visible(self) -> None:
@@ -99,7 +99,7 @@ class InputReactionIntegrationTest(unittest.TestCase):
             )
         )
 
-        self.assertIn("참참참: 왼쪽", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Head game: Left", [frame.hud.message for frame in orchestrator.renderer.history])
         self.assertIn("game_move", orchestrator.sfx.history)
 
 

@@ -43,7 +43,7 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
             )
         )
         self.assertTrue(any("비" in text for text in orchestrator.tts.history))
-        self.assertIn("날씨 조회 성공", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Weather OK", [frame.hud.message for frame in orchestrator.renderer.history])
 
         orchestrator = RioOrchestrator()
         orchestrator.registry.register(ActionKind.WEATHER, failure_weather_handler)
@@ -57,7 +57,7 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
             )
         )
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.CONFUSED)
-        self.assertIn("날씨 조회 실패", [frame.hud.message for frame in orchestrator.renderer.history])
+        self.assertIn("Weather failed", [frame.hud.message for frame in orchestrator.renderer.history])
 
 
 if __name__ == "__main__":

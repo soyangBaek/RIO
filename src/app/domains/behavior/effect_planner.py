@@ -81,34 +81,34 @@ def _executor_request(result: ReductionResult, event: Event) -> ExecutionRequest
 
 def _tts_messages(event: Event) -> list[str]:
     if event.topic == topics.TIMER_EXPIRED:
-        label = event.payload.get("label") or "타이머"
-        return [f"{label} 시간이 됐어."]
+        label = event.payload.get("label") or "Timer"
+        return [f"{label} time is up."]
     if event.topic == topics.VISION_GESTURE_DETECTED:
         gesture = event.payload.get("gesture")
         if gesture == "wave":
-            return ["안녕!"]
+            return ["Hello!"]
         if gesture == "peekaboo":
-            return ["찾았다!"]
+            return ["Peekaboo!"]
         if gesture == "finger_gun":
-            return ["빵야!"]
+            return ["Bang!"]
     if event.topic == topics.SMARTHOME_RESULT:
         if event.payload.get("ok"):
-            return [event.payload.get("message") or "명령을 완료했어."]
-        return [event.payload.get("message") or "명령을 처리하지 못했어."]
+            return [event.payload.get("message") or "Command completed."]
+        return [event.payload.get("message") or "Command failed."]
     if event.topic == topics.WEATHER_RESULT:
         if not event.payload.get("ok", True):
-            return ["날씨를 가져오지 못했어."]
-        condition = event.payload.get("condition", "알 수 없음")
+            return ["Failed to fetch weather."]
+        condition = event.payload.get("condition", "Unknown")
         temperature = event.payload.get("temperature_c")
         if temperature is None:
-            return [f"지금 날씨는 {condition}이야."]
-        return [f"지금 날씨는 {condition}, 기온은 {temperature}도야."]
+            return [f"Current weather is {condition}."]
+        return [f"Current weather is {condition}, temperature {temperature} degrees."]
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.PHOTO.value:
-        return ["사진을 찍었어."]
+        return ["Photo taken."]
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:
-        return ["게임 모드로 들어갈게."]
+        return ["Entering game mode."]
     if event.topic == topics.TASK_FAILED:
-        return [event.payload.get("message") or "작업을 완료하지 못했어."]
+        return [event.payload.get("message") or "Task failed."]
     return []
 
 

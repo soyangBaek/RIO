@@ -65,7 +65,7 @@ class SmartHomeService:
             ok = bool(response.get("ok", True))
             message = str(
                 response.get("message")
-                or (f"{command.display_name} {command.action_label} 완료" if ok else f"{command.display_name} 제어 실패")
+                or (f"{command.display_name} {command.action_label} done" if ok else f"{command.display_name} control failed")
             )
         except Exception as exc:  # pragma: no cover - defensive
             ok = False

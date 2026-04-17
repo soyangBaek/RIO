@@ -9,19 +9,19 @@ weather:
 devices:
   aircon:
     id: "aircon.living_room"
-    name: "에어컨"
+    name: "Air conditioner"
     template: "{device_id}:{action}"
     actions:
       set_temperature:
         template: "{device_id}:set_temperature:{temperature_c}"
-        label: "온도 설정"
+        label: "Set temperature"
   light:
     id: "light.main"
-    name: "거실 조명"
+    name: "Living room light"
     template: "{device_id}:{action}"
   robot_cleaner:
     id: "cleaner.bot"
-    name: "로봇청소기"
+    name: "Robot cleaner"
     template: "{device_id}:{action}"
   tv:
     id: "tv.living_room"
@@ -29,5 +29,5 @@ devices:
     template: "{device_id}:{action}"
   music:
     id: "speaker.main"
-    name: "음악"
+    name: "Music"
     template: "{device_id}:{action}"
