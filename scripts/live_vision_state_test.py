@@ -71,7 +71,7 @@ def print_state(rio: RioOrchestrator, last_gesture: str | None) -> None:
     style = MOOD_STYLES.get(mood, "")
     print(CLEAR, end="")
     print("RIO Live Vision State Test")
-    print("Ctrl+C 로 종료합니다.")
+    print("Press Ctrl+C to exit.")
     print()
     for _ in range(6):
         print(f"{style}{' ' * 64}{RESET}")
@@ -86,10 +86,10 @@ def print_state(rio: RioOrchestrator, last_gesture: str | None) -> None:
     print(f"hud         : {frame.hud.message}")
     print(f"tts         : {rio.tts.history[-1] if rio.tts.history else '-'}")
     print()
-    print("테스트 팁:")
-    print("  얼굴만 보이면 Away -> Idle")
-    print("  얼굴을 보인 상태에서 open_palm 손 모양을 보이면 Idle -> Engaged")
-    print("  v_sign은 현재 camera.capture 로 매핑되어 사진 시퀀스를 트리거")
+    print("Test tips:")
+    print("  Show face only: Away -> Idle")
+    print("  Show open_palm while face visible: Idle -> Engaged")
+    print("  v_sign maps to camera.capture, triggers photo sequence")
 
 
 def ensure_initial_frame(rio: RioOrchestrator) -> None:
@@ -147,11 +147,11 @@ def process_frame(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Webcam + MediaPipe 로 얼굴/손 인식 상태 변화를 확인")
-    parser.add_argument("--fps", type=float, default=8.0, help="루프 갱신 주기")
-    parser.add_argument("--away-timeout-ms", type=int, default=3000, help="얼굴 미검출 후 Away 전이까지의 시간")
-    parser.add_argument("--engaged-idle-ms", type=int, default=1500, help="상호작용이 없을 때 Engaged -> Idle 시간")
-    parser.add_argument("--sleepy-ms", type=int, default=15000, help="Idle -> Sleepy 시간")
+    parser = argparse.ArgumentParser(description="Verify face/hand recognition state changes via Webcam + MediaPipe")
+    parser.add_argument("--fps", type=float, default=8.0, help="loop refresh rate")
+    parser.add_argument("--away-timeout-ms", type=int, default=3000, help="time until Away transition after face lost")
+    parser.add_argument("--engaged-idle-ms", type=int, default=1500, help="Engaged -> Idle timeout without interaction")
+    parser.add_argument("--sleepy-ms", type=int, default=15000, help="Idle -> Sleepy timeout")
     args = parser.parse_args()
 
     robot_cfg = load_yaml("configs/robot.yaml")
@@ -183,8 +183,8 @@ def main() -> int:
             ),
         )
     except Exception as exc:
-        print(f"초기화 실패: {exc}")
-        print("먼저 `.venv/bin/python -m pip install mediapipe` 가 완료됐는지 확인하세요.")
+        print(f"Initialization failed: {exc}")
+        print("Make sure `.venv/bin/python -m pip install mediapipe` is done first.")
         return 1
 
     had_face = False
@@ -222,7 +222,7 @@ def main() -> int:
 
             time.sleep(frame_interval)
     except KeyboardInterrupt:
-        print("\n종료합니다.")
+        print("\nExiting.")
         return 0
     finally:
         stream.close()

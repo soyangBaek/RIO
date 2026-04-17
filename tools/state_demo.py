@@ -131,23 +131,23 @@ def print_transition(result: ReductionResult):
         changed = True
 
     if result.triggered_oneshot is not None:
-        print(f"  {C.MAGENTA}▸ Oneshot{C.RESET}  {result.triggered_oneshot.name.value} 트리거됨!")
+        print(f"  {C.MAGENTA}▸ Oneshot{C.RESET}  {result.triggered_oneshot.name.value} triggered!")
         changed = True
     elif prev.active_oneshot and not curr.active_oneshot:
-        print(f"  {C.DIM}▸ Oneshot{C.RESET}  {prev.active_oneshot.name.value} 만료됨")
+        print(f"  {C.DIM}▸ Oneshot{C.RESET}  {prev.active_oneshot.name.value} expired")
         changed = True
 
     if not changed:
-        print(f"  {C.DIM}(변화 없음){C.RESET}")
+        print(f"  {C.DIM}(no change){C.RESET}")
 
 
 def print_menu():
-    print(f"\n{C.BOLD}── 이벤트 주입 ─────────────────────────────────────{C.RESET}")
+    print(f"\n{C.BOLD}── Event injection ─────────────────────────────────{C.RESET}")
     for key, label, _, _ in EVENTS:
         print(f"  {C.CYAN}{key:>2}{C.RESET}. {label}")
-    print(f"  {C.CYAN} s{C.RESET}. 시나리오 자동 재생 (전체 상태 순회)")
-    print(f"  {C.CYAN} r{C.RESET}. 상태 리셋")
-    print(f"  {C.CYAN} q{C.RESET}. 종료")
+    print(f"  {C.CYAN} s{C.RESET}. Auto-play scenario (full state tour)")
+    print(f"  {C.CYAN} r{C.RESET}. Reset state")
+    print(f"  {C.CYAN} q{C.RESET}. Quit")
     print(f"{C.BOLD}───────────────────────────────────────────────────{C.RESET}")
 
 
@@ -177,7 +177,7 @@ def run_scenario(pipeline: ReducerPipeline):
         ("🔵 12. 다시 음성 (startled oneshot 확인)", topics.VOICE_ACTIVITY_STARTED, {}),
     ]
 
-    print(f"\n{C.BOLD}{C.YELLOW}═══ 시나리오 자동 재생 시작 ═══{C.RESET}\n")
+    print(f"\n{C.BOLD}{C.YELLOW}═══ Starting scenario auto-play ═══{C.RESET}\n")
 
     for label, topic, payload in steps:
         print(f"\n{C.BOLD}{label}{C.RESET}")
@@ -188,7 +188,7 @@ def run_scenario(pipeline: ReducerPipeline):
         print_state(result)
         time.sleep(0.3)
 
-    print(f"\n{C.BOLD}{C.GREEN}═══ 시나리오 완료 ═══{C.RESET}\n")
+    print(f"\n{C.BOLD}{C.GREEN}═══ Scenario complete ═══{C.RESET}\n")
 
 
 def make_pipeline() -> tuple[RuntimeStore, ReducerPipeline]:
@@ -234,21 +234,21 @@ def main():
     store, pipeline = make_pipeline()
 
     print(f"\n{C.BOLD}{C.GREEN}╔══════════════════════════════════════════════════╗{C.RESET}")
-    print(f"{C.BOLD}{C.GREEN}║       RIO 상태 머신 인터랙티브 데모 (develop)    ║{C.RESET}")
+    print(f"{C.BOLD}{C.GREEN}║    RIO State Machine Interactive Demo (develop)  ║{C.RESET}")
     print(f"{C.BOLD}{C.GREEN}╚══════════════════════════════════════════════════╝{C.RESET}")
 
     render_current(store)
 
     while True:
         print_menu()
-        choice = input(f"  {C.BOLD}선택> {C.RESET}").strip().lower()
+        choice = input(f"  {C.BOLD}Select> {C.RESET}").strip().lower()
 
         if choice == "q":
-            print(f"\n{C.DIM}종료합니다.{C.RESET}")
+            print(f"\n{C.DIM}Exiting.{C.RESET}")
             break
         elif choice == "r":
             store, pipeline = make_pipeline()
-            print(f"\n{C.GREEN}상태 리셋 완료{C.RESET}")
+            print(f"\n{C.GREEN}State reset complete{C.RESET}")
             render_current(store)
             continue
         elif choice == "s":
@@ -263,11 +263,11 @@ def main():
                 break
 
         if not matched:
-            print(f"{C.RED}잘못된 입력입니다.{C.RESET}")
+            print(f"{C.RED}Invalid input.{C.RESET}")
             continue
 
         label, topic, payload = matched
-        print(f"\n  {C.BOLD}주입:{C.RESET} {label}")
+        print(f"\n  {C.BOLD}Inject:{C.RESET} {label}")
         print(f"  {C.DIM}topic: {topic}{C.RESET}")
 
         evt = make_event(topic, payload)

@@ -198,11 +198,11 @@ class FaceCompositor:
                     img = pygame.transform.smoothscale(img, (self._w, self._h))
                 self._images[name] = img
             except Exception as e:
-                print(f"  WARN  이미지 로딩 실패: {png.name} ({e})")
+                print(f"  WARN  Failed to load image: {png.name} ({e})")
 
         self._has_images = len(self._images) > 0
         if self._has_images:
-            print(f"  OK    표정 이미지 {len(self._images)}개 로딩: {sorted(self._images.keys())}")
+            print(f"  OK    Loaded {len(self._images)} expression images: {sorted(self._images.keys())}")
 
     def has_assets(self) -> bool:
         return self._has_images

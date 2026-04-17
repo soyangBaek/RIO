@@ -12,7 +12,7 @@ from pathlib import Path
 try:
     from PIL import Image
 except ImportError:
-    print("Pillow 필요: pip install Pillow")
+    print("Pillow required: pip install Pillow")
     sys.exit(1)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -54,7 +54,7 @@ def convert(src_path: Path, dst_path: Path) -> None:
 
 def main() -> None:
     if not SRC_DIR.exists():
-        print(f"원본 디렉터리 없음: {SRC_DIR}")
+        print(f"Source directory not found: {SRC_DIR}")
         sys.exit(1)
 
     DST_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,7 +66,7 @@ def main() -> None:
         dst = DST_DIR / f"{mood_name}.png"
 
         if not src.exists():
-            print(f"  SKIP  {rosto_name}.png (파일 없음)")
+            print(f"  SKIP  {rosto_name}.png (file not found)")
             skipped += 1
             continue
 
@@ -74,8 +74,8 @@ def main() -> None:
         print(f"  OK    {rosto_name}.png → {mood_name}.png  ({TARGET_W}x{TARGET_H})")
         converted += 1
 
-    print(f"\n완료: {converted}개 변환, {skipped}개 스킵")
-    print(f"출력: {DST_DIR}")
+    print(f"\nDone: {converted} converted, {skipped} skipped")
+    print(f"Output: {DST_DIR}")
 
 
 if __name__ == "__main__":

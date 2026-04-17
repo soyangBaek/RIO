@@ -203,7 +203,7 @@ def render_terminal(rio: RioOrchestrator, *, title: str, description: str) -> No
     state = rio.store.snapshot()
     frame = rio.renderer.history[-1] if rio.renderer.history else None
     if frame is None:
-        print("아직 렌더된 프레임이 없습니다.")
+        print("No rendered frames yet.")
         return
 
     mood = frame.face.mood
@@ -230,8 +230,8 @@ def render_terminal(rio: RioOrchestrator, *, title: str, description: str) -> No
     print(f"sfx       : {last_sfx}")
     print(f"events    : {len(rio.event_log)}")
     print()
-    print("색상 해석:")
-    print("  노랑=startled, 초록=happy/welcome, 회색=confused, 청록=attentive, 파랑=calm")
+    print("Color legend:")
+    print("  yellow=startled, green=happy/welcome, gray=confused, cyan=attentive, blue=calm")
     print()
 
 
@@ -242,13 +242,13 @@ def interactive_loop(delay: float) -> int:
     while True:
         print(CLEAR, end="")
         print("RIO Reaction Demo")
-        print("번호를 입력하면 해당 시나리오를 재생합니다.")
+        print("Enter a number to play the scenario.")
         print()
         for item in SCENARIOS:
             print(f"  {item.key}. {item.name:<12} - {item.description}")
         print()
-        print("  a. 전체 자동 재생")
-        print("  q. 종료")
+        print("  a. Auto-play all")
+        print("  q. Quit")
         print()
         choice = input("> ").strip().lower()
         if choice == "q":
@@ -259,13 +259,13 @@ def interactive_loop(delay: float) -> int:
 
         scenario = scenarios_by_key.get(choice) or scenarios_by_name.get(choice)
         if scenario is None:
-            print("알 수 없는 선택입니다.")
+            print("Unknown selection.")
             time.sleep(1.0)
             continue
 
         rio = run_scenario(scenario.name)
         render_terminal(rio, title=scenario.name, description=scenario.description)
-        input("엔터를 누르면 메뉴로 돌아갑니다...")
+        input("Press Enter to return to menu...")
 
 
 def autoplay(delay: float) -> None:
@@ -276,22 +276,22 @@ def autoplay(delay: float) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="RIO 반응 상태를 터미널 색상으로 빠르게 확인하는 데모")
+    parser = argparse.ArgumentParser(description="Demo for quickly viewing RIO reaction states via terminal colors")
     parser.add_argument(
         "--scenario",
         choices=[item.name for item in SCENARIOS],
-        help="하나의 시나리오만 실행하고 종료",
+        help="run a single scenario and exit",
     )
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="모든 시나리오를 자동으로 순서대로 재생",
+        help="auto-play all scenarios in order",
     )
     parser.add_argument(
         "--delay",
         type=float,
         default=1.5,
-        help="자동 재생 시 각 시나리오 사이 대기 시간(초)",
+        help="delay in seconds between scenarios during auto-play",
     )
     args = parser.parse_args()
 

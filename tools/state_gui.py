@@ -66,7 +66,7 @@ class StateGUI:
         self.state = RuntimeState()
 
         self.root = tk.Tk()
-        self.root.title("RIO 상태 머신 데모 (develop)")
+        self.root.title("RIO State Machine Demo (develop)")
         self.root.configure(bg=BG)
         self.root.geometry("780x740")
         self.root.minsize(700, 600)
@@ -89,7 +89,7 @@ class StateGUI:
         ).pack(fill="x", padx=20)
 
         # ── Context FSM ─────────────────────────────────────
-        self._make_section("Context State  (클릭하여 전환)")
+        self._make_section("Context State  (click to switch)")
         ctx_frame = tk.Frame(self.root, bg=BG)
         ctx_frame.pack(fill="x", padx=20, pady=(0, 6))
         self.ctx_btns = {}
@@ -104,7 +104,7 @@ class StateGUI:
             self.ctx_btns[name] = btn
 
         # ── Activity FSM ────────────────────────────────────
-        self._make_section("Activity State  (클릭하여 전환)")
+        self._make_section("Activity State  (click to switch)")
         act_frame = tk.Frame(self.root, bg=BG)
         act_frame.pack(fill="x", padx=20, pady=(0, 6))
         self.act_btns = {}
@@ -119,11 +119,11 @@ class StateGUI:
             self.act_btns[name] = btn
 
         # ── ActionKind (Executing Kind) ─────────────────────
-        self._make_section("Action Kind  (Executing 상태일 때 선택)")
+        self._make_section("Action Kind  (select when Executing)")
         ak_frame = tk.Frame(self.root, bg=BG)
         ak_frame.pack(fill="x", padx=20, pady=(0, 6))
         self.ak_btns = {}
-        for kind in ["없음", "weather", "photo", "smarthome", "timer_setup", "game", "dance"]:
+        for kind in ["None", "weather", "photo", "smarthome", "timer_setup", "game", "dance"]:
             btn = tk.Button(
                 ak_frame, text=kind, font=self.fn_label,
                 bg=BG_BTN, fg=FG, activebackground=BG_BTN_HOVER, activeforeground=FG,
@@ -134,11 +134,11 @@ class StateGUI:
             self.ak_btns[kind] = btn
 
         # ── Oneshot ─────────────────────────────────────────
-        self._make_section("Oneshot  (클릭하여 활성화/해제)")
+        self._make_section("Oneshot  (click to toggle)")
         os_frame = tk.Frame(self.root, bg=BG)
         os_frame.pack(fill="x", padx=20, pady=(0, 6))
         self.os_btns = {}
-        for name in ["없음", "startled", "confused", "welcome", "happy"]:
+        for name in ["None", "startled", "confused", "welcome", "happy"]:
             btn = tk.Button(
                 os_frame, text=name, font=self.fn_label,
                 bg=BG_BTN, fg=FG, activebackground=BG_BTN_HOVER, activeforeground=FG,
@@ -153,7 +153,7 @@ class StateGUI:
         face_frame = tk.Frame(self.root, bg=BG)
         face_frame.pack(fill="x", padx=20, pady=(0, 10))
         self.face_btn = tk.Button(
-            face_frame, text="○ 얼굴 없음", font=self.fn_node,
+            face_frame, text="○ No face", font=self.fn_node,
             bg="#45475a", fg="#f38ba8", activebackground=BG_BTN_HOVER, activeforeground=FG,
             bd=0, padx=20, pady=8, cursor="hand2",
             command=self._toggle_face,
@@ -168,20 +168,20 @@ class StateGUI:
 
         mood_cell = tk.Frame(result_frame, bg=BG_CARD, padx=20, pady=12)
         mood_cell.pack(side="left", expand=True, fill="both", padx=4)
-        tk.Label(mood_cell, text="Mood (파생)", font=self.fn_result_label, bg=BG_CARD, fg=FG_DIM).pack(anchor="w")
+        tk.Label(mood_cell, text="Mood (derived)", font=self.fn_result_label, bg=BG_CARD, fg=FG_DIM).pack(anchor="w")
         self.mood_label = tk.Label(mood_cell, text="-", font=self.fn_result, bg=BG_CARD, fg=FG)
         self.mood_label.pack(anchor="w")
 
         ui_cell = tk.Frame(result_frame, bg=BG_CARD, padx=20, pady=12)
         ui_cell.pack(side="left", expand=True, fill="both", padx=4)
-        tk.Label(ui_cell, text="UI State (파생)", font=self.fn_result_label, bg=BG_CARD, fg=FG_DIM).pack(anchor="w")
+        tk.Label(ui_cell, text="UI State (derived)", font=self.fn_result_label, bg=BG_CARD, fg=FG_DIM).pack(anchor="w")
         self.ui_label = tk.Label(ui_cell, text="-", font=self.fn_result, bg=BG_CARD, fg=FG)
         self.ui_label.pack(anchor="w")
 
         # ── 로그 ────────────────────────────────────────────
         log_frame = tk.Frame(self.root, bg=BG)
         log_frame.pack(fill="both", expand=True, padx=20, pady=(4, 16))
-        tk.Label(log_frame, text="변경 로그", font=self.fn_section, bg=BG, fg=FG_DIM, anchor="w").pack(fill="x")
+        tk.Label(log_frame, text="Change log", font=self.fn_section, bg=BG, fg=FG_DIM, anchor="w").pack(fill="x")
         self.log_text = tk.Text(
             log_frame, font=self.fn_log, bg="#181825", fg=FG,
             insertbackground=FG, bd=0, padx=8, pady=6,
@@ -193,7 +193,7 @@ class StateGUI:
 
         # ── 리셋 버튼 ───────────────────────────────────────
         tk.Button(
-            self.root, text="↺ 초기화", font=self.fn_label,
+            self.root, text="↺ Reset", font=self.fn_label,
             bg="#45475a", fg="#f9e2af", activebackground=BG_BTN_HOVER, activeforeground=FG,
             bd=0, padx=16, pady=6, cursor="hand2",
             command=self._reset,
@@ -223,9 +223,9 @@ class StateGUI:
         self._refresh()
 
     def _set_action_kind(self, kind):
-        if kind == "없음":
+        if kind == "None":
             self.state.extended.active_executing_kind = None
-            self._log("ActionKind: 해제")
+            self._log("ActionKind: cleared")
         else:
             self.state.extended.active_executing_kind = ActionKind(kind)
             if self.state.activity_state != ActivityState.EXECUTING:
@@ -234,9 +234,9 @@ class StateGUI:
         self._refresh()
 
     def _set_oneshot(self, name):
-        if name == "없음":
+        if name == "None":
             self.state.active_oneshot = None
-            self._log("Oneshot: 해제")
+            self._log("Oneshot: cleared")
         else:
             os_name = OneshotName(name)
             self.state.active_oneshot = Oneshot(
@@ -252,12 +252,12 @@ class StateGUI:
         self.state.extended.face_present = not self.state.extended.face_present
         if self.state.extended.face_present:
             self.state.extended.last_face_seen_at = datetime.now(timezone.utc)
-        self._log(f"Face: {'감지됨' if self.state.extended.face_present else '없음'}")
+        self._log(f"Face: {'Detected' if self.state.extended.face_present else 'None'}")
         self._refresh()
 
     def _reset(self):
         self.state = RuntimeState()
-        self._log("── 초기화 ──")
+        self._log("── Reset ──")
         self._refresh()
 
     # ── 로그 ─────────────────────────────────────────────────
@@ -279,8 +279,8 @@ class StateGUI:
 
         ctx_val = s.context_state.value
         act_val = s.activity_state.value
-        ak_val = s.extended.active_executing_kind.value if s.extended.active_executing_kind else "없음"
-        os_val = s.active_oneshot.name.value if s.active_oneshot else "없음"
+        ak_val = s.extended.active_executing_kind.value if s.extended.active_executing_kind else "None"
+        os_val = s.active_oneshot.name.value if s.active_oneshot else "None"
 
         for name, btn in self.ctx_btns.items():
             if name == ctx_val:
@@ -307,9 +307,9 @@ class StateGUI:
                 btn.configure(bg=BG_BTN, fg=FG, relief="flat")
 
         if s.extended.face_present:
-            self.face_btn.configure(text="● 얼굴 감지됨", bg="#a6e3a1", fg="#1e1e2e")
+            self.face_btn.configure(text="● Face detected", bg="#a6e3a1", fg="#1e1e2e")
         else:
-            self.face_btn.configure(text="○ 얼굴 없음", bg="#45475a", fg="#f38ba8")
+            self.face_btn.configure(text="○ No face", bg="#45475a", fg="#f38ba8")
 
         # DerivedScene: mood, ui, dimmed, search_indicator
         mood_str = scene.mood.value

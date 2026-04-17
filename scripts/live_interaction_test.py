@@ -504,11 +504,11 @@ def print_snapshot(
 
 def print_help() -> None:
     print("RIO Live Interaction Test")
-    print("웹캠은 실시간으로 얼굴/손 제스처를 읽고, 음성은 터미널 문자열로 흉내냅니다.")
-    print("기본 프리뷰는 전체화면 로봇 얼굴 애니메이션이고, --debug 를 주면 webcam/sidebar를 함께 표시합니다.")
-    print("기본값은 mock 서비스이며, 실제 HTTP 요청 확인은 --real-services 로 실행합니다.")
+    print("Webcam reads face/hand gestures in real-time; voice is simulated via terminal strings.")
+    print("Default preview is fullscreen robot face animation; use --debug to show webcam/sidebar.")
+    print("Default uses mock services; use --real-services for actual HTTP requests.")
     print()
-    print("터미널 입력 예시:")
+    print("Terminal input examples:")
     print("  사진 찍어줘")
     print("  날씨 알려줘")
     print("  불 켜줘")
@@ -516,21 +516,21 @@ def print_help() -> None:
     print("  취소")
     print("  확인")
     print()
-    print("보조 명령:")
-    print("  /tap           - 터치 탭 이벤트")
-    print("  /stroke        - 쓰다듬기 이벤트")
-    print("  /gesture NAME  - vision gesture 시뮬레이션 (wave, finger_gun, v_sign, head_left, head_right, peekaboo)")
-    print("  /face left|center|right|lost - 얼굴 위치/손실 시뮬레이션")
-    print("  /timer [label] - 타이머 만료 이벤트")
-    print("  /status        - 현재 상태 출력")
-    print("  /help          - 도움말")
-    print("  /quit          - 종료")
+    print("Auxiliary commands:")
+    print("  /tap           - touch tap event")
+    print("  /stroke        - stroke event")
+    print("  /gesture NAME  - simulate vision gesture (wave, finger_gun, v_sign, head_left, head_right, peekaboo)")
+    print("  /face left|center|right|lost - simulate face position/loss")
+    print("  /timer [label] - timer expiration event")
+    print("  /status        - print current state")
+    print("  /help          - help")
+    print("  /quit          - quit")
     print()
-    print("웹캠 테스트 팁:")
-    print("  얼굴만 보이면 Away -> Idle")
-    print("  얼굴을 보인 상태에서 open_palm 손 모양을 보이면 Idle -> Engaged")
-    print("  v_sign은 camera.capture로 매핑되어 사진 시퀀스를 실행")
-    print("  프리뷰 창에서 q 또는 ESC를 누르면 종료")
+    print("Webcam test tips:")
+    print("  Show face only: Away -> Idle")
+    print("  Show open_palm while face visible: Idle -> Engaged")
+    print("  v_sign maps to camera.capture, triggers photo sequence")
+    print("  Press q or ESC in preview window to exit")
 
 
 def preview_center_to_pixels(frame: Any, center: tuple[float, float] | None) -> tuple[int, int] | None:
@@ -1657,7 +1657,7 @@ def process_console_line(
     if text.startswith("/gesture"):
         gesture = text.partition(" ")[2].strip()
         if not gesture:
-            print("예: /gesture wave")
+            print("e.g.: /gesture wave")
             return False, False, text
         rio.process_event(
             Event.create(
@@ -1680,7 +1680,7 @@ def process_console_line(
         }
         center = center_map.get(position)
         if center is None:
-            print("예: /face left | /face center | /face right | /face lost")
+            print("e.g.: /face left | /face center | /face right | /face lost")
             return False, False, text
         rio.process_event(
             Event.create(
@@ -1703,8 +1703,8 @@ def process_console_line(
         )
         return False, True, text
     if text.startswith("/"):
-        print(f"알 수 없는 명령: {text}")
-        print("/help 를 입력하면 사용 가능한 명령을 볼 수 있습니다.")
+        print(f"Unknown command: {text}")
+        print("Type /help to see available commands.")
         return False, False, text
 
     for event in terminal_voice.build_events(text, now=now):
@@ -1725,17 +1725,17 @@ def build_orchestrator(*, use_real_services: bool) -> RioOrchestrator:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="웹캠 + 터미널 문자열로 RIO 상태 변화를 라이브 테스트")
-    parser.add_argument("--fps", type=float, default=8.0, help="웹캠 루프 갱신 주기")
-    parser.add_argument("--away-timeout-ms", type=int, default=3000, help="얼굴 미검출 후 Away 전이까지의 시간")
-    parser.add_argument("--engaged-idle-ms", type=int, default=1500, help="상호작용이 없을 때 Engaged -> Idle 시간")
-    parser.add_argument("--sleepy-ms", type=int, default=15000, help="Idle -> Sleepy 시간")
-    parser.add_argument("--no-preview", action="store_true", help="프리뷰 창을 띄우지 않음")
-    parser.add_argument("--debug", action="store_true", help="webcam inset과 상태 sidebar를 함께 표시하는 디버그 모드")
+    parser = argparse.ArgumentParser(description="Live-test RIO state changes via webcam + terminal strings")
+    parser.add_argument("--fps", type=float, default=8.0, help="webcam loop refresh rate")
+    parser.add_argument("--away-timeout-ms", type=int, default=3000, help="time until Away transition after face lost")
+    parser.add_argument("--engaged-idle-ms", type=int, default=1500, help="Engaged -> Idle timeout without interaction")
+    parser.add_argument("--sleepy-ms", type=int, default=15000, help="Idle -> Sleepy timeout")
+    parser.add_argument("--no-preview", action="store_true", help="disable preview window")
+    parser.add_argument("--debug", action="store_true", help="debug mode showing webcam inset and state sidebar")
     parser.add_argument(
         "--real-services",
         action="store_true",
-        help="mock 대신 실제 weather/home_client 핸들러 사용",
+        help="use real weather/home_client handlers instead of mocks",
     )
     args = parser.parse_args()
 
@@ -1769,8 +1769,8 @@ def main() -> int:
             ),
         )
     except Exception as exc:
-        print(f"초기화 실패: {exc}")
-        print("먼저 `.venv/bin/python -m pip install mediapipe opencv-python` 가 완료됐는지 확인하세요.")
+        print(f"Initialization failed: {exc}")
+        print("Make sure `.venv/bin/python -m pip install mediapipe opencv-python` is done first.")
         return 1
 
     had_face = False
@@ -1817,10 +1817,10 @@ def main() -> int:
                     )
                 except Exception as exc:
                     preview_enabled = False
-                    print(f"프리뷰 창을 비활성화합니다: {exc}")
+                    print(f"Disabling preview window: {exc}")
                 else:
                     if should_exit_preview:
-                        print("프리뷰 창에서 종료 요청을 받아 종료합니다.")
+                        print("Exit requested from preview window.")
                         return 0
 
             force_print = False
@@ -1830,7 +1830,7 @@ def main() -> int:
                 if user_input is not None:
                     last_input = user_input
                 if should_exit:
-                    print("종료합니다.")
+                    print("Exiting.")
                     return 0
 
             current_signature = snapshot_signature(rio, last_gesture, service_mode=service_mode)
@@ -1847,7 +1847,7 @@ def main() -> int:
 
             time.sleep(frame_interval)
     except KeyboardInterrupt:
-        print("\n종료합니다.")
+        print("\nExiting.")
         return 0
     finally:
         if preview_enabled:
