@@ -125,10 +125,15 @@
 
 ### 1.4 완료 기준
 
-- `scripts/run_rio_app.py` 같은 실제 앱 진입점이 존재한다.
-- 테스트 하네스와 실제 실행 경로가 문서상/코드상 분리되어 있다.
-- 앱 시작 시 사용 가능한 센서와 비활성화 이유가 모두 출력된다.
-- 최소 1개 문서와 1개 자동 smoke test 가 새 진입점을 기준으로 작성되어 있다.
+- [x] `scripts/run_rio_app.py` 실제 앱 진입점 추가 (`RioOrchestrator` 기반, `--tick-hz/--max-cycles/--no-voice/--log-level`).
+- [x] 테스트 하네스(`scripts/live_interaction_test.py`)와 실제 실행 경로가 분리됨.
+- [x] 앱 시작 시 `src/app/core/safety/startup_report.py` 가 mic/camera/touch/speaker/voice/home bridge 상태를 한 번에 출력하고, voice 비활성 사유(파일 누락, 의존성 누락, `--no-voice`)를 명시한다.
+- [x] 인터럽트 정책 회귀 smoke test: `tests/integration/test_orchestrator_interrupts.py` (dance 중 voice intent DROP, dance cancel 타이머 해제, photo 중 DROP + TIMER hold, v_sign gesture → mapper 경유 DROP).
+- [x] (번외) 디스플레이 렌더러 추출 Phase 1 — `src/app/adapters/display/preview_window.py` 신규. `scripts/run_rio_app.py --preview` 에 연결. `live_interaction_test.py` 는 Phase 2 에서 합류.
+- [x] §1.B 런타임 프로파일 분리 — `configs/runtime_app.yaml` / `configs/runtime_live_test.yaml` 신규. `run_rio_app.py --profile <name>` 로 로드, CLI 플래그가 override. 대상 키: `preview`, `fullscreen`, `tick_hz`, `log_level`, `no_voice`, `metrics_interval_s`.
+- [x] §1.D 런타임 계측 v1 — `src/app/core/safety/tick_metrics.py`. 외부 루프 pump_ms / drain_ms / preview_ms 를 rolling window(256) 로 기록, `--metrics-interval` 마다 avg/p95/max 를 INFO 로그로 출력. 종료 시 최종 요약.
+- [x] §1.D 런타임 계측 v2 — adapter 내부 계측. 프로세스 전역 `set_active_metrics` / `get_active_metrics` / `record` / `increment` helper 추가. 계측 삽입 위치: `vision_worker.run_once` → `frame_loop_ms`, `face_detector.detect` → `face_detect_ms`, `gesture_detector.detect` → `gesture_detect_ms`, `live_voice_backend._transcribe_and_feed` → `asr_decode_ms` + `asr_empty_count`, `live_voice_backend._vad_loop` BUSY 분기 → `asr_busy_drop_count`. adapter 는 active metrics 가 None 일 때 no-op (테스트·샌드박스 영향 없음). 단위 테스트 9 건.
+- [ ] (Phase 2) `scripts/live_interaction_test.py` 가 `preview_window` 모듈을 import 하도록 리팩터링 후 중복 드로잉 함수 삭제. 현재는 동시 작업 가능성으로 수정 보류.
 
 ### 1.5 권장 우선순위
 

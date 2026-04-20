@@ -385,13 +385,29 @@ class RioOrchestrator:
                 self.voice_backend = _build_voice_backend(shared_capture)
         if self.vision_worker is None:
             thresholds = _load_yaml("configs/thresholds.yaml")
-            sample_hz = float((thresholds.get("presence") or {}).get("face_moved_sample_hz", 10))
+            robot_cfg = _load_yaml("configs/robot.yaml")
+            presence = thresholds.get("presence") or {}
+            vision = thresholds.get("vision") or {}
+            webcam = (robot_cfg.get("webcam") or {}) if isinstance(robot_cfg, dict) else {}
+            sample_hz = float(presence.get("face_moved_sample_hz", 10))
+            # use_camera 는 실제 /dev/video0 존재 여부에 맞춘다. 없으면 mock dict 를
+            # 돌려주는 stub 경로로 남겨 test/sandbox 환경에서도 안전하다.
             self.vision_worker = VisionWorker(
                 bus=self.bus,
-                stream=CameraStream(),
-                detector=FaceDetector(),
+                stream=CameraStream(
+                    device_index=int(webcam.get("device_index", 0)),
+                    width=int(webcam.get("width", 640)),
+                    height=int(webcam.get("height", 480)),
+                    fps=int(webcam.get("fps", 15)),
+                    use_camera=bool(capabilities.camera_available),
+                ),
+                detector=FaceDetector(
+                    confidence_min=float(vision.get("face_confidence_min", 0.6)),
+                ),
                 tracker=FaceTracker(sample_hz=sample_hz),
-                gesture_detector=GestureDetector(),
+                gesture_detector=GestureDetector(
+                    confidence_min=float(vision.get("gesture_confidence_min", 0.75)),
+                ),
             )
         if self.touch_worker is None:
             robot_cfg = _load_yaml("configs/robot.yaml")

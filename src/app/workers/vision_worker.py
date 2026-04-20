@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import time
 
 from src.app.adapters.vision.camera_stream import CameraStream
 from src.app.adapters.vision.face_detector import FaceDetector
@@ -13,6 +13,7 @@ from src.app.core.bus.queue_bus import QueueBus
 from src.app.core.events import topics
 from src.app.core.events.models import Event
 from src.app.core.safety.heartbeat_monitor import HeartbeatMonitor
+from src.app.core.safety.tick_metrics import record as record_metric
 
 
 @dataclass(slots=True)
@@ -84,5 +85,7 @@ class VisionWorker:
         heartbeat = HeartbeatMonitor().heartbeat_event(self.worker_name, now=when)
         self.bus.publish(heartbeat)
         published.append(heartbeat)
-        self.last_frame_loop_ms = (time.perf_counter() - started_at) * 1000.0
+        frame_loop_ms = (time.perf_counter() - started_at) * 1000.0
+        self.last_frame_loop_ms = frame_loop_ms
+        record_metric("frame_loop_ms", frame_loop_ms)
         return published

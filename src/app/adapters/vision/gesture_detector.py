@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 from src.app.core.events import topics
 from src.app.core.events.models import Event
+from src.app.core.safety.tick_metrics import record as record_metric
 
 
 @dataclass(slots=True)
@@ -74,7 +76,9 @@ class GestureDetector:
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             else:
                 rgb = rgb_frame
+            t0 = time.perf_counter()
             result = hands.process(rgb)
+            record_metric("gesture_detect_ms", (time.perf_counter() - t0) * 1000.0)
             if not result.multi_hand_landmarks:
                 return []
             landmarks = result.multi_hand_landmarks[0]

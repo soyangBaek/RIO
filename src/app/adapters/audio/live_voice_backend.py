@@ -30,6 +30,8 @@ import numpy as np
 from src.app.adapters.audio.capture import AudioCapture
 from src.app.adapters.audio.mic_gain import apply_mic_gain
 from src.app.core.config import resolve_repo_path
+from src.app.core.safety.tick_metrics import increment as increment_metric
+from src.app.core.safety.tick_metrics import record as record_metric
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -242,10 +244,12 @@ class _WhisperBridgeBackend:
             self._emit_trace(f"[voice.asr] ERROR {exc}")
             return
         decode_ms = int((time.perf_counter() - t0) * 1000)
+        record_metric("asr_decode_ms", float(decode_ms))
 
         if not segs:
             _LOGGER.info("asr empty (decode=%dms)", decode_ms)
             self._emit_trace(f"[voice.asr] EMPTY decode={decode_ms}ms")
+            increment_metric("asr_empty_count")
             return
 
         text = " ".join(segment.text.strip() for segment in segs).strip()
@@ -441,6 +445,7 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
             if self.cfg.drop_while_busy and (self._asr_busy.is_set() or self._asr_q.qsize() > 0):
                 _LOGGER.info("BUSY drop utterance dur=%dms (ASR working)", decision.duration_ms)
                 self._emit_trace(f"[voice.asr] BUSY drop dur={decision.duration_ms}ms")
+                increment_metric("asr_busy_drop_count")
                 continue
 
             try:
