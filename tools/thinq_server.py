@@ -331,6 +331,7 @@ class ThinQHandler(BaseHTTPRequestHandler):
 class ThreadedHTTPServer(HTTPServer):
     """Handle each request in a new thread (needed for SSE)."""
     daemon_threads = True
+    allow_reuse_address = True
 
     def process_request(self, request, client_address):
         t = threading.Thread(target=self.process_request_thread, args=(request, client_address))
@@ -352,7 +353,16 @@ def main():
     parser.add_argument("--port", type=int, default=8123, help="Port (default: 8123)")
     args = parser.parse_args()
 
-    server = ThreadedHTTPServer((args.host, args.port), ThinQHandler)
+    try:
+        server = ThreadedHTTPServer((args.host, args.port), ThinQHandler)
+    except OSError as exc:
+        if getattr(exc, "errno", None) == 98:
+            print(
+                f"Port {args.port} is already in use. "
+                f"Stop the existing process first, e.g. `fuser -k {args.port}/tcp`."
+            )
+            return
+        raise
     print(f"╔══════════════════════════════════════════════╗")
     print(f"║  ThinQ Bridge Server                        ║")
     print(f"║  Dashboard : http://{args.host}:{args.port}/         ║")
