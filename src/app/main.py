@@ -17,8 +17,11 @@ from src.app.adapters.audio.live_voice_backend import (
     ASRParams,
     AudioParams,
     BackendConfig,
+    BackendLaunchConfig,
     LiveVoiceBackend,
+    RustAudioBackend,
     VADParams,
+    VoiceBackend,
 )
 from src.app.adapters.audio.stt import SpeechToTextAdapter
 from src.app.adapters.audio.vad import VoiceActivityDetector
@@ -69,11 +72,10 @@ def _load_yaml(path: str) -> dict[str, object]:
         return yaml.safe_load(handle) or {}
 
 
-def _missing_voice_dependencies() -> list[str]:
-    required = {
-        "sounddevice": "sounddevice",
-        "faster_whisper": "faster-whisper",
-    }
+def _missing_voice_dependencies(*, backend_type: str, fallback_to_python: bool) -> list[str]:
+    required = {"faster_whisper": "faster-whisper"}
+    if backend_type == "python" or fallback_to_python:
+        required["sounddevice"] = "sounddevice"
     missing: list[str] = []
     for module_name, package_name in required.items():
         if importlib.util.find_spec(module_name) is None:
@@ -81,24 +83,29 @@ def _missing_voice_dependencies() -> list[str]:
     return missing
 
 
-def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
-    """configs/voice.yaml 을 읽어 LiveVoiceBackend 를 구성. 파일 없거나 의존성
-    (sounddevice/faster-whisper) 임포트 실패 시 None 반환 — 본체는 stub 으로 계속 동작."""
+def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
+    """Build the configured live mic backend.
+
+    The existing audio/vad/asr/concurrency keys in configs/voice.yaml keep their
+    meaning. Only the backend launch policy is new.
+    """
     cfg = _load_yaml("configs/voice.yaml")
     if not cfg:
-        return None
-    missing = _missing_voice_dependencies()
-    if missing:
-        _LOGGER.warning(
-            "LiveVoiceBackend disabled; missing voice dependencies: %s",
-            ", ".join(missing),
-        )
         return None
 
     audio = (cfg.get("audio") or {}) if isinstance(cfg, dict) else {}
     vad = (cfg.get("vad") or {}) if isinstance(cfg, dict) else {}
     asr = (cfg.get("asr") or {}) if isinstance(cfg, dict) else {}
     concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
+    backend = (cfg.get("backend") or {}) if isinstance(cfg, dict) else {}
+
+    backend_type = str(backend.get("type", "python")).strip().lower() or "python"
+    fallback_to_python = bool(backend.get("fallback_to_python", True))
+    missing = _missing_voice_dependencies(
+        backend_type=backend_type,
+        fallback_to_python=fallback_to_python,
+    )
+    missing_set = set(missing)
 
     threshold_value = float(vad.get("threshold", 350))
     if 0.0 <= threshold_value <= 1.0:
@@ -136,8 +143,49 @@ def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
             min_logprob=float(asr.get("min_logprob", -1.0)),
         ),
         drop_while_busy=bool(concurrency.get("drop_while_busy", True)),
+        launch=BackendLaunchConfig(
+            type=backend_type,
+            worker_path=str(
+                backend.get(
+                    "worker_path",
+                    "native/bin/rio-audio-worker",
+                )
+            ),
+            fallback_to_python=fallback_to_python,
+            startup_timeout_ms=int(backend.get("startup_timeout_ms", 3000)),
+        ),
     )
-    return LiveVoiceBackend(capture=capture, config=backend_cfg)
+
+    def _build_python_backend() -> VoiceBackend | None:
+        if "sounddevice" in missing_set:
+            _LOGGER.warning(
+                "Python live voice backend disabled; missing dependency: sounddevice",
+            )
+            return None
+        return LiveVoiceBackend(capture=capture, config=backend_cfg)
+
+    if "faster_whisper" in missing_set:
+        _LOGGER.warning(
+            "Live voice backend disabled; missing dependency: faster-whisper",
+        )
+        return None
+
+    if backend_type == "rust":
+        worker_path = resolve_repo_path(backend_cfg.launch.worker_path)
+        if worker_path.exists():
+            return RustAudioBackend(capture=capture, config=backend_cfg)
+        _LOGGER.warning(
+            "Rust audio worker not found at %s",
+            worker_path,
+        )
+        if backend_cfg.launch.fallback_to_python:
+            fallback = _build_python_backend()
+            if fallback is not None:
+                _LOGGER.warning("Falling back to Python live voice backend")
+            return fallback
+        return None
+
+    return _build_python_backend()
 
 
 def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequest], ExecutionResult]:
@@ -301,7 +349,7 @@ class RioOrchestrator:
     audio_worker: AudioWorker | None = None
     vision_worker: VisionWorker | None = None
     touch_worker: TouchWorker | None = None
-    voice_backend: LiveVoiceBackend | None = None
+    voice_backend: VoiceBackend | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
     webcam_capture: "WebcamCapture | None" = None
@@ -550,7 +598,7 @@ class RioOrchestrator:
             try:
                 self.voice_backend.start()
             except Exception as exc:
-                _LOGGER.warning("LiveVoiceBackend start failed; continuing without mic voice: %s", exc)
+                _LOGGER.warning("Voice backend start failed; continuing without mic voice: %s", exc)
                 try:
                     self.voice_backend.stop()
                 except Exception:

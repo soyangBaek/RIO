@@ -1,40 +1,35 @@
-"""실제 mic -> RMS VAD -> Whisper 파이프라인을 백그라운드 스레드로 돌리고,
-완성된 utterance 를 기존 AudioCapture 의 feed() 로 주입하는 어댑터.
+"""Live mic backends for RIO.
 
-설계:
-  - sounddevice 콜백 스레드가 오디오 청크를 audio_queue 에 push
-  - VAD 스레드가 audio_queue 를 빼내 RMS 기반으로 utterance 경계 판정
-  - ASR 스레드가 utterance 를 꺼내 faster-whisper 로 전사
-  - 전사 결과를 AudioCapture.feed() 로 밀어넣음 (기존 AudioWorker 가 tick 마다 꺼내서 소비)
+Phase 1 layout:
+  - Python backend keeps the previous all-Python mic/VAD/ASR pipeline.
+  - Rust backend moves mic capture + RMS VAD + utterance assembly to a sidecar
+    worker, while Python still runs faster-whisper and feeds AudioCapture.
 
-Frame 주입 프로토콜 (utterance 1건 당):
-  1. {"speech": True}                             -> 스텁 VAD 가 STARTED 이벤트 발행
-  2. {"speech": True, "transcript": ..., ...}     -> 스텁 STT 가 Transcript 반환
-                                                    -> IntentNormalizer 가 voice.intent.* 발행
-  3. {"speech": False} x silence_frames_to_end    -> 스텁 VAD 가 ENDED 이벤트 발행
-
-Depth=1 동시성 규칙:
-  - ASR 처리 중이거나 이미 대기 utterance 가 있으면 새 발화는 즉시 drop
-  - 응답 일관성 + Pi CPU 보호 목적
-
-Context manager 프로토콜:
-  - `with LiveVoiceBackend(...) as backend:` 로 써서 start/stop 순서 실수 방지
+Both backends preserve the existing cooked-frame protocol:
+  1. {"speech": True}
+  2. {"speech": True, "transcript": ..., "confidence": ...}
+  3. {"speech": False} x silence_frames_to_feed
 """
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import math
 import queue
+import subprocess
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Optional, Protocol
 
 import numpy as np
 
 from src.app.adapters.audio.capture import AudioCapture
 from src.app.adapters.audio.mic_gain import apply_mic_gain
+from src.app.core.config import resolve_repo_path
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,6 +38,25 @@ _LOGGER = logging.getLogger(__name__)
 def _ts() -> str:
     t = time.time()
     return time.strftime("%H:%M:%S", time.localtime(t)) + f".{int((t - int(t)) * 1000):03d}"
+
+
+class VoiceBackend(Protocol):
+    def start(self) -> None:
+        ...
+
+    def stop(self) -> None:
+        ...
+
+    def set_trace_sink(self, sink: Callable[[str], None] | None) -> None:
+        ...
+
+
+@dataclass
+class BackendLaunchConfig:
+    type: str = "rust"
+    worker_path: str = "native/bin/rio-audio-worker"
+    fallback_to_python: bool = True
+    startup_timeout_ms: int = 3000
 
 
 @dataclass
@@ -83,7 +97,8 @@ class BackendConfig:
     vad: VADParams
     asr: ASRParams
     drop_while_busy: bool = True
-    silence_frames_to_feed: int = 2  # 스텁 VAD 의 silence_frames_to_end 기본값과 맞춤
+    silence_frames_to_feed: int = 2  # keep in sync with stub VAD defaults
+    launch: BackendLaunchConfig = field(default_factory=BackendLaunchConfig)
 
 
 @dataclass
@@ -178,19 +193,103 @@ class _RmsVoiceActivityDetector:
         )
 
 
-class LiveVoiceBackend:
-    """
-    Parameters
-    ----------
-    capture : AudioCapture
-        결과 cooked frame 을 주입할 큐 (기존 AudioWorker 가 읽음).
-    config : BackendConfig
-        모든 파라미터.
-    """
-
+class _WhisperBridgeBackend:
     def __init__(self, capture: AudioCapture, config: BackendConfig):
         self.capture = capture
         self.cfg = config
+        self._trace_sink: Callable[[str], None] | None = None
+        self._whisper: Any = None
+
+    def set_trace_sink(self, sink: Callable[[str], None] | None) -> None:
+        self._trace_sink = sink
+
+    def _emit_trace(self, message: str) -> None:
+        if self._trace_sink is not None:
+            self._trace_sink(f"[{_ts()}] {message}")
+
+    def _ensure_whisper(self) -> None:
+        if self._whisper is not None:
+            return
+        from faster_whisper import WhisperModel  # lazy import
+
+        _LOGGER.info(
+            "loading faster-whisper '%s' (compute_type=%s, device=%s)...",
+            self.cfg.asr.model,
+            self.cfg.asr.compute_type,
+            self.cfg.asr.device,
+        )
+        self._whisper = WhisperModel(
+            self.cfg.asr.model,
+            device=self.cfg.asr.device,
+            compute_type=self.cfg.asr.compute_type,
+        )
+        _LOGGER.info("models ready")
+
+    def _transcribe_and_feed(self, audio: np.ndarray) -> None:
+        self._ensure_whisper()
+        t0 = time.perf_counter()
+        try:
+            segments, _info = self._whisper.transcribe(
+                audio,
+                language=self.cfg.asr.language,
+                beam_size=self.cfg.asr.beam_size,
+                no_speech_threshold=self.cfg.asr.no_speech_threshold,
+                condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
+            )
+            segs = list(segments)
+        except Exception as exc:
+            _LOGGER.warning("whisper transcribe error: %s", exc)
+            self._emit_trace(f"[voice.asr] ERROR {exc}")
+            return
+        decode_ms = int((time.perf_counter() - t0) * 1000)
+
+        if not segs:
+            _LOGGER.info("asr empty (decode=%dms)", decode_ms)
+            self._emit_trace(f"[voice.asr] EMPTY decode={decode_ms}ms")
+            return
+
+        text = " ".join(segment.text.strip() for segment in segs).strip()
+        count = len(segs)
+        avg_logprob = sum(segment.avg_logprob for segment in segs) / count
+        no_speech_prob = sum(segment.no_speech_prob for segment in segs) / count
+
+        _LOGGER.info(
+            "asr decode=%dms text='%s' logprob=%.2f no_speech=%.2f",
+            decode_ms,
+            text,
+            avg_logprob,
+            no_speech_prob,
+        )
+        self._emit_trace(
+            f"[voice.asr] text='{text}' decode={decode_ms}ms "
+            f"logprob={avg_logprob:.2f} no_speech={no_speech_prob:.2f}"
+        )
+
+        if avg_logprob < self.cfg.asr.min_logprob:
+            _LOGGER.info(
+                "drop low-confidence utterance (logprob=%.2f < %.2f)",
+                avg_logprob,
+                self.cfg.asr.min_logprob,
+            )
+            self._emit_trace(
+                f"[voice.asr] DROP_LOW_CONF logprob={avg_logprob:.2f} "
+                f"threshold={self.cfg.asr.min_logprob:.2f}"
+            )
+            return
+
+        confidence = max(0.0, min(1.0, 1.0 - no_speech_prob))
+        self._feed_frames(text, confidence)
+
+    def _feed_frames(self, text: str, confidence: float) -> None:
+        self.capture.feed({"speech": True})
+        self.capture.feed({"speech": True, "transcript": text, "confidence": confidence})
+        for _ in range(max(1, self.cfg.silence_frames_to_feed)):
+            self.capture.feed({"speech": False})
+
+
+class PythonLiveVoiceBackend(_WhisperBridgeBackend):
+    def __init__(self, capture: AudioCapture, config: BackendConfig):
+        super().__init__(capture, config)
         self._stop = threading.Event()
         self._asr_busy = threading.Event()
 
@@ -200,20 +299,14 @@ class LiveVoiceBackend:
         self._stream: Any = None
         self._vad_thread: Optional[threading.Thread] = None
         self._asr_thread: Optional[threading.Thread] = None
-
         self._vad_engine: _RmsVoiceActivityDetector | None = None
-        self._whisper: Any = None
-        self._trace_sink: Callable[[str], None] | None = None
 
-    def __enter__(self) -> "LiveVoiceBackend":
+    def __enter__(self) -> "PythonLiveVoiceBackend":
         self.start()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.stop()
-
-    def set_trace_sink(self, sink: Callable[[str], None] | None) -> None:
-        self._trace_sink = sink
 
     def start(self) -> None:
         self._stop.clear()
@@ -225,14 +318,15 @@ class LiveVoiceBackend:
                 self.cfg.audio.gain_target_source,
             )
 
-        self._load_models()
+        self._load_vad_engine()
+        self._ensure_whisper()
         self._open_stream()
 
         self._vad_thread = threading.Thread(target=self._vad_loop, name="live-voice-vad", daemon=True)
         self._asr_thread = threading.Thread(target=self._asr_loop, name="live-voice-asr", daemon=True)
         self._vad_thread.start()
         self._asr_thread.start()
-        _LOGGER.info("LiveVoiceBackend started")
+        _LOGGER.info("PythonLiveVoiceBackend started")
 
     def stop(self) -> None:
         self._stop.set()
@@ -248,15 +342,9 @@ class LiveVoiceBackend:
                 thread.join(timeout=2.0)
         self._vad_thread = None
         self._asr_thread = None
-        _LOGGER.info("LiveVoiceBackend stopped")
+        _LOGGER.info("PythonLiveVoiceBackend stopped")
 
-    def _emit_trace(self, message: str) -> None:
-        if self._trace_sink is not None:
-            self._trace_sink(f"[{_ts()}] {message}")
-
-    def _load_models(self) -> None:
-        from faster_whisper import WhisperModel  # lazy import
-
+    def _load_vad_engine(self) -> None:
         chunk_ms = max(1.0, (self.cfg.audio.blocksize / self.cfg.audio.sample_rate) * 1000.0)
         silence_chunks_to_end = max(1, int(math.ceil(self.cfg.vad.min_silence_duration_ms / chunk_ms)))
         speech_pad_chunks = max(0, int(math.ceil(self.cfg.vad.speech_pad_ms / chunk_ms)))
@@ -273,19 +361,6 @@ class LiveVoiceBackend:
             silence_chunks_to_end,
             speech_pad_chunks,
         )
-
-        _LOGGER.info(
-            "loading faster-whisper '%s' (compute_type=%s, device=%s)...",
-            self.cfg.asr.model,
-            self.cfg.asr.compute_type,
-            self.cfg.asr.device,
-        )
-        self._whisper = WhisperModel(
-            self.cfg.asr.model,
-            device=self.cfg.asr.device,
-            compute_type=self.cfg.asr.compute_type,
-        )
-        _LOGGER.info("models ready")
 
     def _open_stream(self) -> None:
         import sounddevice as sd  # lazy import
@@ -346,14 +421,12 @@ class LiveVoiceBackend:
 
             decision = self._vad_engine.process(chunk)
             if decision.started:
-                _LOGGER.debug("speech started (rms=%d)", decision.rms)
                 self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
 
             if not decision.ended or decision.audio is None:
                 continue
 
             if decision.duration_ms < self.cfg.vad.min_speech_ms:
-                _LOGGER.debug("drop short utterance %dms", decision.duration_ms)
                 self._emit_trace(
                     f"[voice.vad] speech END dur={decision.duration_ms}ms "
                     f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f} -> DROP_SHORT"
@@ -388,66 +461,211 @@ class LiveVoiceBackend:
             finally:
                 self._asr_busy.clear()
 
-    def _transcribe_and_feed(self, audio: np.ndarray) -> None:
-        t0 = time.perf_counter()
+
+class RustAudioBackend(_WhisperBridgeBackend):
+    def __init__(
+        self,
+        capture: AudioCapture,
+        config: BackendConfig,
+        *,
+        config_path: str | Path = "configs/voice.yaml",
+    ) -> None:
+        super().__init__(capture, config)
+        self.config_path = str(config_path)
+        self._stop = threading.Event()
+        self._ready = threading.Event()
+        self._asr_busy = threading.Event()
+        self._process: subprocess.Popen[str] | None = None
+        self._stdout_thread: Optional[threading.Thread] = None
+        self._stderr_thread: Optional[threading.Thread] = None
+        self._decode_thread: Optional[threading.Thread] = None
+        self._utterance_q: "queue.Queue[np.ndarray | None]" = queue.Queue(maxsize=2)
+        self._stdin_lock = threading.Lock()
+
+    def start(self) -> None:
+        self._stop.clear()
+        self._ready.clear()
+        self._asr_busy.clear()
+
+        if self.cfg.audio.mic_gain_percent is not None:
+            apply_mic_gain(
+                int(self.cfg.audio.mic_gain_percent),
+                self.cfg.audio.gain_target_source,
+            )
+
+        self._ensure_whisper()
+        worker_path = self._resolve_worker_path()
+        cmd = [str(worker_path), "--config", str(resolve_repo_path(self.config_path))]
+        _LOGGER.info("starting rust audio worker: %s", " ".join(cmd))
+        self._process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        self._stdout_thread = threading.Thread(target=self._stdout_loop, name="rust-audio-stdout", daemon=True)
+        self._stderr_thread = threading.Thread(target=self._stderr_loop, name="rust-audio-stderr", daemon=True)
+        self._decode_thread = threading.Thread(target=self._decode_loop, name="rust-audio-decode", daemon=True)
+        self._stdout_thread.start()
+        self._stderr_thread.start()
+        self._decode_thread.start()
+
+        timeout_s = max(0.5, self.cfg.launch.startup_timeout_ms / 1000.0)
+        if not self._ready.wait(timeout=timeout_s):
+            self.stop()
+            raise RuntimeError("Rust audio worker did not become ready in time")
+
+        _LOGGER.info("RustAudioBackend started")
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._send_command({"type": "shutdown"})
         try:
-            segments, _info = self._whisper.transcribe(
-                audio,
-                language=self.cfg.asr.language,
-                beam_size=self.cfg.asr.beam_size,
-                no_speech_threshold=self.cfg.asr.no_speech_threshold,
-                condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
-            )
-            segs = list(segments)
-        except Exception as exc:
-            _LOGGER.warning("whisper transcribe error: %s", exc)
-            self._emit_trace(f"[voice.asr] ERROR {exc}")
+            self._utterance_q.put_nowait(None)
+        except queue.Full:
+            pass
+
+        process = self._process
+        if process is not None:
+            try:
+                process.wait(timeout=1.5)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                try:
+                    process.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=1.0)
+        for thread in (self._stdout_thread, self._stderr_thread, self._decode_thread):
+            if thread is not None:
+                thread.join(timeout=2.0)
+        self._stdout_thread = None
+        self._stderr_thread = None
+        self._decode_thread = None
+        self._process = None
+        _LOGGER.info("RustAudioBackend stopped")
+
+    def _resolve_worker_path(self) -> Path:
+        raw_path = self.cfg.launch.worker_path
+        candidate = resolve_repo_path(raw_path)
+        if candidate.exists():
+            return candidate
+        return Path(raw_path)
+
+    def _stdout_loop(self) -> None:
+        process = self._process
+        if process is None or process.stdout is None:
             return
-        decode_ms = int((time.perf_counter() - t0) * 1000)
+        for raw_line in process.stdout:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                _LOGGER.warning("invalid rust worker message: %s", line)
+                continue
+            self._handle_worker_message(message)
 
-        if not segs:
-            _LOGGER.info("asr empty (decode=%dms)", decode_ms)
-            self._emit_trace(f"[voice.asr] EMPTY decode={decode_ms}ms")
+    def _stderr_loop(self) -> None:
+        process = self._process
+        if process is None or process.stderr is None:
             return
+        for raw_line in process.stderr:
+            line = raw_line.strip()
+            if line:
+                _LOGGER.info("[rust-audio] %s", line)
 
-        text = " ".join(segment.text.strip() for segment in segs).strip()
-        count = len(segs)
-        avg_logprob = sum(segment.avg_logprob for segment in segs) / count
-        no_speech_prob = sum(segment.no_speech_prob for segment in segs) / count
-
-        _LOGGER.info(
-            "asr decode=%dms text='%s' logprob=%.2f no_speech=%.2f",
-            decode_ms,
-            text,
-            avg_logprob,
-            no_speech_prob,
-        )
-        self._emit_trace(
-            f"[voice.asr] text='{text}' decode={decode_ms}ms "
-            f"logprob={avg_logprob:.2f} no_speech={no_speech_prob:.2f}"
-        )
-
-        if avg_logprob < self.cfg.asr.min_logprob:
-            _LOGGER.info(
-                "drop low-confidence utterance (logprob=%.2f < %.2f)",
-                avg_logprob,
-                self.cfg.asr.min_logprob,
-            )
+    def _handle_worker_message(self, message: dict[str, Any]) -> None:
+        kind = str(message.get("type") or "")
+        if kind == "ready":
+            self._ready.set()
+            return
+        if kind == "speech_started":
+            self._emit_trace(f"[voice.vad] speech START rms={int(message.get('rms', 0))}")
+            return
+        if kind == "speech_ended":
+            suffix = " -> DROP_SHORT" if bool(message.get("dropped_short")) else ""
             self._emit_trace(
-                f"[voice.asr] DROP_LOW_CONF logprob={avg_logprob:.2f} "
-                f"threshold={self.cfg.asr.min_logprob:.2f}"
+                f"[voice.vad] speech END dur={int(message.get('duration_ms', 0))}ms "
+                f"peak={float(message.get('peak', 0.0)):.3f} "
+                f"rms={float(message.get('rms', 0.0)):.3f}{suffix}"
             )
             return
+        if kind == "busy_drop":
+            self._emit_trace(f"[voice.asr] BUSY drop dur={int(message.get('duration_ms', 0))}ms")
+            return
+        if kind == "trace":
+            text = str(message.get("message") or "").strip()
+            if text:
+                self._emit_trace(text)
+            return
+        if kind == "error":
+            text = str(message.get("message") or "unknown rust worker error")
+            _LOGGER.warning("rust audio worker error: %s", text)
+            self._emit_trace(f"[voice.worker] ERROR {text}")
+            return
+        if kind == "utterance":
+            encoded = str(message.get("pcm_f32_b64") or "")
+            if not encoded:
+                return
+            try:
+                audio = np.frombuffer(base64.b64decode(encoded), dtype=np.float32).copy()
+            except Exception as exc:  # pragma: no cover - defensive
+                _LOGGER.warning("failed to decode utterance from rust worker: %s", exc)
+                return
+            try:
+                self._utterance_q.put_nowait(audio)
+            except queue.Full:
+                _LOGGER.info("decode queue full, dropping utterance from rust worker")
+                self._emit_trace("[voice.asr] queue full, dropping utterance")
+            return
 
-        confidence = max(0.0, min(1.0, 1.0 - no_speech_prob))
-        self._feed_frames(text, confidence)
+    def _decode_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                audio = self._utterance_q.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if audio is None:
+                return
+            self._asr_busy.set()
+            self._send_command({"type": "asr_busy"})
+            try:
+                self._transcribe_and_feed(audio)
+            finally:
+                self._asr_busy.clear()
+                self._send_command({"type": "asr_idle"})
 
-    def _feed_frames(self, text: str, confidence: float) -> None:
-        """스텁 VAD/STT 가 소비할 cooked frame 시퀀스 주입.
+    def _send_command(self, payload: dict[str, Any]) -> None:
+        process = self._process
+        if process is None or process.stdin is None or process.poll() is not None:
+            return
+        line = json.dumps(payload, ensure_ascii=False)
+        with self._stdin_lock:
+            try:
+                process.stdin.write(line + "\n")
+                process.stdin.flush()
+            except BrokenPipeError:
+                return
 
-        1회 발화 = (speech start 플래그) + (transcript 프레임) + (silence 프레임 x N)
-        """
-        self.capture.feed({"speech": True})
-        self.capture.feed({"speech": True, "transcript": text, "confidence": confidence})
-        for _ in range(max(1, self.cfg.silence_frames_to_feed)):
-            self.capture.feed({"speech": False})
+
+class LiveVoiceBackend(PythonLiveVoiceBackend):
+    """Compatibility alias for tests and existing imports."""
+
+
+__all__ = [
+    "ASRParams",
+    "AudioParams",
+    "BackendConfig",
+    "BackendLaunchConfig",
+    "LiveVoiceBackend",
+    "PythonLiveVoiceBackend",
+    "RustAudioBackend",
+    "VADParams",
+    "VoiceBackend",
+    "_RmsVoiceActivityDetector",
+]

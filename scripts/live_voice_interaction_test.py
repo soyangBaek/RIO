@@ -1914,7 +1914,8 @@ def main() -> int:
     # 대신 start/stop 을 try/finally 에 배치하여 동등한 효과를 얻음.
     if rio.voice_backend is not None:
         rio.voice_backend.set_trace_sink(print if voice_trace_enabled else None)
-        print("[voice] starting live mic backend (RMS VAD + faster-whisper)...")
+        backend_name = type(rio.voice_backend).__name__
+        print(f"[voice] starting live mic backend ({backend_name})...")
         try:
             rio.voice_backend.start()
         except Exception as exc:
@@ -1925,7 +1926,7 @@ def main() -> int:
                 pass
             rio.voice_backend = None
     else:
-        print("[voice] LiveVoiceBackend disabled (voice.yaml 없음 또는 의존성 누락)")
+        print("[voice] voice backend disabled (voice.yaml 없음 또는 의존성 누락)")
 
     try:
         while True:
