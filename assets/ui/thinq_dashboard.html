@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThinQ – 거실 대시보드</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --wall: #1c2333;
+    --floor: #151b28;
+    --floor-line: rgba(255,255,255,0.03);
+    --on-glow: #ff4466;
+    --on-glow-soft: rgba(255,68,102,0.15);
+    --on-glow-strong: rgba(255,68,102,0.6);
+    --light-glow: #ffdd57;
+    --text: #e8eaf0;
+    --text-dim: #5c6580;
+    --accent: #2ea6ff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ──────────────────── */
+  header {
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 10;
+  }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+  .logo span { color: var(--accent); }
+  .sub { color: var(--text-dim); font-size: 12px; margin-left: 4px; }
+  .conn { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+  .conn-dot.off { background: var(--on-glow); box-shadow: 0 0 6px var(--on-glow); }
+
+  /* ── Room Container ──────────── */
+  .room-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .room {
+    position: relative;
+    width: 800px;
+    height: 520px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--floor);
+  }
+
+  /* ── Walls & Floor ───────────── */
+  .wall-back {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 55%;
+    background: linear-gradient(180deg, #1a2236 0%, #1c2538 100%);
+    border-bottom: 3px solid rgba(255,255,255,0.04);
+  }
+  .wall-back::after {
+    content:'';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.3), transparent);
+  }
+  .floor-area {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 45%;
+    background:
+      repeating-linear-gradient(90deg, var(--floor-line) 0, var(--floor-line) 1px, transparent 1px, transparent 80px),
+      linear-gradient(180deg, #151b28, #111724);
+  }
+
+  /* ── Window ──────────────────── */
+  .window {
+    position: absolute;
+    top: 30px; right: 50px;
+    width: 120px; height: 130px;
+    border: 3px solid #2a3450;
+    border-radius: 4px;
+    background: linear-gradient(160deg, #1e2d4a, #162040);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+  }
+  .window::before {
+    content:''; position:absolute;
+    top: 50%; left: 0; right: 0; height: 3px;
+    background: #2a3450; transform: translateY(-50%);
+  }
+  .window::after {
+    content:''; position:absolute;
+    left: 50%; top: 0; bottom: 0; width: 3px;
+    background: #2a3450; transform: translateX(-50%);
+  }
+
+  /* ── Sofa ─────────────────────── */
+  .sofa {
+    position: absolute;
+    bottom: 60px; left: 50%;
+    transform: translateX(-50%);
+    width: 280px; height: 80px;
+    background: #2d3553;
+    border-radius: 12px 12px 8px 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .sofa::before {
+    content:''; position:absolute;
+    top: -20px; left: 10px; right: 10px;
+    height: 24px;
+    background: #343d5c;
+    border-radius: 6px 6px 0 0;
+  }
+  .sofa::after {
+    content:'';
+    position: absolute;
+    left: 20px; right: 20px;
+    top: 10px; height: 3px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 2px;
+  }
+
+  /* ── Table ────────────────────── */
+  .table {
+    position: absolute;
+    bottom: 155px; left: 50%;
+    transform: translateX(-50%);
+    width: 160px; height: 50px;
+    background: #252e45;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+  }
+
+  /* ── Rug ──────────────────────── */
+  .rug {
+    position: absolute;
+    bottom: 40px; left: 50%;
+    transform: translateX(-50%);
+    width: 360px; height: 180px;
+    background: radial-gradient(ellipse, rgba(46,166,255,0.06), transparent 70%);
+    border-radius: 50%;
+  }
+
+  /* ── Device Hotspot (clickable) ─ */
+  .device-spot {
+    position: absolute;
+    cursor: pointer;
+    transition: transform 0.2s;
+    z-index: 5;
+  }
+  .device-spot:hover { transform: scale(1.08); }
+  .device-spot:active { transform: scale(0.95); }
+
+  /* ── Alert Badge ─────────────── */
+  .badge {
+    position: absolute;
+    top: -8px; right: -8px;
+    width: 26px; height: 26px;
+    background: var(--on-glow);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 10px var(--on-glow-strong);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .device-spot.on .badge {
+    opacity: 1;
+    transform: scale(1);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 10px var(--on-glow-strong); }
+    50% { box-shadow: 0 0 22px var(--on-glow-strong), 0 0 44px var(--on-glow-soft); }
+  }
+
+  /* ── Device Label ────────────── */
+  .dev-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-top: 4px;
+    white-space: nowrap;
+    transition: color 0.3s;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+  .device-spot.on .dev-label { color: var(--text); }
+
+  /* ═══ TV ═══════════════════════ */
+  .tv-body {
+    width: 180px; height: 110px;
+    background: #111;
+    border-radius: 6px;
+    border: 3px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .tv-screen {
+    width: 100%; height: 100%;
+    background: #0a0a0a;
+    transition: background 0.5s;
+  }
+  .device-spot.on .tv-body {
+    border-color: #555;
+    box-shadow: 0 0 30px rgba(100,160,255,0.25), 0 0 60px rgba(100,160,255,0.08);
+  }
+  .device-spot.on .tv-screen {
+    background: linear-gradient(135deg, #1a3a6e, #2255aa, #1a4488);
+    animation: tvFlicker 4s ease-in-out infinite;
+  }
+  @keyframes tvFlicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.92; }
+  }
+  .tv-stand {
+    width: 40px; height: 4px;
+    background: #333;
+    margin: 0 auto;
+    border-radius: 0 0 3px 3px;
+  }
+
+  /* ═══ Light (ceiling) ══════════ */
+  .light-fixture {
+    width: 60px; height: 20px;
+    background: #3a3a4a;
+    border-radius: 0 0 30px 30px;
+    position: relative;
+    transition: background 0.4s, box-shadow 0.4s;
+    margin: 0 auto;
+  }
+  .light-wire {
+    width: 2px; height: 16px;
+    background: #3a3a4a;
+    margin: 0 auto;
+  }
+  .device-spot.on .light-fixture {
+    background: var(--light-glow);
+    box-shadow: 0 8px 80px rgba(255,221,87,0.5), 0 4px 30px rgba(255,221,87,0.6), 0 0 120px rgba(255,221,87,0.2);
+  }
+  .light-cone {
+    position: absolute;
+    top: 100%; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 100px solid transparent;
+    border-right: 100px solid transparent;
+    border-top: 200px solid rgba(255,221,87,0);
+    transition: border-top-color 0.6s;
+    pointer-events: none;
+  }
+  .device-spot.on .light-cone {
+    border-top-color: rgba(255,221,87,0.13);
+  }
+
+  /* ═══ Aircon ═══════════════════ */
+  .aircon-body {
+    width: 120px; height: 32px;
+    background: linear-gradient(180deg, #e8e8e8, #d0d0d0);
+    border-radius: 4px 4px 12px 12px;
+    position: relative;
+    transition: box-shadow 0.4s;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .aircon-vent {
+    position: absolute;
+    bottom: -4px; left: 10%; right: 10%;
+    height: 6px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 0 0 4px 4px;
+  }
+  .device-spot.on .aircon-body {
+    box-shadow: 0 6px 30px rgba(100,200,255,0.3);
+  }
+  .aircon-wind {
+    position: absolute;
+    bottom: -40px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .device-spot.on .aircon-wind {
+    opacity: 1;
+    animation: windDrift 2s ease-in-out infinite;
+  }
+  .wind-line {
+    width: 2px; height: 20px;
+    background: rgba(100,200,255,0.3);
+    border-radius: 1px;
+  }
+  .wind-line:nth-child(2) { height: 28px; }
+  .wind-line:nth-child(3) { height: 24px; }
+  @keyframes windDrift {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(6px); }
+  }
+  .aircon-temp {
+    position: absolute;
+    bottom: -56px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.5);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .device-spot.on .aircon-temp.visible { opacity: 1; }
+
+  /* ═══ Robot Cleaner ════════════ */
+  .cleaner-body {
+    width: 50px; height: 50px;
+    background: radial-gradient(circle, #444 60%, #333 100%);
+    border-radius: 50%;
+    position: relative;
+    border: 2px solid #555;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .cleaner-eye {
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    width: 16px; height: 8px;
+    background: #222;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .cleaner-eye-dot {
+    width: 6px; height: 6px;
+    background: #666;
+    border-radius: 50%;
+    margin: 1px auto;
+    transition: background 0.3s;
+  }
+  .device-spot.on .cleaner-body {
+    border-color: #4caf50;
+    box-shadow: 0 0 16px rgba(76,175,80,0.3);
+    animation: cleanerMove 3s ease-in-out infinite;
+  }
+  .device-spot.on .cleaner-eye-dot {
+    background: #4caf50;
+    box-shadow: 0 0 6px #4caf50;
+  }
+  @keyframes cleanerMove {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(8px, -4px) rotate(5deg); }
+    50% { transform: translate(-4px, 2px) rotate(-3deg); }
+    75% { transform: translate(4px, 4px) rotate(2deg); }
+  }
+
+  /* ═══ Speaker ══════════════════ */
+  .speaker-body {
+    width: 36px; height: 56px;
+    background: linear-gradient(180deg, #3a3a3a, #2a2a2a);
+    border-radius: 18px;
+    position: relative;
+    border: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transition: box-shadow 0.4s;
+  }
+  .speaker-dot {
+    width: 6px; height: 6px;
+    background: #555;
+    border-radius: 50%;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .speaker-mesh {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: repeating-radial-gradient(circle, #333 0, #333 1px, #3a3a3a 1px, #3a3a3a 3px);
+    border: 1px solid #444;
+  }
+  .device-spot.on .speaker-body {
+    box-shadow: 0 0 20px rgba(168,85,247,0.3);
+  }
+  .device-spot.on .speaker-dot {
+    background: #a855f7;
+    box-shadow: 0 0 6px #a855f7;
+  }
+  .music-waves {
+    position: absolute;
+    top: -12px; right: -16px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 18px;
+  }
+  .device-spot.on .music-waves {
+    opacity: 1;
+    animation: noteFloat 1.5s ease-in-out infinite;
+  }
+  @keyframes noteFloat {
+    0%, 100% { transform: translateY(0) rotate(0); opacity: 1; }
+    50% { transform: translateY(-8px) rotate(10deg); opacity: 0.7; }
+  }
+
+  /* ── Room Light Overlay ──────── */
+  .room-light-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transition: background 0.8s, opacity 0.8s;
+    z-index: 2;
+    opacity: 0;
+  }
+  .room-light-overlay.lit {
+    opacity: 1;
+    background: rgba(255, 240, 180, 0.28);
+  }
+
+  /* ── Aircon Cold Overlay ─────── */
+  .room-cold-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transition: opacity 1s;
+    z-index: 2;
+    opacity: 0;
+    background:
+      linear-gradient(180deg, rgba(140,210,255,0.18) 0%, rgba(140,210,255,0.06) 50%, transparent 100%);
+  }
+  .room-cold-overlay.cold {
+    opacity: 1;
+  }
+
+  /* ── Event Log ───────────────── */
+  .log-section {
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto 24px;
+    padding: 0 20px;
+  }
+  .log-title { font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .log-list {
+    background: rgba(22,27,40,0.8);
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.9;
+    color: var(--text-dim);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .log-entry .time { color: #5c6580; }
+  .log-entry .cmd { color: var(--text); }
+  .log-entry .ok { color: #4caf50; }
+  .log-entry .fail { color: var(--on-glow); }
+  .log-empty { font-style: italic; }
+
+  footer {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  /* ── Responsive ──────────────── */
+  @media (max-width: 840px) {
+    .room { width: 100%; height: 400px; }
+    .tv-body { width: 140px; height: 86px; }
+    .sofa { width: 220px; height: 64px; }
+    .table { width: 120px; height: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Thin<span>Q</span></div>
+    <div class="sub">거실 스마트홈 대시보드</div>
+  </div>
+  <div class="conn">
+    <div class="conn-dot" id="connDot"></div>
+    <span id="connLabel">연결됨</span>
+  </div>
+</header>
+
+<div class="room-wrap">
+  <div class="room" id="room">
+    <!-- Walls & Floor -->
+    <div class="wall-back"></div>
+    <div class="floor-area"></div>
+    <div class="rug"></div>
+
+    <!-- Window -->
+    <div class="window"></div>
+
+    <!-- Furniture -->
+    <div class="sofa"></div>
+    <div class="table"></div>
+
+    <!-- Light Overlay -->
+    <div class="room-light-overlay" id="lightOverlay"></div>
+
+    <!-- Aircon Cold Overlay -->
+    <div class="room-cold-overlay" id="coldOverlay"></div>
+
+    <!-- ═══ Devices ═══ -->
+
+    <!-- TV: wall center -->
+    <div class="device-spot" id="dev-tv.living_room" style="top: 42px; left: 50%; transform: translateX(-50%);">
+      <div class="badge">!</div>
+      <div class="tv-body"><div class="tv-screen"></div></div>
+      <div class="tv-stand"></div>
+      <div class="dev-label">TV</div>
+    </div>
+
+    <!-- Light: ceiling -->
+    <div class="device-spot" id="dev-light.main" style="top: 0; left: 50%; transform: translateX(-50%);">
+      <div class="badge" style="top: 14px; right: -14px;">!</div>
+      <div class="light-wire"></div>
+      <div class="light-fixture">
+        <div class="light-cone"></div>
+      </div>
+      <div class="dev-label">거실 조명</div>
+    </div>
+
+    <!-- Aircon: upper wall left -->
+    <div class="device-spot" id="dev-aircon.living_room" style="top: 50px; left: 60px;">
+      <div class="badge">!</div>
+      <div class="aircon-body">
+        <div class="aircon-vent"></div>
+        <div class="aircon-wind">
+          <div class="wind-line"></div>
+          <div class="wind-line"></div>
+          <div class="wind-line"></div>
+          <div class="wind-line"></div>
+          <div class="wind-line"></div>
+        </div>
+      </div>
+      <div class="aircon-temp" id="aircon-temp"></div>
+      <div class="dev-label">에어컨</div>
+    </div>
+
+    <!-- Robot Cleaner: floor left -->
+    <div class="device-spot" id="dev-cleaner.bot" style="bottom: 40px; left: 120px;">
+      <div class="badge">!</div>
+      <div class="cleaner-body">
+        <div class="cleaner-eye"><div class="cleaner-eye-dot"></div></div>
+      </div>
+      <div class="dev-label">로봇청소기</div>
+    </div>
+
+    <!-- Speaker: right side -->
+    <div class="device-spot" id="dev-speaker.main" style="bottom: 80px; right: 70px;">
+      <div class="badge">!</div>
+      <div class="speaker-body">
+        <div class="speaker-dot"></div>
+        <div class="speaker-mesh"></div>
+        <div class="speaker-dot"></div>
+      </div>
+      <div class="music-waves">&#9835;</div>
+      <div class="dev-label">음악</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="log-section">
+  <div class="log-title">이벤트 로그</div>
+  <div class="log-list" id="logList">
+    <div class="log-empty">디바이스를 클릭하여 제어하세요…</div>
+  </div>
+</div>
+
+<footer>ThinQ Bridge &middot; BMO / RIO &middot; 클릭으로 디바이스 ON/OFF</footer>
+
+<script>
+(function() {
+  const ACTION_KO = {
+    on:'ON', off:'OFF', start:'시작', stop:'정지',
+    play:'재생', set_temperature:'온도 설정', reset:'RESET'
+  };
+
+  /* ── Click to toggle ──────────── */
+  document.querySelectorAll('.device-spot').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.id.replace('dev-', '');
+      fetch('/api/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: id })
+      }).catch(function(err) { console.error('toggle error', err); });
+    });
+  });
+
+  /* ── Update UI ────────────────── */
+  function updateUI(state) {
+    if (!state || !state.devices) return;
+    for (var id in state.devices) {
+      var dev = state.devices[id];
+      var el = document.getElementById('dev-' + id);
+      if (!el) continue;
+      if (dev.on) { el.classList.add('on'); } else { el.classList.remove('on'); }
+      if (id === 'aircon.living_room') {
+        var tag = document.getElementById('aircon-temp');
+        if (dev.temperature_c != null && dev.on) {
+          tag.textContent = dev.temperature_c + '\u00B0C';
+          tag.classList.add('visible');
+        } else { tag.classList.remove('visible'); }
+      }
+    }
+    var lightDev = state.devices['light.main'];
+    var ov = document.getElementById('lightOverlay');
+    if (lightDev && lightDev.on) { ov.classList.add('lit'); } else { ov.classList.remove('lit'); }
+    var airconDev = state.devices['aircon.living_room'];
+    var cold = document.getElementById('coldOverlay');
+    if (airconDev && airconDev.on) { cold.classList.add('cold'); } else { cold.classList.remove('cold'); }
+  }
+
+  function addLog(content, ok) {
+    var list = document.getElementById('logList');
+    var empty = list.querySelector('.log-empty');
+    if (empty) empty.remove();
+    var div = document.createElement('div');
+    div.className = 'log-entry';
+    var t = new Date().toLocaleTimeString('ko-KR');
+    div.innerHTML = '<span class="time">' + t + '</span>  <span class="cmd">' + esc(content) + '</span>  <span class="' + (ok?'ok':'fail') + '">' + (ok?'\u2713':'\u2717') + '</span>';
+    list.prepend(div);
+    while (list.children.length > 40) list.removeChild(list.lastChild);
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  /* ── SSE ──────────────────────── */
+  var dot = document.getElementById('connDot');
+  var lbl = document.getElementById('connLabel');
+  var prev = null;
+
+  function connect() {
+    var es = new EventSource('/api/events');
+    es.onopen = function() { dot.classList.remove('off'); lbl.textContent = '연결됨'; };
+    es.onmessage = function(e) {
+      try {
+        var st = JSON.parse(e.data);
+        if (prev && prev.devices) {
+          for (var id in st.devices) {
+            var dev = st.devices[id];
+            var p = prev.devices[id];
+            if (p && dev.updated_at !== p.updated_at && dev.last_action) {
+              var name = dev.name || id;
+              var act = ACTION_KO[dev.last_action] || dev.last_action;
+              addLog(name + ': ' + act, true);
+            }
+          }
+        }
+        prev = st;
+        updateUI(st);
+      } catch(err) { console.error(err); }
+    };
+    es.onerror = function() {
+      dot.classList.add('off');
+      lbl.textContent = '재연결 중…';
+      es.close();
+      setTimeout(connect, 3000);
+    };
+  }
+
+  fetch('/api/state').then(function(r){return r.json();}).then(function(st){ prev=st; updateUI(st); }).catch(function(){}).finally(connect);
+})();
+</script>
+</body>
+</html>
