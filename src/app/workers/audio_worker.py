@@ -20,12 +20,15 @@ class AudioWorker:
     stt: SpeechToTextAdapter
     normalizer: IntentNormalizer
     worker_name: str = "audio_worker"
+    max_frames_per_run: int = 32
 
     def run_once(self, *, now: datetime | None = None) -> list[Event]:
         when = now or datetime.now(timezone.utc)
         published: list[Event] = []
-        frame = self.capture.read_chunk()
-        if frame is not None:
+        frames = self.capture.drain_chunks(max_items=self.max_frames_per_run)
+        if not frames:
+            frames = [frame] if (frame := self.capture.read_chunk()) is not None else []
+        for frame in frames:
             vad_events = self.vad.process(frame, now=when)
             for event in vad_events:
                 self.bus.publish(event)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,8 +18,11 @@ from src.app.adapters.audio.live_voice_backend import (
     ASRParams,
     AudioParams,
     BackendConfig,
+    BackendLaunchConfig,
     LiveVoiceBackend,
+    RustAudioBackend,
     VADParams,
+    VoiceBackend,
 )
 from src.app.adapters.audio.stt import SpeechToTextAdapter
 from src.app.adapters.audio.vad import VoiceActivityDetector
@@ -69,11 +73,10 @@ def _load_yaml(path: str) -> dict[str, object]:
         return yaml.safe_load(handle) or {}
 
 
-def _missing_voice_dependencies() -> list[str]:
-    required = {
-        "sounddevice": "sounddevice",
-        "faster_whisper": "faster-whisper",
-    }
+def _missing_voice_dependencies(*, backend_type: str, fallback_to_python: bool) -> list[str]:
+    required = {"faster_whisper": "faster-whisper"}
+    if backend_type == "python" or fallback_to_python:
+        required["sounddevice"] = "sounddevice"
     missing: list[str] = []
     for module_name, package_name in required.items():
         if importlib.util.find_spec(module_name) is None:
@@ -81,24 +84,29 @@ def _missing_voice_dependencies() -> list[str]:
     return missing
 
 
-def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
-    """configs/voice.yaml 을 읽어 LiveVoiceBackend 를 구성. 파일 없거나 의존성
-    (sounddevice/faster-whisper) 임포트 실패 시 None 반환 — 본체는 stub 으로 계속 동작."""
+def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
+    """Build the configured live mic backend.
+
+    The existing audio/vad/asr/concurrency keys in configs/voice.yaml keep their
+    meaning. Only the backend launch policy is new.
+    """
     cfg = _load_yaml("configs/voice.yaml")
     if not cfg:
-        return None
-    missing = _missing_voice_dependencies()
-    if missing:
-        _LOGGER.warning(
-            "LiveVoiceBackend disabled; missing voice dependencies: %s",
-            ", ".join(missing),
-        )
         return None
 
     audio = (cfg.get("audio") or {}) if isinstance(cfg, dict) else {}
     vad = (cfg.get("vad") or {}) if isinstance(cfg, dict) else {}
     asr = (cfg.get("asr") or {}) if isinstance(cfg, dict) else {}
     concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
+    backend = (cfg.get("backend") or {}) if isinstance(cfg, dict) else {}
+
+    backend_type = str(backend.get("type", "python")).strip().lower() or "python"
+    fallback_to_python = bool(backend.get("fallback_to_python", True))
+    missing = _missing_voice_dependencies(
+        backend_type=backend_type,
+        fallback_to_python=fallback_to_python,
+    )
+    missing_set = set(missing)
 
     threshold_value = float(vad.get("threshold", 350))
     if 0.0 <= threshold_value <= 1.0:
@@ -136,8 +144,49 @@ def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
             min_logprob=float(asr.get("min_logprob", -1.0)),
         ),
         drop_while_busy=bool(concurrency.get("drop_while_busy", True)),
+        launch=BackendLaunchConfig(
+            type=backend_type,
+            worker_path=str(
+                backend.get(
+                    "worker_path",
+                    "native/bin/rio-audio-worker",
+                )
+            ),
+            fallback_to_python=fallback_to_python,
+            startup_timeout_ms=int(backend.get("startup_timeout_ms", 3000)),
+        ),
     )
-    return LiveVoiceBackend(capture=capture, config=backend_cfg)
+
+    def _build_python_backend() -> VoiceBackend | None:
+        if "sounddevice" in missing_set:
+            _LOGGER.warning(
+                "Python live voice backend disabled; missing dependency: sounddevice",
+            )
+            return None
+        return LiveVoiceBackend(capture=capture, config=backend_cfg)
+
+    if "faster_whisper" in missing_set:
+        _LOGGER.warning(
+            "Live voice backend disabled; missing dependency: faster-whisper",
+        )
+        return None
+
+    if backend_type == "rust":
+        worker_path = resolve_repo_path(backend_cfg.launch.worker_path)
+        if worker_path.exists():
+            return RustAudioBackend(capture=capture, config=backend_cfg)
+        _LOGGER.warning(
+            "Rust audio worker not found at %s",
+            worker_path,
+        )
+        if backend_cfg.launch.fallback_to_python:
+            fallback = _build_python_backend()
+            if fallback is not None:
+                _LOGGER.warning("Falling back to Python live voice backend")
+            return fallback
+        return None
+
+    return _build_python_backend()
 
 
 def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequest], ExecutionResult]:
@@ -301,7 +350,7 @@ class RioOrchestrator:
     audio_worker: AudioWorker | None = None
     vision_worker: VisionWorker | None = None
     touch_worker: TouchWorker | None = None
-    voice_backend: LiveVoiceBackend | None = None
+    voice_backend: VoiceBackend | None = None
     event_log: list[Event] = field(default_factory=list)
     held_alerts: list[Event] = field(default_factory=list)
     webcam_capture: "WebcamCapture | None" = None
@@ -309,6 +358,13 @@ class RioOrchestrator:
     _dance_timer: "threading.Timer | None" = None
     _photo_timer: "threading.Timer | None" = None
     _alert_timeout_timer: "threading.Timer | None" = None
+    _async_executor: ThreadPoolExecutor = field(
+        default_factory=lambda: ThreadPoolExecutor(max_workers=2, thread_name_prefix="rio-exec"),
+        init=False,
+        repr=False,
+    )
+    _pending_futures: set[Future[ExecutionResult]] = field(default_factory=set, init=False, repr=False)
+    _futures_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.reducer = ReducerPipeline(self.store)
@@ -329,13 +385,29 @@ class RioOrchestrator:
                 self.voice_backend = _build_voice_backend(shared_capture)
         if self.vision_worker is None:
             thresholds = _load_yaml("configs/thresholds.yaml")
-            sample_hz = float((thresholds.get("presence") or {}).get("face_moved_sample_hz", 10))
+            robot_cfg = _load_yaml("configs/robot.yaml")
+            presence = thresholds.get("presence") or {}
+            vision = thresholds.get("vision") or {}
+            webcam = (robot_cfg.get("webcam") or {}) if isinstance(robot_cfg, dict) else {}
+            sample_hz = float(presence.get("face_moved_sample_hz", 10))
+            # use_camera 는 실제 /dev/video0 존재 여부에 맞춘다. 없으면 mock dict 를
+            # 돌려주는 stub 경로로 남겨 test/sandbox 환경에서도 안전하다.
             self.vision_worker = VisionWorker(
                 bus=self.bus,
-                stream=CameraStream(),
-                detector=FaceDetector(),
+                stream=CameraStream(
+                    device_index=int(webcam.get("device_index", 0)),
+                    width=int(webcam.get("width", 640)),
+                    height=int(webcam.get("height", 480)),
+                    fps=int(webcam.get("fps", 15)),
+                    use_camera=bool(capabilities.camera_available),
+                ),
+                detector=FaceDetector(
+                    confidence_min=float(vision.get("face_confidence_min", 0.6)),
+                ),
                 tracker=FaceTracker(sample_hz=sample_hz),
-                gesture_detector=GestureDetector(),
+                gesture_detector=GestureDetector(
+                    confidence_min=float(vision.get("gesture_confidence_min", 0.75)),
+                ),
             )
         if self.touch_worker is None:
             robot_cfg = _load_yaml("configs/robot.yaml")
@@ -417,7 +489,8 @@ class RioOrchestrator:
         if event.topic == topics.SYSTEM_WORKER_HEARTBEAT:
             self.heartbeat_monitor.record(event)
 
-        decision = evaluate_interrupt(self.store.snapshot(), event)
+        current_state = self.store.snapshot()
+        decision = evaluate_interrupt(current_state, event)
         if decision.action == InterruptAction.DROP:
             return [event]
         if decision.action == InterruptAction.DEFER_INTENT:
@@ -433,7 +506,7 @@ class RioOrchestrator:
             self.held_alerts.extend(decision.held_events)
             return [event]
 
-        reduction = self.reducer.process(event)
+        reduction = self.reducer.process(event, previous=current_state)
         plan = plan_effects(reduction, event)
         self._apply_plan(plan, event)
         produced = [event, *reduction.emitted_events]
@@ -446,9 +519,12 @@ class RioOrchestrator:
                 produced.extend(self.process_event(mapped))
 
         if plan.executor_request is not None:
-            execution = self.registry.dispatch(plan.executor_request)
-            for produced_event in execution.events:
-                produced.extend(self.process_event(produced_event))
+            if plan.executor_request.kind in {ActionKind.SMARTHOME, ActionKind.WEATHER}:
+                self._dispatch_async(plan.executor_request)
+            else:
+                execution = self.registry.dispatch(plan.executor_request)
+                for produced_event in execution.events:
+                    produced.extend(self.process_event(produced_event))
 
         if reduction.previous.activity_state != reduction.current.activity_state:
             self._handle_alert_timeout(
@@ -465,6 +541,29 @@ class RioOrchestrator:
             produced.extend(self._maybe_replay_deferred())
 
         return produced
+
+    def _dispatch_async(self, request: ExecutionRequest) -> None:
+        future = self._async_executor.submit(self.registry.dispatch, request)
+        with self._futures_lock:
+            self._pending_futures.add(future)
+        future.add_done_callback(self._handle_async_result)
+
+    def _handle_async_result(self, future: Future[ExecutionResult]) -> None:
+        with self._futures_lock:
+            self._pending_futures.discard(future)
+        try:
+            execution = future.result()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.bus.publish(
+                Event.create(
+                    topics.TASK_FAILED,
+                    "orchestrator.async_executor",
+                    payload={"kind": "async", "message": str(exc)},
+                )
+            )
+            return
+        for event in execution.events:
+            self.bus.publish(event)
 
     def _handle_long_action_cancel(self, reduction, event: Event) -> None:
         if event.topic != topics.VOICE_INTENT_DETECTED:
@@ -549,13 +648,22 @@ class RioOrchestrator:
         self.pump_workers(now=now)
         return self.drain_bus()
 
+    def shutdown(self) -> None:
+        if self.voice_backend is not None:
+            try:
+                self.voice_backend.stop()
+            except Exception:
+                pass
+            self.voice_backend = None
+        self._async_executor.shutdown(wait=False, cancel_futures=True)
+
     # ── context manager: voice backend 의 mic/VAD/Whisper 스레드 기동/정지 ───
     def __enter__(self) -> "RioOrchestrator":
         if self.voice_backend is not None:
             try:
                 self.voice_backend.start()
             except Exception as exc:
-                _LOGGER.warning("LiveVoiceBackend start failed; continuing without mic voice: %s", exc)
+                _LOGGER.warning("Voice backend start failed; continuing without mic voice: %s", exc)
                 try:
                     self.voice_backend.stop()
                 except Exception:
@@ -564,10 +672,4 @@ class RioOrchestrator:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        # voice backend 를 먼저 중지 → capture.feed() 호출이 끝난 뒤 worker 가 잔여 frame 처리
-        if self.voice_backend is not None:
-            try:
-                self.voice_backend.stop()
-            except Exception:
-                pass
-            self.voice_backend = None
+        self.shutdown()

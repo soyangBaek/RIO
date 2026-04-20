@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import unittest
 
 from src.app.core.events import topics
@@ -30,6 +31,17 @@ def failure_weather_handler(request):
 
 
 class WeatherLookupIntegrationTest(unittest.TestCase):
+    def _wait_for_topic(self, orchestrator: RioOrchestrator, topic: str) -> list[Event]:
+        processed: list[Event] = []
+        deadline = time.time() + 1.0
+        while time.time() < deadline:
+            batch = orchestrator.drain_bus()
+            processed.extend(batch)
+            if any(event.topic == topic for event in processed):
+                break
+            time.sleep(0.01)
+        return processed
+
     def test_weather_success_and_failure(self) -> None:
         orchestrator = RioOrchestrator()
         orchestrator.registry.register(ActionKind.WEATHER, success_weather_handler)
@@ -42,6 +54,7 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
                 payload={"intent": "weather.current", "text": "날씨 알려줘"},
             )
         )
+        self._wait_for_topic(orchestrator, topics.WEATHER_RESULT)
         self.assertTrue(any("비" in text for text in orchestrator.tts.history))
         self.assertIn("Weather OK", [frame.hud.message for frame in orchestrator.renderer.history])
 
@@ -56,6 +69,7 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
                 payload={"intent": "weather.current", "text": "날씨 알려줘"},
             )
         )
+        self._wait_for_topic(orchestrator, topics.WEATHER_RESULT)
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.CONFUSED)
         self.assertIn("Weather failed", [frame.hud.message for frame in orchestrator.renderer.history])
 

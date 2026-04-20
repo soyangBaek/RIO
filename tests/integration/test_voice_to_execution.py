@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import unittest
 
 from src.app.core.events import topics
@@ -37,6 +38,10 @@ class VoiceToExecutionIntegrationTest(unittest.TestCase):
             )
         )
         processed = orchestrator.drain_bus()
+        deadline = time.time() + 1.0
+        while time.time() < deadline and not any(event.topic == topics.WEATHER_RESULT for event in processed):
+            time.sleep(0.01)
+            processed.extend(orchestrator.drain_bus())
         seen_topics = {event.topic for event in processed}
 
         self.assertIn(topics.WEATHER_RESULT, seen_topics)

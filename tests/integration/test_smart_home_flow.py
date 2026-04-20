@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import unittest
 
 from src.app.adapters.audio.intent_normalizer import IntentNormalizer
@@ -24,6 +25,17 @@ class FakeHomeClient:
 
 
 class SmartHomeFlowIntegrationTest(unittest.TestCase):
+    def _wait_for_topic(self, orchestrator: RioOrchestrator, topic: str) -> list[Event]:
+        processed: list[Event] = []
+        deadline = time.time() + 1.0
+        while time.time() < deadline:
+            batch = orchestrator.drain_bus()
+            processed.extend(batch)
+            if any(event.topic == topic for event in processed):
+                break
+            time.sleep(0.01)
+        return processed
+
     def test_success_and_failure_paths(self) -> None:
         orchestrator = RioOrchestrator()
         success_client = FakeHomeClient(ok=True)
@@ -36,6 +48,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
                 payload={"intent": "smarthome.aircon.on", "text": "에어컨 켜줘"},
             )
         )
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT))
         seen_topics = {event.topic for event in processed}
         self.assertIn(topics.SMARTHOME_RESULT, seen_topics)
         self.assertEqual(success_client.calls, ["aircon.living_room:on"])
@@ -52,6 +65,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
                 payload={"intent": "smarthome.aircon.on", "text": "에어컨 켜줘"},
             )
         )
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT))
         failed_results = [event for event in processed if event.topic == topics.SMARTHOME_RESULT]
         self.assertTrue(failed_results)
         self.assertFalse(failed_results[-1].payload["ok"])
@@ -77,6 +91,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
                 },
             )
         )
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_REQUEST_SENT))
 
         request_events = [event for event in processed if event.topic == topics.SMARTHOME_REQUEST_SENT]
         self.assertTrue(request_events)
@@ -97,6 +112,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         processed: list[Event] = []
         for event in terminal.build_events("에어컨 켜줘"):
             processed.extend(orchestrator.process_event(event))
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT))
 
         self.assertEqual(client.calls, ["aircon.living_room:on"])
         self.assertTrue(any(event.topic == topics.SMARTHOME_REQUEST_SENT for event in processed))
@@ -113,6 +129,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         for phrase in ("티비 꺼줘", "음악 멈춰줘", "청소기 멈춰줘"):
             for event in terminal.build_events(phrase):
                 orchestrator.process_event(event)
+            self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT)
 
         self.assertEqual(
             client.calls,

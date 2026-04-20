@@ -25,6 +25,7 @@ from scripts.voice_sandbox.asr_whisper import ASRConfig
 from scripts.voice_sandbox.audio_source import AudioConfig, apply_mic_gain, list_devices
 from scripts.voice_sandbox.pipeline import Pipeline
 from scripts.voice_sandbox.recorder import UtteranceRecorder
+from scripts.voice_sandbox.rust_frontend import RustFrontendConfig
 from scripts.voice_sandbox.vad_rms import VADConfig
 from scripts.voice_sandbox.wake_word import WakeConfig
 
@@ -41,6 +42,12 @@ def _parse_args() -> argparse.Namespace:
         choices=("transcript", "intent", "wake"),
         default=None,
         help="Override pipeline mode from config",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=("python", "rust"),
+        default=None,
+        help="Override backend.type from config for sandbox audio frontend",
     )
     return parser.parse_args()
 
@@ -145,6 +152,12 @@ def main() -> int:
         print(f"[run] unsupported mode: {mode}", file=sys.stderr)
         return 1
 
+    backend_cfg = dict(cfg.get("backend") or {})
+    backend_type = str(args.backend or backend_cfg.get("type") or "python").strip().lower()
+    if backend_type not in {"python", "rust"}:
+        print(f"[run] unsupported backend: {backend_type}", file=sys.stderr)
+        return 1
+
     mic_gain = cfg.get("audio", {}).get("mic_gain_percent") if isinstance(cfg.get("audio"), dict) else None
     if mic_gain is not None:
         gain_source = cfg.get("audio", {}).get("gain_target_source") if isinstance(cfg.get("audio"), dict) else None
@@ -169,6 +182,21 @@ def main() -> int:
         recorder,
         mode=mode,
         wake_cfg=wake_cfg if mode == "wake" else None,
+        backend_type=backend_type,
+        rust_frontend_cfg=(
+            RustFrontendConfig(
+                worker_path=str(
+                    backend_cfg.get(
+                        "worker_path",
+                        "native/bin/rio-audio-worker",
+                    )
+                ),
+                config_path=config_path,
+                startup_timeout_ms=int(backend_cfg.get("startup_timeout_ms", 3000)),
+            )
+            if backend_type == "rust"
+            else None
+        ),
     )
     pipeline.run()
     return 0

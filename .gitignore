@@ -98,6 +98,7 @@ secrets.yml
 /output/
 /outputs/
 /artifacts/
+/native/rio-audio-worker/target/
 /data/
 /scripts/data/
 /scripts/voice_sandbox/recordings/

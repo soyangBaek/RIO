@@ -49,3 +49,41 @@ RIO는 Raspberry Pi 위에서 동작하는 `desktop pet + smart-home hub` 프로
 
 기본 구조와 입력/반응 플로우는 구현되어 있으며, `scripts/live_interaction_test.py`로 현재 동작을 직접 검증할 수 있습니다.
 실행 가능한 입력과 현재 반응은 [docs/current-behaviors.md](./docs/current-behaviors.md)에 정리되어 있습니다.
+
+## 실행
+
+기본 음성 런타임은 `configs/voice.yaml` 기준으로 `RustAudioBackend`를 우선 사용합니다.
+스크립트를 실행하면 Python 쪽이 Rust worker를 자동으로 subprocess로 띄우므로, 평소에는 worker를 따로 먼저 실행할 필요가 없습니다.
+Rust worker 기동에 실패하면 현재 설정에서는 Python live voice backend로 자동 fallback 됩니다.
+
+자주 쓰는 실행 예:
+
+- `PYTHONPATH=. .venv/bin/python scripts/live_interaction_test.py`
+- `PYTHONPATH=. .venv/bin/python scripts/live_voice_interaction_test.py`
+- `PYTHONPATH=. .venv/bin/python scripts/voice_sandbox/run_sandbox.py`
+- `PYTHONPATH=. .venv/bin/python scripts/voice_sandbox/run_sandbox.py --backend rust`
+
+실행 시 아래 로그가 보이면 Rust 경로가 올라온 상태입니다.
+
+- `[voice] starting live mic backend (RustAudioBackend)...`
+- `voice_sandbox`에서는 heartbeat에 `backend=RUST` 표시
+
+## Rust Audio Worker
+
+Rust audio worker 소스는 [native/rio-audio-worker](./native/rio-audio-worker)에 있고, 기본 실행 바이너리는 [native/bin/rio-audio-worker](./native/bin/rio-audio-worker) 입니다.
+`configs/voice.yaml`의 `backend.worker_path` 기본값도 이 바이너리를 가리킵니다.
+
+일반 실행만 할 때는 Rust 툴체인이 없어도 됩니다.
+바이너리를 다시 빌드하거나 갱신할 때만 툴체인이 필요합니다.
+
+바이너리 갱신 절차:
+
+```bash
+cd native/rio-audio-worker
+cargo build --release
+cd ../..
+mkdir -p native/bin
+install -m 755 native/rio-audio-worker/target/release/rio-audio-worker native/bin/rio-audio-worker
+```
+
+즉 `target/` 전체를 커밋하지 않고, 실행에 쓰는 바이너리만 `native/bin/`에 복사해서 추적하는 방식을 사용합니다.

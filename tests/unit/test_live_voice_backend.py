@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import threading
+import time
 import unittest
 
 import numpy as np
@@ -9,7 +12,9 @@ from src.app.adapters.audio.live_voice_backend import (
     ASRParams,
     AudioParams,
     BackendConfig,
+    BackendLaunchConfig,
     LiveVoiceBackend,
+    RustAudioBackend,
     VADParams,
     _RmsVoiceActivityDetector,
 )
@@ -78,6 +83,50 @@ class LiveVoiceBackendTest(unittest.TestCase):
         self.assertEqual(second["transcript"], "댄스 모드 시작")
         self.assertGreater(second["confidence"], 0.0)
         self.assertEqual(third, {"speech": False})
+
+    def test_rust_backend_utterance_message_decodes_and_feeds_capture(self) -> None:
+        capture = AudioCapture()
+        backend = RustAudioBackend(
+            capture=capture,
+            config=BackendConfig(
+                audio=AudioParams(mic_gain_percent=None),
+                vad=VADParams(),
+                asr=ASRParams(min_logprob=-1.0),
+                launch=BackendLaunchConfig(type="rust", worker_path="missing"),
+            ),
+        )
+        backend._whisper = _FakeWhisper()
+        backend._send_command = lambda payload: None  # type: ignore[method-assign]
+
+        thread = threading.Thread(target=backend._decode_loop, daemon=True)
+        thread.start()
+        try:
+            utterance = np.full(1600, 0.1, dtype=np.float32)
+            backend._handle_worker_message(
+                {
+                    "type": "utterance",
+                    "sample_rate": 16000,
+                    "pcm_f32_b64": base64.b64encode(utterance.tobytes()).decode("ascii"),
+                }
+            )
+
+            deadline = time.time() + 2.0
+            while len(capture._buffer) < 3 and time.time() < deadline:
+                time.sleep(0.01)
+
+            first = capture.read_chunk()
+            second = capture.read_chunk()
+            third = capture.read_chunk()
+
+            self.assertEqual(first, {"speech": True})
+            self.assertEqual(second["speech"], True)
+            self.assertEqual(second["transcript"], "댄스 모드 시작")
+            self.assertGreater(second["confidence"], 0.0)
+            self.assertEqual(third, {"speech": False})
+        finally:
+            backend._stop.set()
+            backend._utterance_q.put_nowait(None)
+            thread.join(timeout=1.0)
 
 
 if __name__ == "__main__":

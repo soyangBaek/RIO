@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
@@ -31,7 +30,7 @@ def apply_extended_state(
     *,
     now: datetime | None = None,
 ) -> ExtendedState:
-    current = deepcopy(extended)
+    current = extended.copy()
     when = now or event.timestamp
 
     if event.topic == topics.VISION_FACE_DETECTED:
@@ -85,12 +84,12 @@ def apply_extended_state(
 
 
 def set_deferred_intent(extended: ExtendedState, payload: dict[str, Any] | None) -> ExtendedState:
-    current = deepcopy(extended)
-    current.deferred_intent = deepcopy(payload) if payload else None
+    current = extended.copy()
+    current.deferred_intent = dict(payload) if payload else None
     return current
 
 
 def set_capabilities(extended: ExtendedState, capabilities: CapabilityState) -> ExtendedState:
-    current = deepcopy(extended)
-    current.capabilities = deepcopy(capabilities)
+    current = extended.copy()
+    current.capabilities = capabilities.copy()
     return current
