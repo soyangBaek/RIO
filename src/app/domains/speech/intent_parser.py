@@ -138,6 +138,18 @@ def _parse_dynamic_smarthome(
         if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
             return result("smarthome.aircon.on", matched_alias="__dynamic_aircon_on__")
 
+    if has_any("난방", "히터", "heater", "heating", "보일러"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+            return result("smarthome.heater.off", matched_alias="__dynamic_heater_off__")
+        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+            return result("smarthome.heater.on", matched_alias="__dynamic_heater_on__")
+
+    if has_any("간접등", "간접 조명", "무드등", "indirect light", "mood light"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+            return result("smarthome.indirect_light.off", matched_alias="__dynamic_indirect_light_off__")
+        if has_any("켜줘", "켜", "켜기", "on"):
+            return result("smarthome.indirect_light.on", matched_alias="__dynamic_indirect_light_on__")
+
     if has_any("조명", "전등", "불", "light", "lamp"):
         if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
             return result("smarthome.light.off", matched_alias="__dynamic_light_off__")
@@ -145,10 +157,22 @@ def _parse_dynamic_smarthome(
             return result("smarthome.light.on", matched_alias="__dynamic_light_on__")
 
     if has_any("로봇청소기", "로봇 청소기", "청소기", "robot cleaner", "vacuum", "cleaner"):
-        if has_any("멈춰줘", "멈춰", "정지", "stop", "꺼줘"):
+        if has_any("멈춰줘", "멈춰", "정지", "stop", "꺼줘", "꺼", "끄기", "off"):
             return result("smarthome.robot_cleaner.stop", matched_alias="__dynamic_robot_cleaner_stop__")
-        if has_any("실행", "시작", "돌려", "켜줘", "start"):
+        if has_any("실행", "시작", "돌려", "켜줘", "켜", "켜기", "on", "틀어줘", "start"):
             return result("smarthome.robot_cleaner.start", matched_alias="__dynamic_robot_cleaner_start__")
+
+    if has_any("공기청정기", "공기 청정기", "air purifier", "purifier"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+            return result("smarthome.air_purifier.off", matched_alias="__dynamic_air_purifier_off__")
+        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+            return result("smarthome.air_purifier.on", matched_alias="__dynamic_air_purifier_on__")
+
+    if has_any("컴퓨터", "computer", "pc", "피씨"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+            return result("smarthome.computer.off", matched_alias="__dynamic_computer_off__")
+        if has_any("켜줘", "켜", "켜기", "on"):
+            return result("smarthome.computer.on", matched_alias="__dynamic_computer_on__")
 
     if has_any("티비", "tv", "텔레비전", "teevee"):
         if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
@@ -157,9 +181,9 @@ def _parse_dynamic_smarthome(
             return result("smarthome.tv.on", matched_alias="__dynamic_tv_on__")
 
     if has_any("음악", "노래", "music", "speaker"):
-        if has_any("꺼줘", "꺼", "멈춰줘", "멈춰", "정지", "stop"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "멈춰줘", "멈춰", "정지", "stop"):
             return result("smarthome.music.stop", matched_alias="__dynamic_music_stop__")
-        if has_any("틀어줘", "틀어", "재생", "play", "켜줘"):
+        if has_any("틀어줘", "틀어", "재생", "play", "켜줘", "켜", "켜기", "on"):
             return result("smarthome.music.play", matched_alias="__dynamic_music_play__")
 
     return None

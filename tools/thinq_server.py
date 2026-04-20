@@ -28,9 +28,13 @@ ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "ui"
 _lock = threading.Lock()
 _device_states: dict[str, dict] = {
     "tv.living_room": {"name": "TV", "on": False, "last_action": None, "updated_at": None},
+    "computer.desk": {"name": "컴퓨터", "on": False, "last_action": None, "updated_at": None},
     "light.main": {"name": "거실 조명", "on": False, "last_action": None, "updated_at": None},
-    "aircon.living_room": {"name": "에어컨", "on": False, "last_action": None, "updated_at": None, "temperature_c": None},
+    "light.indirect": {"name": "간접등", "on": False, "last_action": None, "updated_at": None},
     "cleaner.bot": {"name": "로봇청소기", "on": False, "last_action": None, "updated_at": None},
+    "purifier.living_room": {"name": "공기청정기", "on": False, "last_action": None, "updated_at": None},
+    "aircon.living_room": {"name": "에어컨", "on": False, "last_action": None, "updated_at": None, "temperature_c": None, "mode": "cool"},
+    "heater.living_room": {"name": "난방", "on": False, "last_action": None, "updated_at": None},
     "speaker.main": {"name": "음악", "on": False, "last_action": None, "updated_at": None},
 }
 
@@ -140,6 +144,8 @@ class ThinQHandler(BaseHTTPRequestHandler):
 
         if path == "/":
             self._serve_dashboard()
+        elif path == "/health":
+            self._serve_health()
         elif path == "/api/state":
             self._serve_json_state()
         elif path == "/api/events":
@@ -148,6 +154,10 @@ class ThinQHandler(BaseHTTPRequestHandler):
             self._serve_event_log()
         else:
             self._send(404, "text/plain", "Not Found")
+
+    def _serve_health(self):
+        data = {"status": "ok", "server": "thinq_bridge", "timestamp": datetime.now(timezone.utc).isoformat()}
+        self._send(200, "application/json", json.dumps(data))
 
     def _serve_dashboard(self):
         html_path = ASSETS_DIR / "thinq_dashboard.html"

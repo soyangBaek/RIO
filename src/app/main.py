@@ -358,6 +358,11 @@ class RioOrchestrator:
             http_timeout_ms=int((thresholds_cfg.get("task") or {}).get("http_timeout_ms", 3000)),
             retry_count=int((thresholds_cfg.get("task") or {}).get("http_retry_count", 1)),
         )
+        hc = home_client.health_check()
+        if hc.get("ok"):
+            _LOGGER.info("ThinQ bridge UP — %s", home_client.base_url)
+        else:
+            _LOGGER.warning("ThinQ bridge DOWN — %s (%s)", home_client.base_url, hc.get("message", ""))
         weather_client = WeatherClient(
             base_url=str((devices_cfg.get("weather") or {}).get("base_url", "https://api.example.invalid/weather")),
             http_timeout_ms=int((thresholds_cfg.get("task") or {}).get("http_timeout_ms", 3000)),

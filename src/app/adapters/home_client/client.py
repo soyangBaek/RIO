@@ -17,6 +17,21 @@ class HomeClient:
     def resolve_control_url(self) -> str:
         return self.control_url or f"{self.base_url.rstrip('/')}/{self.control_path.strip('/')}"
 
+    def health_check(self) -> dict[str, object]:
+        """Check if the ThinQ bridge is reachable via GET /health."""
+        url = f"{self.base_url.rstrip('/')}/health"
+        request = Request(url=url, method="GET")
+        try:
+            with urlopen(request, timeout=self.http_timeout_ms / 1000.0) as resp:
+                body = resp.read().decode("utf-8")
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {"raw": body}
+            return {"ok": True, "bridge_status": "up", **data}
+        except (URLError, TimeoutError) as exc:
+            return {"ok": False, "bridge_status": "down", "message": str(exc)}
+
     def control(self, content: str) -> dict[str, object]:
         payload = json.dumps({"content": content}).encode("utf-8")
         request_url = self.resolve_control_url()

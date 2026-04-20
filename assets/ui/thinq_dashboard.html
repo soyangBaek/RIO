@@ -55,8 +55,8 @@
   }
   .room {
     position: relative;
-    width: 800px;
-    height: 520px;
+    width: 960px;
+    height: 600px;
     border-radius: 8px;
     overflow: hidden;
     background: var(--floor);
@@ -66,7 +66,7 @@
   .wall-back {
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 55%;
+    height: 52%;
     background: linear-gradient(180deg, #1a2236 0%, #1c2538 100%);
     border-bottom: 3px solid rgba(255,255,255,0.04);
   }
@@ -80,7 +80,7 @@
   .floor-area {
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    height: 45%;
+    height: 48%;
     background:
       repeating-linear-gradient(90deg, var(--floor-line) 0, var(--floor-line) 1px, transparent 1px, transparent 80px),
       linear-gradient(180deg, #151b28, #111724);
@@ -89,12 +89,13 @@
   /* ── Window ──────────────────── */
   .window {
     position: absolute;
-    top: 30px; right: 50px;
-    width: 120px; height: 130px;
+    top: 24px; right: 44px;
+    width: 110px; height: 120px;
     border: 3px solid #2a3450;
     border-radius: 4px;
     background: linear-gradient(160deg, #1e2d4a, #162040);
     box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+    z-index: 1;
   }
   .window::before {
     content:''; position:absolute;
@@ -110,17 +111,18 @@
   /* ── Sofa ─────────────────────── */
   .sofa {
     position: absolute;
-    bottom: 60px; left: 50%;
+    bottom: 56px; left: 50%;
     transform: translateX(-50%);
-    width: 280px; height: 80px;
+    width: 260px; height: 72px;
     background: #2d3553;
     border-radius: 12px 12px 8px 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    z-index: 1;
   }
   .sofa::before {
     content:''; position:absolute;
-    top: -20px; left: 10px; right: 10px;
-    height: 24px;
+    top: -18px; left: 10px; right: 10px;
+    height: 22px;
     background: #343d5c;
     border-radius: 6px 6px 0 0;
   }
@@ -133,26 +135,70 @@
     border-radius: 2px;
   }
 
-  /* ── Table ────────────────────── */
-  .table {
+  /* ── Coffee Table ────────────── */
+  .coffee-table {
     position: absolute;
-    bottom: 155px; left: 50%;
+    bottom: 142px; left: 50%;
     transform: translateX(-50%);
-    width: 160px; height: 50px;
+    width: 140px; height: 44px;
     background: #252e45;
     border-radius: 6px;
     border: 1px solid rgba(255,255,255,0.04);
     box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+    z-index: 1;
   }
+
+  /* ── Desk (right side, for computer + speaker) ── */
+  .desk {
+    position: absolute;
+    top: 220px; right: 30px;
+    width: 160px; height: 50px;
+    background: #2c3348;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    z-index: 1;
+  }
+  .desk-leg-l, .desk-leg-r {
+    position: absolute;
+    bottom: -30px;
+    width: 6px; height: 30px;
+    background: #252e40;
+    border-radius: 0 0 2px 2px;
+  }
+  .desk-leg-l { left: 12px; }
+  .desk-leg-r { right: 12px; }
+
+  /* ── Side Table (left, for indirect lamp) ──────── */
+  .side-table {
+    position: absolute;
+    top: 240px; left: 36px;
+    width: 56px; height: 26px;
+    background: #2c3348;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    z-index: 1;
+  }
+  .side-table-leg-l, .side-table-leg-r {
+    position: absolute;
+    bottom: -22px;
+    width: 4px; height: 22px;
+    background: #252e40;
+    border-radius: 0 0 2px 2px;
+  }
+  .side-table-leg-l { left: 8px; }
+  .side-table-leg-r { right: 8px; }
 
   /* ── Rug ──────────────────────── */
   .rug {
     position: absolute;
-    bottom: 40px; left: 50%;
+    bottom: 36px; left: 50%;
     transform: translateX(-50%);
-    width: 360px; height: 180px;
-    background: radial-gradient(ellipse, rgba(46,166,255,0.06), transparent 70%);
+    width: 340px; height: 170px;
+    background: radial-gradient(ellipse, rgba(46,166,255,0.05), transparent 70%);
     border-radius: 50%;
+    z-index: 0;
   }
 
   /* ── Device Hotspot (clickable) ─ */
@@ -169,13 +215,13 @@
   .badge {
     position: absolute;
     top: -8px; right: -8px;
-    width: 26px; height: 26px;
+    width: 24px; height: 24px;
     background: var(--on-glow);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 900;
     color: #fff;
     opacity: 0;
@@ -198,7 +244,7 @@
   /* ── Device Label ────────────── */
   .dev-label {
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-dim);
     margin-top: 4px;
@@ -210,7 +256,7 @@
 
   /* ═══ TV ═══════════════════════ */
   .tv-body {
-    width: 180px; height: 110px;
+    width: 200px; height: 120px;
     background: #111;
     border-radius: 6px;
     border: 3px solid #333;
@@ -239,23 +285,62 @@
     50% { opacity: 0.92; }
   }
   .tv-stand {
-    width: 40px; height: 4px;
+    width: 44px; height: 4px;
     background: #333;
     margin: 0 auto;
     border-radius: 0 0 3px 3px;
   }
 
+  /* ═══ Computer (monitor) ═══════ */
+  .computer-body {
+    width: 72px; height: 50px;
+    background: #111;
+    border-radius: 3px;
+    border: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .computer-screen {
+    width: 100%; height: 100%;
+    background: #0a0a0a;
+    transition: background 0.5s;
+  }
+  .device-spot.on .computer-body {
+    border-color: #555;
+    box-shadow: 0 0 20px rgba(100,255,160,0.2), 0 0 40px rgba(100,255,160,0.06);
+  }
+  .device-spot.on .computer-screen {
+    background: linear-gradient(135deg, #1a3a2e, #22aa55, #1a4438);
+    animation: tvFlicker 4s ease-in-out infinite;
+  }
+  .computer-stand {
+    width: 16px; height: 8px;
+    background: #333;
+    margin: 0 auto;
+    clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  }
+  .computer-base {
+    width: 32px; height: 3px;
+    background: #333;
+    margin: 0 auto;
+    border-radius: 0 0 2px 2px;
+  }
+
   /* ═══ Light (ceiling) ══════════ */
   .light-fixture {
-    width: 60px; height: 20px;
+    width: 56px; height: 18px;
     background: #3a3a4a;
-    border-radius: 0 0 30px 30px;
+    border-radius: 0 0 28px 28px;
     position: relative;
     transition: background 0.4s, box-shadow 0.4s;
     margin: 0 auto;
   }
   .light-wire {
-    width: 2px; height: 16px;
+    width: 2px; height: 14px;
     background: #3a3a4a;
     margin: 0 auto;
   }
@@ -268,21 +353,62 @@
     top: 100%; left: 50%;
     transform: translateX(-50%);
     width: 0; height: 0;
-    border-left: 100px solid transparent;
-    border-right: 100px solid transparent;
-    border-top: 200px solid rgba(255,221,87,0);
+    border-left: 90px solid transparent;
+    border-right: 90px solid transparent;
+    border-top: 180px solid rgba(255,221,87,0);
     transition: border-top-color 0.6s;
     pointer-events: none;
   }
   .device-spot.on .light-cone {
-    border-top-color: rgba(255,221,87,0.13);
+    border-top-color: rgba(255,221,87,0.10);
+  }
+
+  /* ═══ Indirect Light (desk lamp) ════ */
+  .lamp-shade {
+    width: 36px; height: 22px;
+    background: #4a4a5a;
+    border-radius: 50% 50% 0 0;
+    position: relative;
+    margin: 0 auto;
+    transition: background 0.4s, box-shadow 0.4s;
+    border: 1px solid #555;
+    border-bottom: none;
+  }
+  .lamp-neck {
+    width: 3px; height: 18px;
+    background: #555;
+    margin: 0 auto;
+  }
+  .lamp-base {
+    width: 28px; height: 5px;
+    background: #444;
+    border-radius: 2px;
+    margin: 0 auto;
+  }
+  .lamp-glow {
+    position: absolute;
+    bottom: -2px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 30px solid transparent;
+    border-right: 30px solid transparent;
+    border-top: 50px solid transparent;
+    transition: border-top-color 0.5s;
+    pointer-events: none;
+  }
+  .device-spot.on .lamp-shade {
+    background: #ffcc44;
+    box-shadow: 0 4px 40px rgba(255,200,60,0.45), 0 0 60px rgba(255,200,60,0.2);
+  }
+  .device-spot.on .lamp-glow {
+    border-top-color: rgba(255,200,60,0.12);
   }
 
   /* ═══ Aircon ═══════════════════ */
   .aircon-body {
-    width: 120px; height: 32px;
+    width: 110px; height: 30px;
     background: linear-gradient(180deg, #e8e8e8, #d0d0d0);
-    border-radius: 4px 4px 12px 12px;
+    border-radius: 4px 4px 10px 10px;
     position: relative;
     transition: box-shadow 0.4s;
     border: 1px solid rgba(255,255,255,0.1);
@@ -290,7 +416,7 @@
   .aircon-vent {
     position: absolute;
     bottom: -4px; left: 10%; right: 10%;
-    height: 6px;
+    height: 5px;
     background: rgba(0,0,0,0.15);
     border-radius: 0 0 4px 4px;
   }
@@ -299,10 +425,10 @@
   }
   .aircon-wind {
     position: absolute;
-    bottom: -40px; left: 50%;
+    bottom: -36px; left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 4px;
+    gap: 3px;
     opacity: 0;
     transition: opacity 0.5s;
   }
@@ -311,25 +437,25 @@
     animation: windDrift 2s ease-in-out infinite;
   }
   .wind-line {
-    width: 2px; height: 20px;
+    width: 2px; height: 18px;
     background: rgba(100,200,255,0.3);
     border-radius: 1px;
   }
-  .wind-line:nth-child(2) { height: 28px; }
-  .wind-line:nth-child(3) { height: 24px; }
+  .wind-line:nth-child(2) { height: 25px; }
+  .wind-line:nth-child(3) { height: 22px; }
   @keyframes windDrift {
     0%, 100% { transform: translateX(-50%) translateY(0); }
-    50% { transform: translateX(-50%) translateY(6px); }
+    50% { transform: translateX(-50%) translateY(5px); }
   }
   .aircon-temp {
     position: absolute;
-    bottom: -56px; left: 50%;
+    bottom: -50px; left: 50%;
     transform: translateX(-50%);
     background: rgba(0,0,0,0.5);
     color: var(--accent);
     padding: 2px 8px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     white-space: nowrap;
     opacity: 0;
@@ -337,9 +463,48 @@
   }
   .device-spot.on .aircon-temp.visible { opacity: 1; }
 
+  /* ═══ Heater ═══════════════════ */
+  .heater-body {
+    width: 64px; height: 44px;
+    background: linear-gradient(180deg, #4a4040, #3a2a2a);
+    border-radius: 5px;
+    position: relative;
+    border: 2px solid #555;
+    transition: border-color 0.4s, box-shadow 0.4s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .heater-grille {
+    display: flex;
+    gap: 3px;
+  }
+  .heater-bar {
+    width: 3px; height: 24px;
+    background: #555;
+    border-radius: 1px;
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+  .device-spot.on .heater-body {
+    border-color: #ff6644;
+    box-shadow: 0 0 24px rgba(255,80,40,0.3);
+  }
+  .device-spot.on .heater-bar {
+    background: #ff6644;
+    box-shadow: 0 0 6px rgba(255,80,40,0.6);
+    animation: heatGlow 1.5s ease-in-out infinite alternate;
+  }
+  .heater-bar:nth-child(2) { animation-delay: 0.2s; }
+  .heater-bar:nth-child(3) { animation-delay: 0.4s; }
+  .heater-bar:nth-child(4) { animation-delay: 0.6s; }
+  @keyframes heatGlow {
+    0% { background: #ff6644; }
+    100% { background: #ff4422; box-shadow: 0 0 10px rgba(255,60,30,0.8); }
+  }
+
   /* ═══ Robot Cleaner ════════════ */
   .cleaner-body {
-    width: 50px; height: 50px;
+    width: 46px; height: 46px;
     background: radial-gradient(circle, #444 60%, #333 100%);
     border-radius: 50%;
     position: relative;
@@ -348,15 +513,15 @@
   }
   .cleaner-eye {
     position: absolute;
-    top: 14px; left: 50%;
+    top: 12px; left: 50%;
     transform: translateX(-50%);
-    width: 16px; height: 8px;
+    width: 14px; height: 7px;
     background: #222;
-    border-radius: 8px;
+    border-radius: 7px;
     overflow: hidden;
   }
   .cleaner-eye-dot {
-    width: 6px; height: 6px;
+    width: 5px; height: 5px;
     background: #666;
     border-radius: 50%;
     margin: 1px auto;
@@ -378,11 +543,60 @@
     75% { transform: translate(4px, 4px) rotate(2deg); }
   }
 
+  /* ═══ Air Purifier ═════════════ */
+  .purifier-body {
+    width: 40px; height: 56px;
+    background: linear-gradient(180deg, #e0e0e0, #c8c8c8);
+    border-radius: 8px;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transition: box-shadow 0.4s;
+  }
+  .purifier-vent {
+    width: 24px; height: 2px;
+    background: #999;
+    border-radius: 1px;
+  }
+  .purifier-led {
+    width: 7px; height: 7px;
+    background: #666;
+    border-radius: 50%;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .device-spot.on .purifier-body {
+    box-shadow: 0 0 20px rgba(100,200,150,0.3);
+  }
+  .device-spot.on .purifier-led {
+    background: #4caf50;
+    box-shadow: 0 0 8px #4caf50;
+  }
+  .purifier-air {
+    position: absolute;
+    top: -18px; left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    font-size: 13px;
+    transition: opacity 0.3s;
+  }
+  .device-spot.on .purifier-air {
+    opacity: 1;
+    animation: airFloat 2s ease-in-out infinite;
+  }
+  @keyframes airFloat {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.8; }
+    50% { transform: translateX(-50%) translateY(-8px); opacity: 0.4; }
+  }
+
   /* ═══ Speaker ══════════════════ */
   .speaker-body {
-    width: 36px; height: 56px;
+    width: 32px; height: 50px;
     background: linear-gradient(180deg, #3a3a3a, #2a2a2a);
-    border-radius: 18px;
+    border-radius: 16px;
     position: relative;
     border: 1px solid #444;
     display: flex;
@@ -393,13 +607,13 @@
     transition: box-shadow 0.4s;
   }
   .speaker-dot {
-    width: 6px; height: 6px;
+    width: 5px; height: 5px;
     background: #555;
     border-radius: 50%;
     transition: background 0.3s, box-shadow 0.3s;
   }
   .speaker-mesh {
-    width: 20px; height: 20px;
+    width: 18px; height: 18px;
     border-radius: 50%;
     background: repeating-radial-gradient(circle, #333 0, #333 1px, #3a3a3a 1px, #3a3a3a 3px);
     border: 1px solid #444;
@@ -413,10 +627,10 @@
   }
   .music-waves {
     position: absolute;
-    top: -12px; right: -16px;
+    top: -10px; right: -14px;
     opacity: 0;
     transition: opacity 0.3s;
-    font-size: 18px;
+    font-size: 16px;
   }
   .device-spot.on .music-waves {
     opacity: 1;
@@ -438,10 +652,10 @@
   }
   .room-light-overlay.lit {
     opacity: 1;
-    background: rgba(255, 240, 180, 0.28);
+    background: rgba(255, 240, 180, 0.25);
   }
 
-  /* ── Aircon Cold Overlay ─────── */
+  /* ── Aircon Cold Overlay (blue) ── */
   .room-cold-overlay {
     position: absolute;
     inset: 0;
@@ -452,13 +666,28 @@
     background:
       linear-gradient(180deg, rgba(140,210,255,0.18) 0%, rgba(140,210,255,0.06) 50%, transparent 100%);
   }
-  .room-cold-overlay.cold {
+  .room-cold-overlay.active {
+    opacity: 1;
+  }
+
+  /* ── Heater Warm Overlay (red) ── */
+  .room-warm-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transition: opacity 1s;
+    z-index: 2;
+    opacity: 0;
+    background:
+      linear-gradient(180deg, rgba(255,120,80,0.16) 0%, rgba(255,100,60,0.06) 50%, transparent 100%);
+  }
+  .room-warm-overlay.active {
     opacity: 1;
   }
 
   /* ── Event Log ───────────────── */
   .log-section {
-    max-width: 800px;
+    max-width: 960px;
     width: 100%;
     margin: 0 auto 24px;
     padding: 0 20px;
@@ -468,7 +697,7 @@
     background: rgba(22,27,40,0.8);
     border-radius: 10px;
     padding: 12px 16px;
-    max-height: 160px;
+    max-height: 150px;
     overflow-y: auto;
     font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 11px;
@@ -490,11 +719,10 @@
   }
 
   /* ── Responsive ──────────────── */
-  @media (max-width: 840px) {
-    .room { width: 100%; height: 400px; }
-    .tv-body { width: 140px; height: 86px; }
-    .sofa { width: 220px; height: 64px; }
-    .table { width: 120px; height: 40px; }
+  @media (max-width: 1000px) {
+    .room { width: 100%; height: 460px; }
+    .tv-body { width: 150px; height: 90px; }
+    .sofa { width: 200px; height: 60px; }
   }
 </style>
 </head>
@@ -523,27 +751,26 @@
 
     <!-- Furniture -->
     <div class="sofa"></div>
-    <div class="table"></div>
+    <div class="coffee-table"></div>
+    <div class="desk">
+      <div class="desk-leg-l"></div>
+      <div class="desk-leg-r"></div>
+    </div>
+    <div class="side-table">
+      <div class="side-table-leg-l"></div>
+      <div class="side-table-leg-r"></div>
+    </div>
 
-    <!-- Light Overlay -->
+    <!-- Overlays -->
     <div class="room-light-overlay" id="lightOverlay"></div>
-
-    <!-- Aircon Cold Overlay -->
     <div class="room-cold-overlay" id="coldOverlay"></div>
+    <div class="room-warm-overlay" id="warmOverlay"></div>
 
     <!-- ═══ Devices ═══ -->
 
-    <!-- TV: wall center -->
-    <div class="device-spot" id="dev-tv.living_room" style="top: 42px; left: 50%; transform: translateX(-50%);">
-      <div class="badge">!</div>
-      <div class="tv-body"><div class="tv-screen"></div></div>
-      <div class="tv-stand"></div>
-      <div class="dev-label">TV</div>
-    </div>
-
-    <!-- Light: ceiling -->
-    <div class="device-spot" id="dev-light.main" style="top: 0; left: 50%; transform: translateX(-50%);">
-      <div class="badge" style="top: 14px; right: -14px;">!</div>
+    <!-- Ceiling Light: ceiling, slightly left of center -->
+    <div class="device-spot" id="dev-light.main" style="top: 0; left: 38%; transform: translateX(-50%);">
+      <div class="badge" style="top: 12px; right: -14px;">!</div>
       <div class="light-wire"></div>
       <div class="light-fixture">
         <div class="light-cone"></div>
@@ -551,8 +778,16 @@
       <div class="dev-label">거실 조명</div>
     </div>
 
-    <!-- Aircon: upper wall left -->
-    <div class="device-spot" id="dev-aircon.living_room" style="top: 50px; left: 60px;">
+    <!-- TV: wall center-right -->
+    <div class="device-spot" id="dev-tv.living_room" style="top: 70px; left: 50%; transform: translateX(-30%);">
+      <div class="badge">!</div>
+      <div class="tv-body"><div class="tv-screen"></div></div>
+      <div class="tv-stand"></div>
+      <div class="dev-label">TV</div>
+    </div>
+
+    <!-- Aircon: top-left corner -->
+    <div class="device-spot" id="dev-aircon.living_room" style="top: 28px; left: 30px;">
       <div class="badge">!</div>
       <div class="aircon-body">
         <div class="aircon-vent"></div>
@@ -568,17 +803,43 @@
       <div class="dev-label">에어컨</div>
     </div>
 
-    <!-- Robot Cleaner: floor left -->
-    <div class="device-spot" id="dev-cleaner.bot" style="bottom: 40px; left: 120px;">
+    <!-- Indirect Light (lamp): on the side table, left -->
+    <div class="device-spot" id="dev-light.indirect" style="top: 192px; left: 36px;">
       <div class="badge">!</div>
-      <div class="cleaner-body">
-        <div class="cleaner-eye"><div class="cleaner-eye-dot"></div></div>
+      <div class="lamp-shade">
+        <div class="lamp-glow"></div>
       </div>
-      <div class="dev-label">로봇청소기</div>
+      <div class="lamp-neck"></div>
+      <div class="lamp-base"></div>
+      <div class="dev-label">간접등</div>
     </div>
 
-    <!-- Speaker: right side -->
-    <div class="device-spot" id="dev-speaker.main" style="bottom: 80px; right: 70px;">
+    <!-- Heater: left wall, below aircon -->
+    <div class="device-spot" id="dev-heater.living_room" style="top: 260px; left: 120px;">
+      <div class="badge">!</div>
+      <div class="heater-body">
+        <div class="heater-grille">
+          <div class="heater-bar"></div>
+          <div class="heater-bar"></div>
+          <div class="heater-bar"></div>
+          <div class="heater-bar"></div>
+          <div class="heater-bar"></div>
+        </div>
+      </div>
+      <div class="dev-label">난방</div>
+    </div>
+
+    <!-- Computer (monitor): on the desk, right side -->
+    <div class="device-spot" id="dev-computer.desk" style="top: 162px; right: 68px;">
+      <div class="badge">!</div>
+      <div class="computer-body"><div class="computer-screen"></div></div>
+      <div class="computer-stand"></div>
+      <div class="computer-base"></div>
+      <div class="dev-label">컴퓨터</div>
+    </div>
+
+    <!-- Speaker (music): on the desk next to computer -->
+    <div class="device-spot" id="dev-speaker.main" style="top: 170px; right: 158px;">
       <div class="badge">!</div>
       <div class="speaker-body">
         <div class="speaker-dot"></div>
@@ -587,6 +848,28 @@
       </div>
       <div class="music-waves">&#9835;</div>
       <div class="dev-label">음악</div>
+    </div>
+
+    <!-- Air Purifier: right side, floor area near desk -->
+    <div class="device-spot" id="dev-purifier.living_room" style="top: 290px; right: 42px;">
+      <div class="badge">!</div>
+      <div class="purifier-body">
+        <div class="purifier-air">&#9729;</div>
+        <div class="purifier-led"></div>
+        <div class="purifier-vent"></div>
+        <div class="purifier-vent"></div>
+        <div class="purifier-vent"></div>
+      </div>
+      <div class="dev-label">공기청정기</div>
+    </div>
+
+    <!-- Robot Cleaner: far left floor corner -->
+    <div class="device-spot" id="dev-cleaner.bot" style="bottom: 30px; left: 30px;">
+      <div class="badge">!</div>
+      <div class="cleaner-body">
+        <div class="cleaner-eye"><div class="cleaner-eye-dot"></div></div>
+      </div>
+      <div class="dev-label">로봇청소기</div>
     </div>
 
   </div>
@@ -603,7 +886,7 @@
 
 <script>
 (function() {
-  const ACTION_KO = {
+  var ACTION_KO = {
     on:'ON', off:'OFF', start:'시작', stop:'정지',
     play:'재생', set_temperature:'온도 설정', reset:'RESET'
   };
@@ -628,6 +911,7 @@
       var el = document.getElementById('dev-' + id);
       if (!el) continue;
       if (dev.on) { el.classList.add('on'); } else { el.classList.remove('on'); }
+      /* Aircon temperature badge */
       if (id === 'aircon.living_room') {
         var tag = document.getElementById('aircon-temp');
         if (dev.temperature_c != null && dev.on) {
@@ -636,12 +920,18 @@
         } else { tag.classList.remove('visible'); }
       }
     }
+    /* Light overlay */
     var lightDev = state.devices['light.main'];
     var ov = document.getElementById('lightOverlay');
     if (lightDev && lightDev.on) { ov.classList.add('lit'); } else { ov.classList.remove('lit'); }
+    /* Aircon cold overlay (blue) */
     var airconDev = state.devices['aircon.living_room'];
     var cold = document.getElementById('coldOverlay');
-    if (airconDev && airconDev.on) { cold.classList.add('cold'); } else { cold.classList.remove('cold'); }
+    if (airconDev && airconDev.on) { cold.classList.add('active'); } else { cold.classList.remove('active'); }
+    /* Heater warm overlay (red) */
+    var heaterDev = state.devices['heater.living_room'];
+    var warm = document.getElementById('warmOverlay');
+    if (heaterDev && heaterDev.on) { warm.classList.add('active'); } else { warm.classList.remove('active'); }
   }
 
   function addLog(content, ok) {

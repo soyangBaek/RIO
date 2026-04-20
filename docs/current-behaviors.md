@@ -81,7 +81,18 @@ python3 live_interaction_test.py --real-services
 | `불 꺼줘`, `조명 끄기` | `smarthome.light.off` | 조명 끄기 요청 |
 | `로봇 청소기 실행시켜줘`, `청소기 돌려줘` | `smarthome.robot_cleaner.start` | 로봇청소기 시작 요청 |
 | `티비 켜줘` | `smarthome.tv.on` | TV 켜기 요청 |
+| `티비 꺼줘` | `smarthome.tv.off` | TV 끄기 요청 |
+| `컴퓨터 켜줘` | `smarthome.computer.on` | 컴퓨터 켜기 요청 |
+| `컴퓨터 꺼줘` | `smarthome.computer.off` | 컴퓨터 끄기 요청 |
+| `간접등 켜줘`, `무드등 켜줘` | `smarthome.indirect_light.on` | 간접등 켜기 요청 |
+| `간접등 꺼줘`, `무드등 꺼줘` | `smarthome.indirect_light.off` | 간접등 끄기 요청 |
+| `공기청정기 켜줘` | `smarthome.air_purifier.on` | 공기청정기 켜기 요청 |
+| `공기청정기 꺼줘` | `smarthome.air_purifier.off` | 공기청정기 끄기 요청 |
+| `히터 켜줘`, `난방 켜줘` | `smarthome.heater.on` | 히터 켜기 요청 |
+| `히터 꺼줘`, `난방 꺼줘` | `smarthome.heater.off` | 히터 끄기 요청 |
 | `음악 틀어줘`, `노래 틀어줘` | `smarthome.music.play` | 음악 재생 요청 |
+| `음악 꺼줘`, `노래 꺼줘` | `smarthome.music.stop` | 음악 정지 요청 |
+| `로봇청소기 꺼줘`, `청소기 멈춰` | `smarthome.robot_cleaner.stop` | 로봇청소기 정지 요청 |
 | `취소` | `system.cancel` | Listening 중 입력 취소, 게임 모드 같은 UI mode도 해제 |
 | `확인`, `알겠어` | `system.ack` | Alerting 중 알림 해제 |
 

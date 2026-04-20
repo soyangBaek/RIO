@@ -7,6 +7,30 @@ home_client:
 weather:
   base_url: "https://api.example.invalid/weather"
 devices:
+  tv:
+    id: "tv.living_room"
+    name: "TV"
+    template: "{device_id}:{action}"
+  computer:
+    id: "computer.desk"
+    name: "Computer"
+    template: "{device_id}:{action}"
+  light:
+    id: "light.main"
+    name: "Living room light"
+    template: "{device_id}:{action}"
+  indirect_light:
+    id: "light.indirect"
+    name: "Indirect light"
+    template: "{device_id}:{action}"
+  robot_cleaner:
+    id: "cleaner.bot"
+    name: "Robot cleaner"
+    template: "{device_id}:{action}"
+  air_purifier:
+    id: "purifier.living_room"
+    name: "Air purifier"
+    template: "{device_id}:{action}"
   aircon:
     id: "aircon.living_room"
     name: "Air conditioner"
@@ -15,17 +39,9 @@ devices:
       set_temperature:
         template: "{device_id}:set_temperature:{temperature_c}"
         label: "Set temperature"
-  light:
-    id: "light.main"
-    name: "Living room light"
-    template: "{device_id}:{action}"
-  robot_cleaner:
-    id: "cleaner.bot"
-    name: "Robot cleaner"
-    template: "{device_id}:{action}"
-  tv:
-    id: "tv.living_room"
-    name: "TV"
+  heater:
+    id: "heater.living_room"
+    name: "Heater"
     template: "{device_id}:{action}"
   music:
     id: "speaker.main"
