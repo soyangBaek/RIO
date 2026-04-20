@@ -1,0 +1,12 @@
+# RIO runtime profile: production-ish "실사용 기본값".
+#
+# run_rio_app.py --profile app 로 로드된다. CLI 플래그가 있으면 프로파일 값을 덮어쓴다.
+# voice.yaml / robot.yaml / devices.yaml / thresholds.yaml 는 공용 기본값이라
+# 이 파일에서는 **진입점 레벨 스위치**만 다룬다.
+
+preview: true              # 얼굴 디스플레이 창을 띄운다.
+fullscreen: true           # Pi 1024x600 디스플레이 전체 차지.
+tick_hz: 30                # 이벤트 루프 tick rate.
+log_level: INFO            # 평상시 조용한 로그.
+no_voice: false            # 실기기에서는 voice backend 사용.
+metrics_interval_s: 5.0    # rolling tick 지표 요약 주기 (§1.D).

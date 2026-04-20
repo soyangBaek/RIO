@@ -1,0 +1,12 @@
+# RIO runtime profile: 개발/테스트 환경.
+#
+# run_rio_app.py --profile live_test 로 로드. 디버깅 편의 중심.
+# scripts/live_interaction_test.py 같은 기존 테스트 하네스와는 다른 "run_rio_app 용
+# 테스트 모드"다 — 하네스는 자체 argparse 를 쓴다.
+
+preview: true              # 창으로 띄워 디버깅.
+fullscreen: false          # 데스크톱·리모트에서 편한 창 모드.
+tick_hz: 15                # 느린 틱으로 로그 따라가기 쉽게.
+log_level: DEBUG           # 모든 이벤트/버스 활동 보이게.
+no_voice: true             # 의존성 없는 환경에서도 바로 기동.
+metrics_interval_s: 2.0    # 짧은 간격으로 성능 지표 확인.
