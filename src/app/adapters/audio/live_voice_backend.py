@@ -91,6 +91,7 @@ class ASRParams:
     no_speech_threshold: float = 0.6
     condition_on_previous_text: bool = True
     min_logprob: float = -1.0
+    initial_prompt: Optional[str] = None
 
 
 @dataclass
@@ -243,6 +244,7 @@ class _WhisperBridgeBackend:
                 beam_size=self.cfg.asr.beam_size,
                 no_speech_threshold=self.cfg.asr.no_speech_threshold,
                 condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
+                initial_prompt=self.cfg.asr.initial_prompt,
             )
             segs = list(segments)
         except Exception as exc:
