@@ -4,6 +4,7 @@ import base64
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -83,6 +84,36 @@ class LiveVoiceBackendTest(unittest.TestCase):
         self.assertEqual(second["transcript"], "댄스 모드 시작")
         self.assertGreater(second["confidence"], 0.0)
         self.assertEqual(third, {"speech": False})
+
+    def test_prepare_input_source_prefers_configured_pulse_source(self) -> None:
+        backend = LiveVoiceBackend(
+            capture=AudioCapture(),
+            config=BackendConfig(
+                audio=AudioParams(device="pulse", gain_target_source="AB13X", mic_gain_percent=None),
+                vad=VADParams(),
+                asr=ASRParams(),
+            ),
+        )
+
+        with patch("src.app.adapters.audio.live_voice_backend.ensure_default_input_source") as ensure_default:
+            backend._prepare_input_source()
+
+        ensure_default.assert_called_once_with("AB13X")
+
+    def test_prepare_input_source_skips_non_pulse_devices(self) -> None:
+        backend = LiveVoiceBackend(
+            capture=AudioCapture(),
+            config=BackendConfig(
+                audio=AudioParams(device="hw:2,0", gain_target_source="AB13X", mic_gain_percent=None),
+                vad=VADParams(),
+                asr=ASRParams(),
+            ),
+        )
+
+        with patch("src.app.adapters.audio.live_voice_backend.ensure_default_input_source") as ensure_default:
+            backend._prepare_input_source()
+
+        ensure_default.assert_not_called()
 
     def test_rust_backend_utterance_message_decodes_and_feeds_capture(self) -> None:
         capture = AudioCapture()

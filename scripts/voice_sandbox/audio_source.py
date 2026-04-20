@@ -63,9 +63,42 @@ def _find_source_by_hint(hint: str) -> Optional[str]:
     return fallback
 
 
+def resolve_input_source(source_hint: Optional[str] = None) -> Optional[str]:
+    if source_hint:
+        return _find_source_by_hint(source_hint)
+    return _get_default_source()
+
+
+def ensure_default_input_source(source_hint: Optional[str]) -> Optional[str]:
+    """`pulse`/`default` 장치가 사용할 PipeWire 기본 입력 source 를 맞춘다."""
+    if not source_hint:
+        return _get_default_source()
+
+    source = _find_source_by_hint(source_hint)
+    if source is None:
+        print(
+            f"[{_ts()}] [audio] default input source: source not found "
+            f"(hint={source_hint!r}) — leaving default unchanged"
+        )
+        return None
+
+    current = _get_default_source()
+    if current == source:
+        print(f"[{_ts()}] [audio] default input source already '{source}'")
+        return source
+
+    code, _out, err = _run_pactl(["set-default-source", source])
+    if code != 0:
+        print(f"[{_ts()}] [audio] default input source set FAILED on '{source}': {err}")
+        return None
+
+    print(f"[{_ts()}] [audio] default input source → '{source}'")
+    return source
+
+
 def apply_mic_gain(percent: int, source_hint: Optional[str] = None) -> None:
     """pactl 로 mic 게인을 percent % 로 설정. 실패해도 예외는 던지지 않고 로그만 남김."""
-    source = _find_source_by_hint(source_hint) if source_hint else _get_default_source()
+    source = resolve_input_source(source_hint)
     if source is None:
         print(f"[{_ts()}] [audio] mic gain: source not found "
               f"(hint={source_hint!r}) — leaving volume unchanged")

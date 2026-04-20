@@ -28,7 +28,7 @@ from typing import Any, Callable, Optional, Protocol
 import numpy as np
 
 from src.app.adapters.audio.capture import AudioCapture
-from src.app.adapters.audio.mic_gain import apply_mic_gain
+from src.app.adapters.audio.mic_gain import apply_mic_gain, ensure_default_input_source
 from src.app.core.config import resolve_repo_path
 from src.app.core.safety.tick_metrics import increment as increment_metric
 from src.app.core.safety.tick_metrics import record as record_metric
@@ -209,6 +209,12 @@ class _WhisperBridgeBackend:
         if self._trace_sink is not None:
             self._trace_sink(f"[{_ts()}] {message}")
 
+    def _prepare_input_source(self) -> None:
+        device_hint = str(self.cfg.audio.device or "").strip().lower()
+        if device_hint not in {"pulse", "default"}:
+            return
+        ensure_default_input_source(self.cfg.audio.gain_target_source)
+
     def _ensure_whisper(self) -> None:
         if self._whisper is not None:
             return
@@ -316,6 +322,7 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
         self._stop.clear()
         self._asr_busy.clear()
 
+        self._prepare_input_source()
         if self.cfg.audio.mic_gain_percent is not None:
             apply_mic_gain(
                 int(self.cfg.audio.mic_gain_percent),
@@ -492,6 +499,7 @@ class RustAudioBackend(_WhisperBridgeBackend):
         self._ready.clear()
         self._asr_busy.clear()
 
+        self._prepare_input_source()
         if self.cfg.audio.mic_gain_percent is not None:
             apply_mic_gain(
                 int(self.cfg.audio.mic_gain_percent),

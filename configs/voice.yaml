@@ -30,8 +30,10 @@ audio:
   # close-talk (입 바로 앞): 20~30 권장.
   mic_gain_percent: 25
 
-  # 게인을 적용할 PipeWire/PulseAudio source 이름 부분 일치.
-  # null 이면 현재 default source.
+  # PipeWire/PulseAudio source 이름 부분 일치.
+  # `device: "pulse"` 일 때는 실행 직전에 이 source 를 default input 으로 맞추고,
+  # mic gain 도 같은 source 에 적용한다.
+  # null 이면 현재 default source 를 그대로 사용한다.
   gain_target_source: "AB13X"
 
 

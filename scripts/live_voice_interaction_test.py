@@ -532,7 +532,13 @@ def describe_runtime_snapshot(rio: RioOrchestrator, *, service_mode: str) -> dic
     return details
 
 
-def snapshot_signature(rio: RioOrchestrator, last_gesture: str | None, *, service_mode: str) -> tuple[str, ...]:
+def snapshot_signature(
+    rio: RioOrchestrator,
+    last_gesture: str | None,
+    *,
+    service_mode: str,
+    include_perf: bool = False,
+) -> tuple[str, ...]:
     snapshot = rio.store.snapshot()
     frame = rio.renderer.history[-1] if rio.renderer.history else None
     if frame is None:
@@ -541,7 +547,7 @@ def snapshot_signature(rio: RioOrchestrator, last_gesture: str | None, *, servic
     last_tts = rio.tts.history[-1] if rio.tts.history else "-"
     last_sfx = rio.sfx.history[-1] if rio.sfx.history else "-"
     details = describe_runtime_snapshot(rio, service_mode=service_mode)
-    return (
+    signature = (
         snapshot.context_state.value,
         snapshot.activity_state.value,
         frame.face.mood,
@@ -563,12 +569,16 @@ def snapshot_signature(rio: RioOrchestrator, last_gesture: str | None, *, servic
         details["http_status"],
         details["http_target"],
         details["http_payload"],
-        details["pump_ms"],
-        details["drain_ms"],
-        details["vision_ms"],
-        details["decode_ms"],
         details["busy_drop"],
     )
+    if include_perf:
+        signature += (
+            details["pump_ms"],
+            details["drain_ms"],
+            details["vision_ms"],
+            details["decode_ms"],
+        )
+    return signature
 
 
 def print_snapshot(
@@ -1934,6 +1944,11 @@ def main() -> int:
     parser.add_argument("--debug", action="store_true", help="debug mode showing webcam inset and state sidebar")
     parser.add_argument("--no-voice-trace", action="store_true", help="suppress VAD/ASR/intent trace lines")
     parser.add_argument(
+        "--verbose-state-log",
+        action="store_true",
+        help="print state snapshots for perf metric changes too",
+    )
+    parser.add_argument(
         "--real-services",
         action="store_true",
         help="use real weather/home_client handlers instead of mocks",
@@ -2076,7 +2091,12 @@ def main() -> int:
                     print("Exiting.")
                     return 0
 
-            current_signature = snapshot_signature(rio, last_gesture, service_mode=service_mode)
+            current_signature = snapshot_signature(
+                rio,
+                last_gesture,
+                service_mode=service_mode,
+                include_perf=args.verbose_state_log,
+            )
             if force_print or current_signature != last_signature:
                 reason = "console" if force_print else "state_changed"
                 print_snapshot(

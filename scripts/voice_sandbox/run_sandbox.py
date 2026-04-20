@@ -22,7 +22,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.voice_sandbox.asr_whisper import ASRConfig
-from scripts.voice_sandbox.audio_source import AudioConfig, apply_mic_gain, list_devices
+from scripts.voice_sandbox.audio_source import (
+    AudioConfig,
+    apply_mic_gain,
+    ensure_default_input_source,
+    list_devices,
+)
 from scripts.voice_sandbox.pipeline import Pipeline
 from scripts.voice_sandbox.recorder import UtteranceRecorder
 from scripts.voice_sandbox.rust_frontend import RustFrontendConfig
@@ -157,6 +162,10 @@ def main() -> int:
     if backend_type not in {"python", "rust"}:
         print(f"[run] unsupported backend: {backend_type}", file=sys.stderr)
         return 1
+
+    if audio_cfg.device in {"pulse", "default"}:
+        gain_source = cfg.get("audio", {}).get("gain_target_source") if isinstance(cfg.get("audio"), dict) else None
+        ensure_default_input_source(gain_source)
 
     mic_gain = cfg.get("audio", {}).get("mic_gain_percent") if isinstance(cfg.get("audio"), dict) else None
     if mic_gain is not None:
