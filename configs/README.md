@@ -9,3 +9,4 @@
 - `triggers.yaml`
 - `devices.yaml`
 - `scenes.yaml`
+- `voice.yaml`

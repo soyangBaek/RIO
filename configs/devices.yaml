@@ -1,5 +1,5 @@
 home_client:
-  base_url: "http://127.0.0.1"
+  base_url: "http://127.0.0.1:8123"
   control_path: "/device/control"
   # If your ThinkQ bridge exposes a full endpoint URL, set it here and it
   # will override base_url + control_path.

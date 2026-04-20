@@ -1,0 +1,160 @@
+# ─────────────────────────────────────────────────────────────
+# RIO 음성 인식 샌드박스 설정
+#
+# 목적: RIO 본체(event bus, FSM) 없이 마이크 → VAD → wake word → ASR
+#       파이프라인 자체의 정확도/지연을 튜닝하기 위한 독립 실행 환경.
+# 실행: python -m scripts.voice_sandbox.run_sandbox
+# ─────────────────────────────────────────────────────────────
+
+
+# ── 오디오 캡처 (sounddevice + ALSA/PipeWire) ───────────────
+audio:
+  # 입력 장치 이름.
+  # "pulse" 를 지정하면 PipeWire/PulseAudio 경유 → 자동 리샘플(48→16kHz) + 기본 source 사용.
+  # 특정 mic 을 쓰려면 PipeWire 기본 source 를 먼저 바꿔두고 "pulse" 로 열면 됨:
+  #    pactl list short sources
+  #    pactl set-default-source alsa_input.usb-Generic_AB13X_...
+  # (장치명을 직접 지정해 "AB13X" 로 하면 raw ALSA hw:1,0 에 붙어 16kHz 미지원으로 실패함.
+  #  raw ALSA 는 리샘플 기능이 없으므로 반드시 pulse/default 경유.)
+  device: "pulse"
+
+  # 샘플레이트 (Hz). Silero VAD/Whisper 둘 다 16kHz 전제이므로 건드리지 말 것.
+  # 장치 네이티브가 48kHz여도 PipeWire 가 자동으로 16kHz 로 리샘플해서 전달.
+  sample_rate: 16000
+
+  # 채널 수. 1 = 모노. Whisper/VAD 모두 모노 입력 전제.
+  channels: 1
+
+  # PortAudio 콜백 한 번에 받는 샘플 수.
+  # Silero ONNX 는 16kHz에서 정확히 512 샘플 청크를 요구하므로 512 고정 권장.
+  # 512 샘플 @ 16kHz = 32ms/청크.
+  blocksize: 512
+
+  # 캡처 dtype. "float32" = Whisper/Silero 가 바로 받을 수 있는 포맷.
+  # "int16" 은 지원하지만 코드 단에서 /32768.0 정규화 로직이 필요 (현재 코드는 float32 전제).
+  dtype: "float32"
+
+  # 프로그램 시작 시 pactl 로 mic 게인을 이 값으로 자동 설정.
+  # null 이면 건드리지 않음 (현재 시스템 값 유지).
+  # 권장값:
+  #   close-talk (입 바로 앞, 원거리 소음 차단):     15~35
+  #   책상 위 30cm 정도:                              50~70
+  #   원거리 (방 전체):                               80~100
+  # clipping 위험 있으면 낮추고, 인식 잘 안 되면 올릴 것.
+  mic_gain_percent: 25
+
+  # mic 게인을 적용할 PipeWire/PulseAudio source 이름 (부분 일치).
+  # null 이면 현재 default source 에 적용.
+  # 예: "AB13X" / "Sonix" / "bluez_input"
+  gain_target_source: "AB13X"
+
+
+# ── VAD: Silero VAD 6.2.x (ONNX runtime) ─────────────────────
+vad:
+  # 프레임당 speech 확률 컷오프 (0.0~1.0).
+  # 높이면 조용한 말 놓침(miss), 낮추면 노이즈를 말로 오인(false accept).
+  # 시끄러운 환경: 0.6~0.7, 조용한 환경: 0.4~0.5 권장. 기본 0.5.
+  threshold: 0.85
+
+  # 발화 끝 판정 기준: "말이 끝난 뒤 이 시간만큼 침묵이 지속되면 utterance 종료".
+  # 너무 짧으면(<200ms) 문장 중간 숨소리에서 끊김, 너무 길면(>700ms) 명령 반응 지연.
+  min_silence_duration_ms: 300
+
+  # utterance 앞뒤로 붙이는 패딩. 말 시작부의 앞 자음(ㅊ,ㅍ,ㅌ 등)이 잘리지 않게 보호.
+  # Silero VADIterator 내부 기본값과 동일.
+  speech_pad_ms: 30
+
+  # 최소 발화 길이. 이보다 짧은 조각은 ASR 로 보내지 않고 버린다 (label="drop_tooshort").
+  # Whisper 가 짧은 노이즈에 "아", "네", "리오야" 같은 환각을 만드는 것을 1차 차단.
+  min_speech_ms: 150
+
+
+# ── Wake word: ASR 텍스트 기반 매칭 ──────────────────────────
+# 원시 오디오 KWS 모델을 쓰지 않고, Whisper 가 전사한 텍스트에서 키워드를 찾음.
+# 장점: 별도 모델 학습 불필요, "리오야 불 켜줘" 한 문장 패턴 자연스럽게 지원.
+# 단점: ASR 이 매 발화마다 돌아야 함 (Pi 4 에선 부담, Pi 5 에선 여유).
+wake_word:
+  # 로그/표시에 쓰이는 정식 이름.
+  phrase: "리오야"
+
+  # 실제 매칭에 사용하는 토큰 목록. Whisper 오인식 대비 변형 포함.
+  # 여기에 없는 표기는 fuzzy 매칭이 켜져 있어도 max_edit_distance 를 넘지 못하면 안 잡힘.
+  aliases: ["리오야", "리오", "rio", "리요", "리요야"]
+
+  # true 면 편집거리(Levenshtein) 허용 매칭 추가로 시도.
+  # false 면 aliases 중 정확 일치 토큰이 있을 때만 hit.
+  fuzzy: true
+
+  # 편집거리 허용치. 0=완전일치만, 1=한 글자 차이까지, 2=두 글자 차이까지.
+  # 2 이상은 "기오야", "미모야" 같은 오탐이 급증하므로 권장하지 않음.
+  max_edit_distance: 1
+
+  # 한 번 wake 된 뒤 이 시간 내 재trigger 무시. 동일 wake 연속 hit 방지.
+  cooldown_ms: 1500
+
+  # wake 인식 후 명령을 수집하는 창 (ms).
+  # 이 시간 내 새 utterance 가 들어오면 명령으로 처리, 초과하면 다시 ASLEEP.
+  listen_window_ms: 3000
+
+  # true 면 AWAKE 상태에서 새 명령이 들어올 때마다 listen_window 를 리셋(연장).
+  # false 면 처음 wake 시점부터 절대 시간으로 창이 닫힘.
+  extend_on_command: true
+
+  # Whisper 세그먼트 avg_logprob 하한. 이보다 작으면 wake 후보에서 제외 (label="reject_logprob").
+  # 무음/노이즈에서 Whisper 가 "리오야" 환각 낼 때 logprob 이 매우 낮게 나오는 점을 이용.
+  # 너무 엄격(-0.5 등)하면 정상 발화도 떨구므로 -1.0 ~ -0.8 권장.
+  min_asr_logprob: -1.0
+
+  # true 면 매칭된 wake 토큰을 명령 텍스트에서 제거.
+  # 예: "리오야 불 켜줘" → wake hit + command="불 켜줘"
+  # false 면 명령 텍스트에 wake 가 포함된 채로 넘어감.
+  strip_from_command: true
+
+
+# ── ASR: faster-whisper 1.2.x (CTranslate2) ──────────────────
+asr:
+  # 모델 크기. 첫 실행 시 HuggingFace Systran/faster-whisper-<model> 에서 자동 다운로드.
+  #   tiny   39M   가장 빠름, 한국어 정확도 낮음 (Pi 4 실시간 여유)
+  #   base   74M   균형점 (Pi 4 RTF ~1.0, Pi 5 ~0.4)
+  #   small  244M  정확도 ↑, Pi 4 에서는 지연 큼
+  #   medium 769M  Pi 에서는 비현실적
+  model: "base"
+
+  # 언어 코드. "ko" 고정 권장. null 로 두면 자동 감지인데 짧은 발화에서 en/ja 로 튐.
+  language: "ko"
+
+  # 빔 서치 너비. 1 = greedy (가장 빠름). 정확도가 더 필요하면 5까지 올려볼 수 있으나
+  # Pi 에서는 지연 비용이 크다.
+  beam_size: 1
+
+  # 양자화 포맷.
+  #   "int8"          CPU 권장. 속도 2~3배, 정확도 손실 미미.
+  #   "int8_float16"  GPU 환경용.
+  #   "float32"       가장 정확하지만 느림.
+  compute_type: "int8"
+
+  # 추론 디바이스. Pi 에는 GPU 없으므로 "cpu" 고정.
+  device: "cpu"
+
+  # 세그먼트의 no_speech_prob 이 이 값을 넘으면 해당 세그먼트 텍스트를 버린다.
+  # 0.6 이 whisper 공식 권장값. 환각 방지 주요 수단.
+  no_speech_threshold: 0.6
+
+  # true 면 직전 세그먼트의 텍스트를 다음 디코딩의 prompt 로 사용.
+  # 연속 대화의 문맥 유지에 도움되지만, 한 번 환각이 생기면 계속 전파됨.
+  # 환각이 누적되면 false 로 내리고 테스트할 것.
+  condition_on_previous_text: true
+
+
+# ── 로깅/녹음 ────────────────────────────────────────────────
+logging:
+  # 콘솔 로그 레벨. "DEBUG" 로 올리면 VAD 프레임 단위 이벤트까지 찍힘.
+  level: "INFO"
+
+  # true 면 감지된 각 utterance 를 wav + json 사이드카로 저장.
+  # 오탐/미탐 케이스를 나중에 재현/분석하기 위해 튜닝 단계에서는 켜두는 걸 권장.
+  save_utterances: true
+
+  # 저장 경로 (repo 루트 기준 상대 경로).
+  # 파일명: <timestamp>_<label>_<sanitized_text>.wav / .json
+  save_dir: "scripts/voice_sandbox/recordings"

@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────
+# RIO 음성 인식 런타임 설정
+#
+# 본체 (src/app/main.py) 에서 LiveVoiceBackend 가 읽어 사용.
+# 샌드박스 (scripts/voice_sandbox/config.yaml) 와 동일 스키마이며
+# 튜닝 시에는 샌드박스에서 먼저 실험한 뒤 확정값을 이 파일로 옮겨옴.
+# ─────────────────────────────────────────────────────────────
+
+
+# ── 오디오 캡처 (sounddevice + PipeWire) ────────────────────
+audio:
+  # PipeWire/PulseAudio 경유로 열기 위해 "pulse" 고정.
+  # raw ALSA (hw:X,Y) 는 16kHz 리샘플을 못 해서 실패함.
+  device: "pulse"
+
+  sample_rate: 16000
+  channels: 1
+  blocksize: 512         # Silero ONNX 는 16kHz 에서 512 샘플 청크 요구
+  dtype: "float32"
+
+  # 프로그램 시작 시 pactl 로 mic 게인 자동 설정. null 이면 건드리지 않음.
+  # close-talk (입 바로 앞): 20~30 권장.
+  mic_gain_percent: 25
+
+  # 게인을 적용할 PipeWire/PulseAudio source 이름 부분 일치.
+  # null 이면 현재 default source.
+  gain_target_source: "AB13X"
+
+
+# ── VAD: Silero VAD 6.2.x ────────────────────────────────────
+vad:
+  threshold: 0.85
+  min_silence_duration_ms: 300
+  speech_pad_ms: 30
+  min_speech_ms: 150
+
+
+# ── ASR: faster-whisper 1.2.x ────────────────────────────────
+asr:
+  model: "base"          # tiny/base/small
+  language: "ko"
+  beam_size: 1
+  compute_type: "int8"
+  device: "cpu"
+  no_speech_threshold: 0.6
+  condition_on_previous_text: true
+
+  # logprob 하한. 이보다 낮으면 capture 에 주입 안 함 (환각 차단).
+  # 샌드박스의 wake_word.min_asr_logprob 와 동일 역할.
+  min_logprob: -1.0
+
+
+# ── 동시성 ───────────────────────────────────────────────────
+concurrency:
+  # depth=1 규칙. ASR 디코딩 중 새 utterance 가 도착하면 drop.
+  # true 권장 (Pi CPU 보호 + 응답 일관성).
+  drop_while_busy: true
+
+
+# ── 로깅 ─────────────────────────────────────────────────────
+logging:
+  # INFO: 발화/디코딩 요약만. DEBUG: VAD 프레임 단위까지.
+  level: "INFO"
