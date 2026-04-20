@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,6 +32,7 @@ class SFXPlayer:
         if self._initialized:
             return True
         try:
+            os.environ.setdefault("SDL_AUDIODRIVER", "pulseaudio")
             import pygame
 
             if not pygame.mixer.get_init():

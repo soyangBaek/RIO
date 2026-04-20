@@ -11,7 +11,7 @@ from src.app.core.events.models import Event
 @dataclass(slots=True)
 class GestureDetector:
     confidence_min: float = 0.75
-    emit_cooldown_seconds: float = 0.75
+    emit_cooldown_seconds: float = 8.0
     _hands: Any = field(default=None, init=False, repr=False)
     _last_gesture: str | None = field(default=None, init=False, repr=False)
     _last_emitted_at: datetime | None = field(default=None, init=False, repr=False)
@@ -66,7 +66,6 @@ class GestureDetector:
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = hands.process(rgb)
             if not result.multi_hand_landmarks:
-                self._last_gesture = None
                 return []
             landmarks = result.multi_hand_landmarks[0]
             gesture = self._classify_hand(landmarks)
@@ -90,6 +89,4 @@ class GestureDetector:
                     timestamp=when,
                 )
             ]
-        if not gesture:
-            self._last_gesture = None
         return []
