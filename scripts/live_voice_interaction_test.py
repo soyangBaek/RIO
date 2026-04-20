@@ -59,8 +59,11 @@ INTENT_LABELS = {
     "smarthome.light.on": "Light on",
     "smarthome.light.off": "Light off",
     "smarthome.robot_cleaner.start": "Start robot cleaner",
+    "smarthome.robot_cleaner.stop": "Stop robot cleaner",
     "smarthome.tv.on": "TV on",
+    "smarthome.tv.off": "TV off",
     "smarthome.music.play": "Play music",
+    "smarthome.music.stop": "Stop music",
     "ui.game_mode.enter": "Game mode",
     "dance.start": "Dance mode",
     "timer.create": "Create timer",
@@ -78,6 +81,11 @@ ACTION_LABELS = {
 }
 
 RECENT_ACTION_HOLD_MS = 1500
+
+
+def _ts() -> str:
+    t = time.time()
+    return time.strftime("%H:%M:%S", time.localtime(t)) + f".{int((t - int(t)) * 1000):03d}"
 
 
 def load_yaml(path: str) -> dict[str, object]:
@@ -190,6 +198,30 @@ def trim_text(text: str | None, *, limit: int = 44) -> str:
     if len(value) <= limit:
         return value
     return f"{value[: limit - 3]}..."
+
+
+def print_voice_intent_trace(events: list[Event], *, enabled: bool) -> None:
+    if not enabled:
+        return
+    for event in events:
+        if event.topic == topics.VOICE_INTENT_DETECTED:
+            intent = str(event.payload.get("intent") or "-")
+            text = trim_text(str(event.payload.get("text") or "-"), limit=60)
+            normalized = trim_text(str(event.payload.get("normalized_text") or "-"), limit=60)
+            confidence = event.confidence if event.confidence is not None else 0.0
+            print(
+                f"[{_ts()}] [voice.intent] DETECTED intent='{intent}' "
+                f"text='{text}' normalized='{normalized}' conf={confidence:.2f}"
+            )
+        elif event.topic == topics.VOICE_INTENT_UNKNOWN:
+            text = trim_text(str(event.payload.get("text") or "-"), limit=60)
+            normalized = trim_text(str(event.payload.get("normalized_text") or "-"), limit=60)
+            reason = str(event.payload.get("reason") or "-")
+            confidence = event.confidence if event.confidence is not None else 0.0
+            print(
+                f"[{_ts()}] [voice.intent] UNKNOWN text='{text}' "
+                f"normalized='{normalized}' reason={reason} conf={confidence:.2f}"
+            )
 
 
 def find_recent_event(rio: RioOrchestrator, *wanted_topics: str) -> Event | None:
@@ -1714,31 +1746,31 @@ def process_console_line(
     rio: RioOrchestrator,
     terminal_voice: TerminalVoiceInput,
     line: str,
-) -> tuple[bool, bool, str | None]:
+) -> tuple[bool, bool, str | None, list[Event]]:
     text = line.strip()
     if not text:
-        return False, False, None
+        return False, False, None, []
 
     now = datetime.now(timezone.utc)
     if text in {"/quit", "/exit"}:
-        return True, False, text
+        return True, False, text, []
     if text == "/help":
         print_help()
-        return False, False, text
+        return False, False, text, []
     if text == "/status":
-        return False, True, text
+        return False, True, text, []
     if text == "/tap":
-        rio.process_event(Event.create(topics.TOUCH_TAP_DETECTED, "live.console", timestamp=now))
-        return False, True, text
+        processed = rio.process_event(Event.create(topics.TOUCH_TAP_DETECTED, "live.console", timestamp=now))
+        return False, True, text, processed
     if text == "/stroke":
-        rio.process_event(Event.create(topics.TOUCH_STROKE_DETECTED, "live.console", timestamp=now))
-        return False, True, text
+        processed = rio.process_event(Event.create(topics.TOUCH_STROKE_DETECTED, "live.console", timestamp=now))
+        return False, True, text, processed
     if text.startswith("/gesture"):
         gesture = text.partition(" ")[2].strip()
         if not gesture:
             print("e.g.: /gesture wave")
-            return False, False, text
-        rio.process_event(
+            return False, False, text, []
+        processed = rio.process_event(
             Event.create(
                 topics.VISION_GESTURE_DETECTED,
                 "live.console",
@@ -1746,12 +1778,12 @@ def process_console_line(
                 timestamp=now,
             )
         )
-        return False, True, text
+        return False, True, text, processed
     if text.startswith("/face"):
         position = text.partition(" ")[2].strip() or "center"
         if position == "lost":
-            rio.process_event(Event.create(topics.VISION_FACE_LOST, "live.console", timestamp=now))
-            return False, True, text
+            processed = rio.process_event(Event.create(topics.VISION_FACE_LOST, "live.console", timestamp=now))
+            return False, True, text, processed
         center_map = {
             "left": (0.2, 0.5),
             "center": (0.5, 0.5),
@@ -1760,8 +1792,8 @@ def process_console_line(
         center = center_map.get(position)
         if center is None:
             print("e.g.: /face left | /face center | /face right | /face lost")
-            return False, False, text
-        rio.process_event(
+            return False, False, text, []
+        processed = rio.process_event(
             Event.create(
                 topics.VISION_FACE_DETECTED,
                 "live.console",
@@ -1769,10 +1801,10 @@ def process_console_line(
                 timestamp=now,
             )
         )
-        return False, True, text
+        return False, True, text, processed
     if text.startswith("/timer"):
         label = text.partition(" ")[2].strip() or "console"
-        rio.process_event(
+        processed = rio.process_event(
             Event.create(
                 topics.TIMER_EXPIRED,
                 "live.console",
@@ -1780,15 +1812,16 @@ def process_console_line(
                 timestamp=now,
             )
         )
-        return False, True, text
+        return False, True, text, processed
     if text.startswith("/"):
         print(f"Unknown command: {text}")
         print("Type /help to see available commands.")
-        return False, False, text
+        return False, False, text, []
 
+    processed: list[Event] = []
     for event in terminal_voice.build_events(text, now=now):
-        rio.process_event(event)
-    return False, True, text
+        processed.extend(rio.process_event(event))
+    return False, True, text, processed
 
 
 def stdin_ready() -> bool:
@@ -1804,13 +1837,14 @@ def build_orchestrator(*, use_real_services: bool) -> RioOrchestrator:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Live-test RIO with real mic (Silero VAD + faster-whisper) + webcam + terminal strings")
+    parser = argparse.ArgumentParser(description="Live-test RIO with real mic (RMS VAD + faster-whisper) + webcam + terminal strings")
     parser.add_argument("--fps", type=float, default=8.0, help="webcam loop refresh rate")
     parser.add_argument("--away-timeout-ms", type=int, default=3000, help="time until Away transition after face lost")
     parser.add_argument("--engaged-idle-ms", type=int, default=1500, help="Engaged -> Idle timeout without interaction")
     parser.add_argument("--sleepy-ms", type=int, default=15000, help="Idle -> Sleepy timeout")
     parser.add_argument("--no-preview", action="store_true", help="disable preview window")
     parser.add_argument("--debug", action="store_true", help="debug mode showing webcam inset and state sidebar")
+    parser.add_argument("--no-voice-trace", action="store_true", help="suppress VAD/ASR/intent trace lines")
     parser.add_argument(
         "--real-services",
         action="store_true",
@@ -1859,6 +1893,7 @@ def main() -> int:
     frame_interval = 1.0 / max(args.fps, 1.0)
     preview_enabled = not args.no_preview
     service_mode = "real-http" if args.real_services else "mock"
+    voice_trace_enabled = not args.no_voice_trace
 
     latest_frame_holder: list[Any] = [None]
     if rio.webcam_capture is not None:
@@ -1878,8 +1913,17 @@ def main() -> int:
     # with 블록을 쓰면 기존 try/except/finally 전체를 들여써야 해서 diff 가 커지므로
     # 대신 start/stop 을 try/finally 에 배치하여 동등한 효과를 얻음.
     if rio.voice_backend is not None:
-        print("[voice] starting live mic backend (Silero VAD + faster-whisper)...")
-        rio.voice_backend.start()
+        rio.voice_backend.set_trace_sink(print if voice_trace_enabled else None)
+        print("[voice] starting live mic backend (RMS VAD + faster-whisper)...")
+        try:
+            rio.voice_backend.start()
+        except Exception as exc:
+            print(f"[voice] disabled after startup failure: {exc}")
+            try:
+                rio.voice_backend.stop()
+            except Exception:
+                pass
+            rio.voice_backend = None
     else:
         print("[voice] LiveVoiceBackend disabled (voice.yaml 없음 또는 의존성 누락)")
 
@@ -1888,11 +1932,11 @@ def main() -> int:
             # 전체 워커 tick — audio_worker 가 capture 에 쌓인 cooked frame 을 꺼내
             # voice.activity.* / voice.intent.* 이벤트를 발행. (vision/touch 도 같이 tick)
             for due_event in rio.scheduler.poll_due():
-                rio.process_event(due_event)
-            rio.drain_bus()
+                print_voice_intent_trace(rio.process_event(due_event), enabled=voice_trace_enabled)
+            print_voice_intent_trace(rio.drain_bus(), enabled=voice_trace_enabled)
 
             rio.pump_workers()
-            rio.drain_bus()
+            print_voice_intent_trace(rio.drain_bus(), enabled=voice_trace_enabled)
 
             had_face, detected_gesture, camera_frame, face_event = process_frame(
                 rio,
@@ -1929,7 +1973,8 @@ def main() -> int:
             force_print = False
             if stdin_ready():
                 line = sys.stdin.readline()
-                should_exit, force_print, user_input = process_console_line(rio, terminal_voice, line)
+                should_exit, force_print, user_input, console_events = process_console_line(rio, terminal_voice, line)
+                print_voice_intent_trace(console_events, enabled=voice_trace_enabled)
                 if user_input is not None:
                     last_input = user_input
                 if should_exit:

@@ -52,6 +52,41 @@ class IntentParserTest(unittest.TestCase):
         self.assertFalse(parsed.is_known)
         self.assertEqual(parsed.reason, "temperature_out_of_range")
 
+    def test_matches_tv_off_alias(self) -> None:
+        parsed = parse_intent("티비 꺼줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.tv.off")
+
+    def test_matches_music_stop_alias(self) -> None:
+        parsed = parse_intent("음악 멈춰줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.music.stop")
+
+    def test_matches_robot_cleaner_stop_alias(self) -> None:
+        parsed = parse_intent("청소기 멈춰줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.robot_cleaner.stop")
+
+    def test_normalizes_common_tv_misrecognition(self) -> None:
+        parsed = parse_intent("팁이 켜줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.tv.on")
+
+    def test_normalizes_common_aircon_misrecognition(self) -> None:
+        parsed = parse_intent("에어콘 꺼줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.aircon.off")
+
+    def test_matches_compact_dance_phrase(self) -> None:
+        parsed = parse_intent("댄스모드", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "dance.start")
+
+    def test_matches_timer_phrase_dynamically(self) -> None:
+        parsed = parse_intent("3분 뒤에 알려줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "timer.create")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,5 @@
-# ─────────────────────────────────────────────────────────────
-# RIO 음성 인식 샌드박스 설정
-#
-# 목적: RIO 본체(event bus, FSM) 없이 마이크 → VAD → wake word → ASR
-#       파이프라인 자체의 정확도/지연을 튜닝하기 위한 독립 실행 환경.
-# 실행: python -m scripts.voice_sandbox.run_sandbox
-# ─────────────────────────────────────────────────────────────
+# Deprecated: sandbox 설정 기본 경로는 이제 `configs/voice_sandbox.yaml`.
+# 이 파일은 과거 참고용으로만 남겨둔다.
 
 
 # ── 오디오 캡처 (sounddevice + ALSA/PipeWire) ───────────────

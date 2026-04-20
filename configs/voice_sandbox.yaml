@@ -1,0 +1,23 @@
+# Voice sandbox overrides.
+# Base audio/vad/asr values come from configs/voice.yaml.
+extends: "configs/voice.yaml"
+
+# transcript: STT 결과만 출력
+# intent: STT -> intent 파싱 -> smart-home payload dry-run 출력
+# wake: wake word("리오야") 이후 명령만 intent 파싱
+mode: "intent"
+
+wake_word:
+  phrase: "리오야"
+  aliases: ["리오야", "리오", "rio", "리요", "리요야"]
+  fuzzy: true
+  max_edit_distance: 1
+  cooldown_ms: 1500
+  listen_window_ms: 3000
+  extend_on_command: true
+  min_asr_logprob: -1.0
+  strip_from_command: true
+
+logging:
+  save_utterances: true
+  save_dir: "artifacts/voice_sandbox"

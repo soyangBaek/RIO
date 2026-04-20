@@ -4,7 +4,7 @@ import unittest
 
 from src.app.core.events import topics
 from src.app.core.events.models import Event
-from src.app.core.state.models import ActionKind, OneshotName
+from src.app.core.state.models import ActionKind, ActivityState, OneshotName
 from src.app.domains.behavior.executor_registry import ExecutionResult
 from src.app.main import RioOrchestrator
 
@@ -101,6 +101,22 @@ class InputReactionIntegrationTest(unittest.TestCase):
 
         self.assertIn("Head game: Left", [frame.hud.message for frame in orchestrator.renderer.history])
         self.assertIn("game_move", orchestrator.sfx.history)
+
+    def test_dance_mode_starts_from_voice_intent(self) -> None:
+        orchestrator = RioOrchestrator()
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+        processed = orchestrator.process_event(
+            Event.create(
+                topics.VOICE_INTENT_DETECTED,
+                "test",
+                payload={"intent": "dance.start", "text": "댄스모드"},
+            )
+        )
+
+        self.assertEqual(orchestrator.store.snapshot().activity_state, ActivityState.EXECUTING)
+        self.assertEqual(orchestrator.store.snapshot().extended.active_executing_kind, ActionKind.DANCE)
+        self.assertIn("dance", orchestrator.sfx.history)
+        self.assertTrue(any(event.topic == topics.TASK_STARTED for event in processed))
 
 
 if __name__ == "__main__":

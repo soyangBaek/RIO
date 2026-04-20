@@ -7,9 +7,11 @@ from functools import lru_cache
 import yaml
 
 from src.app.core.config import resolve_repo_path
+from src.app.domains.speech.text_normalizer import KoreanCommandNormalizer
 
 
 DEFAULT_INTENT_MATCH_CONFIDENCE_MIN = 0.6
+_TEXT_NORMALIZER = KoreanCommandNormalizer()
 
 
 @dataclass(slots=True)
@@ -21,6 +23,7 @@ class IntentParseResult:
     matched_alias: str | None = None
     reason: str | None = None
     payload: dict[str, object] = field(default_factory=dict)
+    normalization_replacements: list[dict[str, object]] = field(default_factory=list)
 
     @property
     def is_known(self) -> bool:
@@ -53,8 +56,14 @@ def _token_overlap_score(normalized_text: str, alias: str) -> float:
         return 0.0
     if normalized_text == alias:
         return 1.0
+    compact_text = normalized_text.replace(" ", "")
+    compact_alias = alias.replace(" ", "")
+    if compact_text == compact_alias:
+        return 0.98
     if alias in normalized_text:
         return 0.94
+    if compact_alias and compact_alias in compact_text:
+        return 0.92
     if normalized_text in alias:
         return 0.88
     text_tokens = set(normalized_text.split())
@@ -73,47 +82,165 @@ def _parse_dynamic_smarthome(
     *,
     stt_confidence: float,
 ) -> IntentParseResult | None:
-    temp_match = re.search(r"(-?\d{1,2})\s*도(?:로)?", text)
-    if temp_match is None:
-        temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
-    if temp_match is None:
-        return None
+    compact = normalized_text.replace(" ", "")
 
-    intent_keywords = (
-        "온도",
-        "temperature",
-        "맞춰",
-        "설정",
-        "set",
-        "에어컨",
-        "aircon",
-        "air conditioner",
-    )
-    if not any(keyword in normalized_text for keyword in intent_keywords):
-        return None
+    def has_any(*words: str) -> bool:
+        return any(word in normalized_text or word in compact for word in words)
 
-    temperature_c = int(temp_match.group(1))
-    if temperature_c < 16 or temperature_c > 30:
+    def result(intent: str, *, matched_alias: str, payload: dict[str, object] | None = None) -> IntentParseResult:
         return IntentParseResult(
-            intent=None,
+            intent=intent,
             confidence=stt_confidence,
             text=text,
             normalized_text=normalized_text,
-            reason="temperature_out_of_range",
+            matched_alias=matched_alias,
+            payload=dict(payload or {}),
         )
 
-    return IntentParseResult(
-        intent="smarthome.aircon.set_temperature",
-        confidence=stt_confidence,
-        text=text,
-        normalized_text=normalized_text,
-        matched_alias="__dynamic_aircon_temperature__",
-        payload={
-            "device_key": "aircon",
-            "action": "set_temperature",
-            "temperature_c": temperature_c,
-        },
-    )
+    temp_match = re.search(r"(-?\d{1,2})\s*도(?:로)?", text)
+    if temp_match is None:
+        temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
+    if temp_match is not None:
+        intent_keywords = (
+            "온도",
+            "temperature",
+            "맞춰",
+            "설정",
+            "set",
+            "에어컨",
+            "aircon",
+            "air conditioner",
+        )
+        if any(keyword in normalized_text for keyword in intent_keywords):
+            temperature_c = int(temp_match.group(1))
+            if temperature_c < 16 or temperature_c > 30:
+                return IntentParseResult(
+                    intent=None,
+                    confidence=stt_confidence,
+                    text=text,
+                    normalized_text=normalized_text,
+                    reason="temperature_out_of_range",
+                )
+
+            return result(
+                "smarthome.aircon.set_temperature",
+                matched_alias="__dynamic_aircon_temperature__",
+                payload={
+                    "device_key": "aircon",
+                    "action": "set_temperature",
+                    "temperature_c": temperature_c,
+                },
+            )
+
+    if has_any("에어컨", "aircon", "air conditioner", "ac", "냉방"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+            return result("smarthome.aircon.off", matched_alias="__dynamic_aircon_off__")
+        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+            return result("smarthome.aircon.on", matched_alias="__dynamic_aircon_on__")
+
+    if has_any("조명", "전등", "불", "light", "lamp"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+            return result("smarthome.light.off", matched_alias="__dynamic_light_off__")
+        if has_any("켜줘", "켜", "켜기", "on"):
+            return result("smarthome.light.on", matched_alias="__dynamic_light_on__")
+
+    if has_any("로봇청소기", "로봇 청소기", "청소기", "robot cleaner", "vacuum", "cleaner"):
+        if has_any("멈춰줘", "멈춰", "정지", "stop", "꺼줘"):
+            return result("smarthome.robot_cleaner.stop", matched_alias="__dynamic_robot_cleaner_stop__")
+        if has_any("실행", "시작", "돌려", "켜줘", "start"):
+            return result("smarthome.robot_cleaner.start", matched_alias="__dynamic_robot_cleaner_start__")
+
+    if has_any("티비", "tv", "텔레비전", "teevee"):
+        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+            return result("smarthome.tv.off", matched_alias="__dynamic_tv_off__")
+        if has_any("켜줘", "켜", "켜기", "on"):
+            return result("smarthome.tv.on", matched_alias="__dynamic_tv_on__")
+
+    if has_any("음악", "노래", "music", "speaker"):
+        if has_any("꺼줘", "꺼", "멈춰줘", "멈춰", "정지", "stop"):
+            return result("smarthome.music.stop", matched_alias="__dynamic_music_stop__")
+        if has_any("틀어줘", "틀어", "재생", "play", "켜줘"):
+            return result("smarthome.music.play", matched_alias="__dynamic_music_play__")
+
+    return None
+
+
+def _parse_dynamic_generic(
+    text: str,
+    normalized_text: str,
+    *,
+    stt_confidence: float,
+) -> IntentParseResult | None:
+    compact = normalized_text.replace(" ", "")
+
+    def has_any(*words: str) -> bool:
+        return any(word in normalized_text or word in compact for word in words)
+
+    if has_any("댄스모드", "댄스", "춤춰", "dance mode", "dance"):
+        return IntentParseResult(
+            intent="dance.start",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_dance__",
+        )
+
+    if has_any("사진", "photo", "picture") and has_any("찍어", "찍자", "take", "capture", "please", "사진"):
+        return IntentParseResult(
+            intent="camera.capture",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_camera__",
+        )
+
+    if has_any("게임모드", "게임 모드", "game mode", "게임"):
+        return IntentParseResult(
+            intent="ui.game_mode.enter",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_game_mode__",
+        )
+
+    if has_any("날씨", "weather"):
+        return IntentParseResult(
+            intent="weather.current",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_weather__",
+        )
+
+    timer_hint = re.search(r"(\d+\s*(시간|분|초)|오전|오후|am|pm|\d+\s*시)", normalized_text)
+    if timer_hint and has_any("알려줘", "타이머", "알람", "timer", "later", "뒤", "후", "맞춰줘"):
+        return IntentParseResult(
+            intent="timer.create",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_timer__",
+        )
+
+    if has_any("취소", "cancel"):
+        return IntentParseResult(
+            intent="system.cancel",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_cancel__",
+        )
+
+    if has_any("알겠어", "확인", "오케이", "okay", "ok"):
+        return IntentParseResult(
+            intent="system.ack",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_ack__",
+        )
+
+    return None
 
 
 def parse_intent(
@@ -124,7 +251,8 @@ def parse_intent(
     triggers: dict[str, list[str]] | None = None,
     triggers_path: str = "configs/triggers.yaml",
 ) -> IntentParseResult:
-    normalized_text = normalize_text(text)
+    normalization = _TEXT_NORMALIZER.normalize(text)
+    normalized_text = normalize_text(normalization.normalized_text)
     if not normalized_text:
         return IntentParseResult(
             intent=None,
@@ -132,6 +260,7 @@ def parse_intent(
             text=text,
             normalized_text=normalized_text,
             reason="empty_text",
+            normalization_replacements=normalization.replacements,
         )
     if stt_confidence < intent_match_confidence_min:
         return IntentParseResult(
@@ -140,6 +269,7 @@ def parse_intent(
             text=text,
             normalized_text=normalized_text,
             reason="low_stt_confidence",
+            normalization_replacements=normalization.replacements,
         )
 
     dynamic_smarthome = _parse_dynamic_smarthome(
@@ -148,7 +278,17 @@ def parse_intent(
         stt_confidence=stt_confidence,
     )
     if dynamic_smarthome is not None:
+        dynamic_smarthome.normalization_replacements = normalization.replacements
         return dynamic_smarthome
+
+    dynamic_generic = _parse_dynamic_generic(
+        text,
+        normalized_text,
+        stt_confidence=stt_confidence,
+    )
+    if dynamic_generic is not None:
+        dynamic_generic.normalization_replacements = normalization.replacements
+        return dynamic_generic
 
     trigger_map = triggers or load_triggers(triggers_path)
     best_intent: str | None = None
@@ -172,6 +312,7 @@ def parse_intent(
             normalized_text=normalized_text,
             matched_alias=best_alias,
             reason="unknown_intent",
+            normalization_replacements=normalization.replacements,
         )
 
     return IntentParseResult(
@@ -180,4 +321,5 @@ def parse_intent(
         text=text,
         normalized_text=normalized_text,
         matched_alias=best_alias,
+        normalization_replacements=normalization.replacements,
     )

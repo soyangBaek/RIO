@@ -104,6 +104,25 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertEqual(orchestrator.store.snapshot().context_state, ContextState.IDLE)
         self.assertTrue(any("success" in text for text in orchestrator.tts.history))
 
+    def test_voice_commands_cover_stop_and_off_payloads(self) -> None:
+        orchestrator = RioOrchestrator()
+        client = FakeHomeClient(ok=True)
+        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
+        terminal = TerminalVoiceInput(IntentNormalizer())
+
+        for phrase in ("티비 꺼줘", "음악 멈춰줘", "청소기 멈춰줘"):
+            for event in terminal.build_events(phrase):
+                orchestrator.process_event(event)
+
+        self.assertEqual(
+            client.calls,
+            [
+                "tv.living_room:off",
+                "speaker.main:stop",
+                "cleaner.bot:stop",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

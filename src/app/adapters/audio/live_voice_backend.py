@@ -1,17 +1,17 @@
-"""실제 mic → Silero VAD → Whisper 파이프라인을 백그라운드 스레드로 돌리고,
+"""실제 mic -> RMS VAD -> Whisper 파이프라인을 백그라운드 스레드로 돌리고,
 완성된 utterance 를 기존 AudioCapture 의 feed() 로 주입하는 어댑터.
 
 설계:
   - sounddevice 콜백 스레드가 오디오 청크를 audio_queue 에 push
-  - VAD 스레드가 audio_queue 를 빼내 Silero VAD 로 utterance 경계 판정
+  - VAD 스레드가 audio_queue 를 빼내 RMS 기반으로 utterance 경계 판정
   - ASR 스레드가 utterance 를 꺼내 faster-whisper 로 전사
   - 전사 결과를 AudioCapture.feed() 로 밀어넣음 (기존 AudioWorker 가 tick 마다 꺼내서 소비)
 
 Frame 주입 프로토콜 (utterance 1건 당):
-  1. {"speech": True}                             → 스텁 VAD 가 STARTED 이벤트 발행
-  2. {"speech": True, "transcript": ..., ...}     → 스텁 STT 가 Transcript 반환
-                                                    → IntentNormalizer 가 voice.intent.* 발행
-  3. {"speech": False} × silence_frames_to_end    → 스텁 VAD 가 ENDED 이벤트 발행
+  1. {"speech": True}                             -> 스텁 VAD 가 STARTED 이벤트 발행
+  2. {"speech": True, "transcript": ..., ...}     -> 스텁 STT 가 Transcript 반환
+                                                    -> IntentNormalizer 가 voice.intent.* 발행
+  3. {"speech": False} x silence_frames_to_end    -> 스텁 VAD 가 ENDED 이벤트 발행
 
 Depth=1 동시성 규칙:
   - ASR 처리 중이거나 이미 대기 utterance 가 있으면 새 발화는 즉시 drop
@@ -23,11 +23,13 @@ Context manager 프로토콜:
 from __future__ import annotations
 
 import logging
+import math
 import queue
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -37,8 +39,10 @@ from src.app.adapters.audio.mic_gain import apply_mic_gain
 
 _LOGGER = logging.getLogger(__name__)
 
-# Silero ONNX 는 16kHz 에서 정확히 512 샘플 청크를 요구.
-_EXPECTED_CHUNK = 512
+
+def _ts() -> str:
+    t = time.time()
+    return time.strftime("%H:%M:%S", time.localtime(t)) + f".{int((t - int(t)) * 1000):03d}"
 
 
 @dataclass
@@ -54,7 +58,7 @@ class AudioParams:
 
 @dataclass
 class VADParams:
-    threshold: float = 0.85
+    threshold: int = 350
     min_silence_duration_ms: int = 300
     speech_pad_ms: int = 30
     min_speech_ms: int = 150
@@ -82,27 +86,98 @@ class BackendConfig:
     silence_frames_to_feed: int = 2  # 스텁 VAD 의 silence_frames_to_end 기본값과 맞춤
 
 
-# ── 내부 유틸: 롤링 버퍼 (absolute sample index) ─────────────
-class _AudioBuffer:
-    def __init__(self, max_seconds: float, sample_rate: int):
-        self.max_samples = int(max_seconds * sample_rate)
-        self.samples = np.zeros(0, dtype=np.float32)
-        self.start_idx = 0
-
-    def push(self, chunk: np.ndarray) -> None:
-        self.samples = np.concatenate([self.samples, chunk])
-        if len(self.samples) > self.max_samples:
-            drop = len(self.samples) - self.max_samples
-            self.samples = self.samples[drop:]
-            self.start_idx += drop
-
-    def extract(self, abs_start: int, abs_end: int) -> np.ndarray:
-        rel_start = max(0, abs_start - self.start_idx)
-        rel_end = max(rel_start, abs_end - self.start_idx)
-        return self.samples[rel_start:rel_end].copy()
+@dataclass
+class _VadDecision:
+    started: bool = False
+    ended: bool = False
+    rms: int = 0
+    duration_ms: int = 0
+    peak: float = 0.0
+    segment_rms: float = 0.0
+    audio: np.ndarray | None = None
 
 
-# ── 메인 backend ─────────────────────────────────────────────
+class _RmsVoiceActivityDetector:
+    def __init__(
+        self,
+        *,
+        threshold: int,
+        silence_chunks_to_end: int,
+        speech_pad_chunks: int,
+        min_speech_ms: int,
+        sample_rate: int,
+    ) -> None:
+        self.threshold = max(0, threshold)
+        self.silence_chunks_to_end = max(1, silence_chunks_to_end)
+        self.speech_pad_chunks = max(0, speech_pad_chunks)
+        self.min_speech_ms = max(0, min_speech_ms)
+        self.sample_rate = max(1, sample_rate)
+
+        self._active = False
+        self._silent_chunks = 0
+        self._pre_roll: deque[np.ndarray] = (
+            deque(maxlen=self.speech_pad_chunks) if self.speech_pad_chunks > 0 else deque()
+        )
+        self._current_chunks: list[np.ndarray] = []
+        self._pending_silence: list[np.ndarray] = []
+
+    @staticmethod
+    def _rms(chunk: np.ndarray) -> int:
+        if chunk.size == 0:
+            return 0
+        clipped = np.clip(chunk.astype(np.float32, copy=False), -1.0, 1.0)
+        return int(round(float(np.sqrt(np.mean(clipped * clipped))) * 32768.0))
+
+    def process(self, chunk: np.ndarray) -> _VadDecision:
+        rms = self._rms(chunk)
+        voiced = rms >= self.threshold
+
+        if not self._active:
+            if voiced:
+                self._active = True
+                self._silent_chunks = 0
+                self._pending_silence = []
+                self._current_chunks = list(self._pre_roll)
+                self._current_chunks.append(chunk.copy())
+                self._pre_roll.clear()
+                return _VadDecision(started=True, rms=rms)
+            if self.speech_pad_chunks > 0:
+                self._pre_roll.append(chunk.copy())
+            return _VadDecision(rms=rms)
+
+        if voiced:
+            if self._pending_silence:
+                self._current_chunks.extend(self._pending_silence)
+                self._pending_silence = []
+            self._silent_chunks = 0
+            self._current_chunks.append(chunk.copy())
+            return _VadDecision(rms=rms)
+
+        self._pending_silence.append(chunk.copy())
+        self._silent_chunks += 1
+        if self._silent_chunks < self.silence_chunks_to_end:
+            return _VadDecision(rms=rms)
+
+        trailing_pad = self._pending_silence[-self.speech_pad_chunks :] if self.speech_pad_chunks > 0 else []
+        segment_chunks = self._current_chunks + trailing_pad
+        audio = np.concatenate(segment_chunks) if segment_chunks else np.zeros(0, dtype=np.float32)
+        duration_ms = int(round((len(audio) / self.sample_rate) * 1000.0))
+
+        self._active = False
+        self._silent_chunks = 0
+        self._current_chunks = []
+        self._pending_silence = []
+
+        return _VadDecision(
+            ended=True,
+            rms=rms,
+            duration_ms=duration_ms,
+            peak=float(np.abs(audio).max()) if audio.size else 0.0,
+            segment_rms=float(np.sqrt(np.mean(audio * audio))) if audio.size else 0.0,
+            audio=audio,
+        )
+
+
 class LiveVoiceBackend:
     """
     Parameters
@@ -120,20 +195,16 @@ class LiveVoiceBackend:
         self._asr_busy = threading.Event()
 
         self._audio_q: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=200)
-        # depth=1: ASR 처리 중이거나 1 개 대기면 drop. 큐 자체도 maxsize=1.
         self._asr_q: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=1)
 
         self._stream: Any = None
         self._vad_thread: Optional[threading.Thread] = None
         self._asr_thread: Optional[threading.Thread] = None
 
-        # VAD/ASR 은 lazy-load (start 시)
-        self._silero_model: Any = None
-        self._vad_iter: Any = None
+        self._vad_engine: _RmsVoiceActivityDetector | None = None
         self._whisper: Any = None
-        self._buffer: Optional[_AudioBuffer] = None
+        self._trace_sink: Callable[[str], None] | None = None
 
-    # ── context manager ────────────────────────────────────
     def __enter__(self) -> "LiveVoiceBackend":
         self.start()
         return self
@@ -141,8 +212,13 @@ class LiveVoiceBackend:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.stop()
 
-    # ── lifecycle ──────────────────────────────────────────
+    def set_trace_sink(self, sink: Callable[[str], None] | None) -> None:
+        self._trace_sink = sink
+
     def start(self) -> None:
+        self._stop.clear()
+        self._asr_busy.clear()
+
         if self.cfg.audio.mic_gain_percent is not None:
             apply_mic_gain(
                 int(self.cfg.audio.mic_gain_percent),
@@ -164,33 +240,45 @@ class LiveVoiceBackend:
             try:
                 self._stream.stop()
                 self._stream.close()
-            except Exception as e:
-                _LOGGER.warning("stream close error: %s", e)
+            except Exception as exc:
+                _LOGGER.warning("stream close error: %s", exc)
             self._stream = None
-        for t in (self._vad_thread, self._asr_thread):
-            if t is not None:
-                t.join(timeout=2.0)
+        for thread in (self._vad_thread, self._asr_thread):
+            if thread is not None:
+                thread.join(timeout=2.0)
+        self._vad_thread = None
+        self._asr_thread = None
         _LOGGER.info("LiveVoiceBackend stopped")
 
-    # ── internals ──────────────────────────────────────────
+    def _emit_trace(self, message: str) -> None:
+        if self._trace_sink is not None:
+            self._trace_sink(f"[{_ts()}] {message}")
+
     def _load_models(self) -> None:
-        from silero_vad import VADIterator, load_silero_vad  # lazy import
         from faster_whisper import WhisperModel  # lazy import
 
-        _LOGGER.info("loading silero-vad (threshold=%.2f)", self.cfg.vad.threshold)
-        self._silero_model = load_silero_vad(onnx=True)
-        self._vad_iter = VADIterator(
-            self._silero_model,
-            threshold=self.cfg.vad.threshold,
-            sampling_rate=self.cfg.vad.sample_rate,
-            min_silence_duration_ms=self.cfg.vad.min_silence_duration_ms,
-            speech_pad_ms=self.cfg.vad.speech_pad_ms,
+        chunk_ms = max(1.0, (self.cfg.audio.blocksize / self.cfg.audio.sample_rate) * 1000.0)
+        silence_chunks_to_end = max(1, int(math.ceil(self.cfg.vad.min_silence_duration_ms / chunk_ms)))
+        speech_pad_chunks = max(0, int(math.ceil(self.cfg.vad.speech_pad_ms / chunk_ms)))
+        self._vad_engine = _RmsVoiceActivityDetector(
+            threshold=int(self.cfg.vad.threshold),
+            silence_chunks_to_end=silence_chunks_to_end,
+            speech_pad_chunks=speech_pad_chunks,
+            min_speech_ms=self.cfg.vad.min_speech_ms,
+            sample_rate=self.cfg.vad.sample_rate,
         )
-        self._buffer = _AudioBuffer(max_seconds=30.0, sample_rate=self.cfg.vad.sample_rate)
+        _LOGGER.info(
+            "loading rms-vad (threshold=%d, silence_chunks=%d, pad_chunks=%d)",
+            self.cfg.vad.threshold,
+            silence_chunks_to_end,
+            speech_pad_chunks,
+        )
 
         _LOGGER.info(
             "loading faster-whisper '%s' (compute_type=%s, device=%s)...",
-            self.cfg.asr.model, self.cfg.asr.compute_type, self.cfg.asr.device,
+            self.cfg.asr.model,
+            self.cfg.asr.compute_type,
+            self.cfg.asr.device,
         )
         self._whisper = WhisperModel(
             self.cfg.asr.model,
@@ -205,8 +293,11 @@ class LiveVoiceBackend:
         device = self._resolve_device(sd)
         _LOGGER.info(
             "opening audio device=%r rate=%d blocksize=%d ch=%d dtype=%s",
-            device, self.cfg.audio.sample_rate, self.cfg.audio.blocksize,
-            self.cfg.audio.channels, self.cfg.audio.dtype,
+            device,
+            self.cfg.audio.sample_rate,
+            self.cfg.audio.blocksize,
+            self.cfg.audio.channels,
+            self.cfg.audio.dtype,
         )
         self._stream = sd.InputStream(
             samplerate=self.cfg.audio.sample_rate,
@@ -228,22 +319,24 @@ class LiveVoiceBackend:
                     return idx
         except Exception:
             pass
-        return hint  # 이름 문자열도 PortAudio 가 받음
+        return hint
 
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
+        del frames, time_info
         if status:
             _LOGGER.debug("audio status: %s", status)
-        mono = indata[:, 0].astype(np.float32, copy=True)
+        mono = indata[:, 0]
+        if np.issubdtype(mono.dtype, np.integer):
+            normalized = mono.astype(np.float32, copy=False) / 32768.0
+        else:
+            normalized = mono.astype(np.float32, copy=True)
         try:
-            self._audio_q.put_nowait(mono)
+            self._audio_q.put_nowait(normalized.copy())
         except queue.Full:
             _LOGGER.warning("audio queue full, dropping chunk")
 
     def _vad_loop(self) -> None:
-        import torch  # lazy import
-
-        assert self._buffer is not None
-        seg_start: Optional[int] = None
+        assert self._vad_engine is not None
 
         while not self._stop.is_set():
             try:
@@ -251,42 +344,37 @@ class LiveVoiceBackend:
             except queue.Empty:
                 continue
 
-            if len(chunk) != _EXPECTED_CHUNK:
-                _LOGGER.error("unexpected chunk size %d (expected %d)", len(chunk), _EXPECTED_CHUNK)
+            decision = self._vad_engine.process(chunk)
+            if decision.started:
+                _LOGGER.debug("speech started (rms=%d)", decision.rms)
+                self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
+
+            if not decision.ended or decision.audio is None:
                 continue
 
-            self._buffer.push(chunk)
-            tensor = torch.from_numpy(chunk)
-            event = self._vad_iter(tensor, return_seconds=False)
-
-            if event is None:
+            if decision.duration_ms < self.cfg.vad.min_speech_ms:
+                _LOGGER.debug("drop short utterance %dms", decision.duration_ms)
+                self._emit_trace(
+                    f"[voice.vad] speech END dur={decision.duration_ms}ms "
+                    f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f} -> DROP_SHORT"
+                )
                 continue
 
-            if "start" in event:
-                seg_start = int(event["start"])
+            self._emit_trace(
+                f"[voice.vad] speech END dur={decision.duration_ms}ms "
+                f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f}"
+            )
+
+            if self.cfg.drop_while_busy and (self._asr_busy.is_set() or self._asr_q.qsize() > 0):
+                _LOGGER.info("BUSY drop utterance dur=%dms (ASR working)", decision.duration_ms)
+                self._emit_trace(f"[voice.asr] BUSY drop dur={decision.duration_ms}ms")
                 continue
 
-            if "end" in event:
-                end_sample = int(event["end"])
-                start_sample = seg_start if seg_start is not None else 0
-                seg_start = None
-                duration_ms = int((end_sample - start_sample) / self.cfg.vad.sample_rate * 1000)
-                if duration_ms < self.cfg.vad.min_speech_ms:
-                    _LOGGER.debug("drop short utterance %dms", duration_ms)
-                    continue
-
-                # depth=1 규칙
-                if self.cfg.drop_while_busy and (
-                    self._asr_busy.is_set() or self._asr_q.qsize() > 0
-                ):
-                    _LOGGER.info("BUSY drop utterance dur=%dms (ASR working)", duration_ms)
-                    continue
-
-                audio = self._buffer.extract(start_sample, end_sample)
-                try:
-                    self._asr_q.put_nowait(audio)
-                except queue.Full:
-                    _LOGGER.info("asr_queue full, dropping utterance")
+            try:
+                self._asr_q.put_nowait(decision.audio)
+            except queue.Full:
+                _LOGGER.info("asr_queue full, dropping utterance")
+                self._emit_trace(f"[voice.asr] queue full, dropping dur={decision.duration_ms}ms")
 
     def _asr_loop(self) -> None:
         while not self._stop.is_set():
@@ -303,7 +391,7 @@ class LiveVoiceBackend:
     def _transcribe_and_feed(self, audio: np.ndarray) -> None:
         t0 = time.perf_counter()
         try:
-            segments, info = self._whisper.transcribe(
+            segments, _info = self._whisper.transcribe(
                 audio,
                 language=self.cfg.asr.language,
                 beam_size=self.cfg.asr.beam_size,
@@ -311,28 +399,44 @@ class LiveVoiceBackend:
                 condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
             )
             segs = list(segments)
-        except Exception as e:
-            _LOGGER.warning("whisper transcribe error: %s", e)
+        except Exception as exc:
+            _LOGGER.warning("whisper transcribe error: %s", exc)
+            self._emit_trace(f"[voice.asr] ERROR {exc}")
             return
         decode_ms = int((time.perf_counter() - t0) * 1000)
 
         if not segs:
             _LOGGER.info("asr empty (decode=%dms)", decode_ms)
+            self._emit_trace(f"[voice.asr] EMPTY decode={decode_ms}ms")
             return
 
-        text = " ".join(s.text.strip() for s in segs).strip()
-        n = len(segs)
-        avg_logprob = sum(s.avg_logprob for s in segs) / n
-        no_speech_prob = sum(s.no_speech_prob for s in segs) / n
+        text = " ".join(segment.text.strip() for segment in segs).strip()
+        count = len(segs)
+        avg_logprob = sum(segment.avg_logprob for segment in segs) / count
+        no_speech_prob = sum(segment.no_speech_prob for segment in segs) / count
 
         _LOGGER.info(
             "asr decode=%dms text='%s' logprob=%.2f no_speech=%.2f",
-            decode_ms, text, avg_logprob, no_speech_prob,
+            decode_ms,
+            text,
+            avg_logprob,
+            no_speech_prob,
+        )
+        self._emit_trace(
+            f"[voice.asr] text='{text}' decode={decode_ms}ms "
+            f"logprob={avg_logprob:.2f} no_speech={no_speech_prob:.2f}"
         )
 
         if avg_logprob < self.cfg.asr.min_logprob:
-            _LOGGER.info("drop low-confidence utterance (logprob=%.2f < %.2f)",
-                         avg_logprob, self.cfg.asr.min_logprob)
+            _LOGGER.info(
+                "drop low-confidence utterance (logprob=%.2f < %.2f)",
+                avg_logprob,
+                self.cfg.asr.min_logprob,
+            )
+            self._emit_trace(
+                f"[voice.asr] DROP_LOW_CONF logprob={avg_logprob:.2f} "
+                f"threshold={self.cfg.asr.min_logprob:.2f}"
+            )
             return
 
         confidence = max(0.0, min(1.0, 1.0 - no_speech_prob))
@@ -341,7 +445,7 @@ class LiveVoiceBackend:
     def _feed_frames(self, text: str, confidence: float) -> None:
         """스텁 VAD/STT 가 소비할 cooked frame 시퀀스 주입.
 
-        1회 발화 = (speech start 플래그) + (transcript 프레임) + (silence 프레임 × N)
+        1회 발화 = (speech start 플래그) + (transcript 프레임) + (silence 프레임 x N)
         """
         self.capture.feed({"speech": True})
         self.capture.feed({"speech": True, "transcript": text, "confidence": confidence})

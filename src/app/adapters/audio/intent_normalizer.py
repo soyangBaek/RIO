@@ -33,7 +33,12 @@ class IntentNormalizer:
             return Event.create(
                 topics.VOICE_INTENT_UNKNOWN,
                 "audio.intent_normalizer",
-                payload={"text": transcript, "reason": parsed.reason},
+                payload={
+                    "text": transcript,
+                    "reason": parsed.reason,
+                    "normalized_text": parsed.normalized_text,
+                    "normalization_replacements": parsed.normalization_replacements,
+                },
                 confidence=parsed.confidence,
                 trace_id=trace_id,
                 timestamp=when,
@@ -43,6 +48,8 @@ class IntentNormalizer:
             "intent": parsed.intent,
             "text": transcript,
             "matched_alias": parsed.matched_alias,
+            "normalized_text": parsed.normalized_text,
+            "normalization_replacements": parsed.normalization_replacements,
         }
         payload.update(parsed.payload)
         if parsed.intent == "timer.create":

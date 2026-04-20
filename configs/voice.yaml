@@ -2,20 +2,20 @@
 # RIO 음성 인식 런타임 설정
 #
 # 본체 (src/app/main.py) 에서 LiveVoiceBackend 가 읽어 사용.
-# 샌드박스 (scripts/voice_sandbox/config.yaml) 와 동일 스키마이며
-# 튜닝 시에는 샌드박스에서 먼저 실험한 뒤 확정값을 이 파일로 옮겨옴.
+# 샌드박스는 configs/voice_sandbox.yaml 에서 이 파일을 extends 하여 사용한다.
+# 튜닝 시에는 샌드박스에서 먼저 실험한 뒤 확정값을 이 파일에 반영한다.
 # ─────────────────────────────────────────────────────────────
 
 
 # ── 오디오 캡처 (sounddevice + PipeWire) ────────────────────
 audio:
   # PipeWire/PulseAudio 경유로 열기 위해 "pulse" 고정.
-  # raw ALSA (hw:X,Y) 는 16kHz 리샘플을 못 해서 실패함.
+  # raw ALSA (hw:X,Y) 는 장치/환경마다 입력 포맷 차이가 커서 추천하지 않음.
   device: "pulse"
 
   sample_rate: 16000
   channels: 1
-  blocksize: 512         # Silero ONNX 는 16kHz 에서 512 샘플 청크 요구
+  blocksize: 512         # 약 32ms. Pi 에서 지연/안정성 균형이 좋은 기본값.
   dtype: "float32"
 
   # 프로그램 시작 시 pactl 로 mic 게인 자동 설정. null 이면 건드리지 않음.
@@ -27,9 +27,10 @@ audio:
   gain_target_source: "AB13X"
 
 
-# ── VAD: Silero VAD 6.2.x ────────────────────────────────────
+# ── VAD: RMS 기반 세그먼터 ──────────────────────────────────
 vad:
-  threshold: 0.85
+  # 16-bit PCM 기준 RMS 임계값. 조용한 근접 발화는 250~450 정도부터 시작.
+  threshold: 350
   min_silence_duration_ms: 300
   speech_pad_ms: 30
   min_speech_ms: 150

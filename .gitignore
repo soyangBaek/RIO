@@ -97,6 +97,7 @@ secrets.yml
 /temp/
 /output/
 /outputs/
+/artifacts/
 /data/
 /scripts/data/
 /scripts/voice_sandbox/recordings/

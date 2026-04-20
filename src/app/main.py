@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.util
+import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -56,6 +58,9 @@ from src.app.workers.touch_worker import TouchWorker
 from src.app.workers.vision_worker import VisionWorker
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 def _load_yaml(path: str) -> dict[str, object]:
     file_path = resolve_repo_path(path)
     if not file_path.exists():
@@ -64,17 +69,44 @@ def _load_yaml(path: str) -> dict[str, object]:
         return yaml.safe_load(handle) or {}
 
 
+def _missing_voice_dependencies() -> list[str]:
+    required = {
+        "sounddevice": "sounddevice",
+        "faster_whisper": "faster-whisper",
+    }
+    missing: list[str] = []
+    for module_name, package_name in required.items():
+        if importlib.util.find_spec(module_name) is None:
+            missing.append(package_name)
+    return missing
+
+
 def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
     """configs/voice.yaml 을 읽어 LiveVoiceBackend 를 구성. 파일 없거나 의존성
-    (sounddevice/silero/whisper) 임포트 실패 시 None 반환 — 본체는 stub 으로 계속 동작."""
+    (sounddevice/faster-whisper) 임포트 실패 시 None 반환 — 본체는 stub 으로 계속 동작."""
     cfg = _load_yaml("configs/voice.yaml")
     if not cfg:
+        return None
+    missing = _missing_voice_dependencies()
+    if missing:
+        _LOGGER.warning(
+            "LiveVoiceBackend disabled; missing voice dependencies: %s",
+            ", ".join(missing),
+        )
         return None
 
     audio = (cfg.get("audio") or {}) if isinstance(cfg, dict) else {}
     vad = (cfg.get("vad") or {}) if isinstance(cfg, dict) else {}
     asr = (cfg.get("asr") or {}) if isinstance(cfg, dict) else {}
     concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
+
+    threshold_value = float(vad.get("threshold", 350))
+    if 0.0 <= threshold_value <= 1.0:
+        _LOGGER.warning(
+            "voice.yaml vad.threshold=%s looks like legacy Silero config; using RMS default 350 instead",
+            threshold_value,
+        )
+        threshold_value = 350
 
     backend_cfg = BackendConfig(
         audio=AudioParams(
@@ -87,7 +119,7 @@ def _build_voice_backend(capture: AudioCapture) -> LiveVoiceBackend | None:
             gain_target_source=audio.get("gain_target_source"),
         ),
         vad=VADParams(
-            threshold=float(vad.get("threshold", 0.85)),
+            threshold=int(round(threshold_value)),
             min_silence_duration_ms=int(vad.get("min_silence_duration_ms", 300)),
             speech_pad_ms=int(vad.get("speech_pad_ms", 30)),
             min_speech_ms=int(vad.get("min_speech_ms", 150)),
@@ -515,7 +547,15 @@ class RioOrchestrator:
     # ── context manager: voice backend 의 mic/VAD/Whisper 스레드 기동/정지 ───
     def __enter__(self) -> "RioOrchestrator":
         if self.voice_backend is not None:
-            self.voice_backend.start()
+            try:
+                self.voice_backend.start()
+            except Exception as exc:
+                _LOGGER.warning("LiveVoiceBackend start failed; continuing without mic voice: %s", exc)
+                try:
+                    self.voice_backend.stop()
+                except Exception:
+                    pass
+                self.voice_backend = None
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
