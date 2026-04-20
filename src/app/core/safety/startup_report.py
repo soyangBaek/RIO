@@ -67,10 +67,59 @@ def _voice_status(orchestrator: "RioOrchestrator") -> str:
     return "DISABLED (start failed or turned off)"
 
 
+def _load_yaml_safe(relative_path: str) -> dict:
+    path = resolve_repo_path(relative_path)
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    return data if isinstance(data, dict) else {}
+
+
+def _mic_status(available: bool) -> str:
+    if not available:
+        return "MISSING"
+    robot = _load_yaml_safe("configs/robot.yaml")
+    voice = _load_yaml_safe("configs/voice.yaml")
+    input_device = ((robot.get("audio") or {}).get("input_device")) if isinstance(robot, dict) else None
+    voice_audio = (voice.get("audio") or {}) if isinstance(voice, dict) else {}
+    backend = voice_audio.get("device")
+    gain_pct = voice_audio.get("mic_gain_percent")
+    gain_src = voice_audio.get("gain_target_source")
+    parts = []
+    if input_device:
+        parts.append(str(input_device))
+    if backend:
+        parts.append(f"via {backend}")
+    if gain_pct is not None and gain_src:
+        parts.append(f"gain={gain_pct}%@{gain_src}")
+    elif gain_pct is not None:
+        parts.append(f"gain={gain_pct}%")
+    if parts:
+        return "OK (" + ", ".join(parts) + ")"
+    return "OK"
+
+
+def _speaker_status(available: bool) -> str:
+    if not available:
+        return "MISSING"
+    robot = _load_yaml_safe("configs/robot.yaml")
+    output_device = ((robot.get("audio") or {}).get("output_device")) if isinstance(robot, dict) else None
+    if output_device:
+        return f"OK ({output_device})"
+    return "OK"
+
+
 def _camera_status(available: bool) -> str:
-    if available:
-        return "OK (/dev/video0)"
-    return "MISSING (/dev/video0)"
+    if not available:
+        return "MISSING (/dev/video0)"
+    robot = _load_yaml_safe("configs/robot.yaml")
+    webcam = (robot.get("webcam") or {}) if isinstance(robot, dict) else {}
+    idx = webcam.get("device_index", 0)
+    w = webcam.get("width", 640)
+    h = webcam.get("height", 480)
+    fps = webcam.get("fps", 15)
+    return f"OK (/dev/video{idx}, {w}x{h}@{fps}fps)"
 
 
 def _touch_status(available: bool) -> str:
@@ -124,10 +173,10 @@ def build_startup_report(orchestrator: "RioOrchestrator", *, no_voice: bool = Fa
 
     voice = "DISABLED (--no-voice)" if no_voice else _voice_status(orchestrator)
     return StartupReport(
-        mic="OK" if caps.mic_available else "MISSING",
+        mic=_mic_status(caps.mic_available),
         camera=_camera_status(caps.camera_available),
         touch=_touch_status(caps.touch_available),
-        speaker="OK" if caps.speaker_available else "MISSING",
+        speaker=_speaker_status(caps.speaker_available),
         voice=voice,
         home=_home_status(orchestrator),
     )

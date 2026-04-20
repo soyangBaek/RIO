@@ -38,8 +38,9 @@ _inject_local_venv_site_packages()
 import yaml  # noqa: E402
 
 from src.app.core.config import resolve_repo_path  # noqa: E402
+from src.app.core.events import topics  # noqa: E402
+from src.app.core.events.models import Event  # noqa: E402
 from src.app.core.safety.startup_report import print_startup_report  # noqa: E402
-from src.app.core.safety.tick_metrics import TickMetrics, set_active_metrics  # noqa: E402
 from src.app.core.state.scene_selector import select_scene  # noqa: E402
 from src.app.main import RioOrchestrator  # noqa: E402
 
@@ -52,8 +53,101 @@ _BUILTIN_DEFAULTS: dict[str, object] = {
     "tick_hz": 30.0,
     "log_level": "INFO",
     "no_voice": False,
-    "metrics_interval_s": 5.0,
+    "trace_events": False,
 }
+
+
+_SEPARATOR = "─" * 72
+
+
+def _ts() -> str:
+    t = time.time()
+    return time.strftime("%H:%M:%S", time.localtime(t)) + f".{int((t - int(t)) * 1000):03d}"
+
+
+def _print_separator(label: str | None = None) -> None:
+    """Print a visual separator line. If label is given, embed it in the middle."""
+    if label is None:
+        print(_SEPARATOR, flush=True)
+        return
+    body = f"── {label} "
+    fill = max(4, 72 - len(body))
+    print(f"{body}{'─' * fill}", flush=True)
+
+
+def _print_state_change(event: Event) -> None:
+    """Highlight FSM state changes with dashed separator, always on."""
+    if event.topic == topics.CONTEXT_STATE_CHANGED:
+        _print_separator(
+            f"[{_ts()}] context: {event.payload.get('from')} → {event.payload.get('to')}"
+        )
+    elif event.topic == topics.ACTIVITY_STATE_CHANGED:
+        kind = event.payload.get("kind")
+        suffix = f" ({kind})" if kind else ""
+        _print_separator(
+            f"[{_ts()}] activity: {event.payload.get('from')} → "
+            f"{event.payload.get('to')}{suffix}"
+        )
+
+
+def _print_voice_intent(event: Event) -> None:
+    """live_voice_interaction_test 스타일: 음성 인식 직후 text/intent/confidence 블록."""
+    payload = event.payload
+    text = payload.get("text") or ""
+    normalized = payload.get("normalized_text") or text
+    intent = payload.get("intent") or "-"
+    conf = event.confidence if event.confidence is not None else 0.0
+    _print_separator(f"[{_ts()}] voice heard")
+    print(f"  text       : {text}", flush=True)
+    if normalized and normalized != text:
+        print(f"  normalized : {normalized}", flush=True)
+    print(f"  intent     : {intent}", flush=True)
+    print(f"  confidence : {conf:.2f}", flush=True)
+    _print_separator()
+
+
+def _print_voice_unknown(event: Event) -> None:
+    payload = event.payload
+    text = payload.get("text") or ""
+    reason = payload.get("reason") or "-"
+    _print_separator(f"[{_ts()}] voice UNKNOWN")
+    print(f"  text       : {text}", flush=True)
+    print(f"  reason     : {reason}", flush=True)
+    _print_separator()
+
+
+def _format_event_trace(event: Event) -> str | None:
+    """Return a human-readable one-liner for interesting events, or None to skip.
+
+    State changes and voice intents 는 별도 함수가 더 눈에 띄게 출력하므로 여기서는 None.
+    """
+    topic = event.topic
+    payload = event.payload
+    if topic == topics.VISION_GESTURE_DETECTED:
+        return f"gesture={payload.get('gesture')} conf={payload.get('confidence', 0.0):.2f}"
+    if topic == topics.VISION_FACE_DETECTED:
+        center = payload.get("center")
+        return f"face detected center={center} conf={payload.get('confidence', 0.0):.2f}"
+    if topic == topics.VISION_FACE_LOST:
+        return "face lost"
+    if topic == topics.VOICE_ACTIVITY_STARTED:
+        return "voice activity START"
+    if topic == topics.VOICE_ACTIVITY_ENDED:
+        return "voice activity END"
+    if topic == topics.TASK_STARTED:
+        return f"task STARTED kind={payload.get('kind')} id={payload.get('task_id')}"
+    if topic == topics.TASK_SUCCEEDED:
+        return f"task OK kind={payload.get('kind')}"
+    if topic == topics.TASK_FAILED:
+        return f"task FAILED kind={payload.get('kind')} msg={payload.get('message')}"
+    if topic == topics.ONESHOT_TRIGGERED:
+        return f"oneshot {payload.get('name')}"
+    if topic == topics.TIMER_EXPIRED:
+        return f"timer expired label={payload.get('label')}"
+    if topic == topics.SMARTHOME_RESULT:
+        ok = payload.get("ok")
+        return f"smarthome result ok={ok} msg={payload.get('message')}"
+    return None
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -103,10 +197,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Python logging level.",
     )
     parser.add_argument(
-        "--metrics-interval",
-        type=float,
+        "--trace-events",
+        action=argparse.BooleanOptionalAction,
         default=None,
-        help="Rolling tick metrics summary interval in seconds (0 disables).",
+        help="Log per-tick gesture/task events one line each (verbose).",
     )
     return parser.parse_args(argv)
 
@@ -132,7 +226,6 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, object]:
     for key, value in profile.items():
         if key in resolved:
             resolved[key] = value
-    # CLI → profile 역방향 매핑. voice 플래그는 저장 시 no_voice 로 반전.
     cli_overrides: dict[str, object] = {}
     if args.tick_hz is not None:
         cli_overrides["tick_hz"] = args.tick_hz
@@ -144,8 +237,8 @@ def _resolve_config(args: argparse.Namespace) -> dict[str, object]:
         cli_overrides["log_level"] = args.log_level
     if args.voice is not None:
         cli_overrides["no_voice"] = not args.voice
-    if args.metrics_interval is not None:
-        cli_overrides["metrics_interval_s"] = args.metrics_interval
+    if args.trace_events is not None:
+        cli_overrides["trace_events"] = args.trace_events
     resolved.update(cli_overrides)
     return resolved
 
@@ -189,35 +282,40 @@ def run(argv: list[str] | None = None) -> int:
         from src.app.adapters.display.preview_window import PreviewWindow
         preview = PreviewWindow(fullscreen=bool(cfg["fullscreen"]))
 
-    metrics_interval = float(cfg["metrics_interval_s"])
-    metrics = TickMetrics(interval_s=metrics_interval)
-    # adapter (face/gesture/vision_worker/live_voice_backend) 가 공유 metrics 에
-    # 자기 지표를 기록할 수 있도록 프로세스 전역 accessor 를 세팅한다.
-    set_active_metrics(metrics)
+    trace_events = bool(cfg["trace_events"])
+    event_logger = logging.getLogger("rio.event")
+
+    # startup report 를 먼저 찍는다. RioOrchestrator.__enter__ 가 voice_backend.start()
+    # 안에서 _ensure_whisper() 를 부르면 첫 실행 시 수십 MB 모델 다운로드 때문에 블로킹될 수
+    # 있는데, 그 전에 헬스 체크는 사용자가 즉시 볼 수 있어야 한다.
+    print_startup_report(rio, no_voice=bool(cfg["no_voice"]))
 
     with rio:
-        print_startup_report(rio, no_voice=bool(cfg["no_voice"]))
         if preview is not None:
             _ensure_initial_frame(rio)
 
         cycles = 0
         try:
             while True:
-                t0 = time.monotonic()
                 rio.pump_workers()
-                t1 = time.monotonic()
-                rio.drain_bus()
-                t2 = time.monotonic()
-                metrics.record("pump_ms", (t1 - t0) * 1000.0)
-                metrics.record("drain_ms", (t2 - t1) * 1000.0)
+                drained = rio.drain_bus()
+
+                for ev in drained:
+                    # 항상 출력: FSM 전이와 음성 인식 결과는 trace_events 와 무관하게 보여준다.
+                    if ev.topic in {topics.CONTEXT_STATE_CHANGED, topics.ACTIVITY_STATE_CHANGED}:
+                        _print_state_change(ev)
+                    elif ev.topic == topics.VOICE_INTENT_DETECTED:
+                        _print_voice_intent(ev)
+                    elif ev.topic == topics.VOICE_INTENT_UNKNOWN:
+                        _print_voice_unknown(ev)
+                    elif trace_events:
+                        line = _format_event_trace(ev)
+                        if line is not None:
+                            event_logger.info(line)
 
                 quit_requested = False
                 if preview is not None:
                     quit_requested = preview.update(rio)
-                    metrics.record("preview_ms", (time.monotonic() - t2) * 1000.0)
-
-                metrics.tick_done()
-                metrics.maybe_log()
 
                 if quit_requested:
                     _LOGGER.info("preview window requested quit")
@@ -236,9 +334,6 @@ def run(argv: list[str] | None = None) -> int:
         finally:
             if preview is not None:
                 preview.close()
-            if metrics.total_ticks > 0:
-                _LOGGER.info("[metrics final] %s", metrics.format_summary())
-            set_active_metrics(None)
     return 0
 
 

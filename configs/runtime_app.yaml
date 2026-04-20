@@ -9,4 +9,3 @@ fullscreen: true           # Pi 1024x600 디스플레이 전체 차지.
 tick_hz: 30                # 이벤트 루프 tick rate.
 log_level: INFO            # 평상시 조용한 로그.
 no_voice: false            # 실기기에서는 voice backend 사용.
-metrics_interval_s: 5.0    # rolling tick 지표 요약 주기 (§1.D).
