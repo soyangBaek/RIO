@@ -65,6 +65,10 @@ class ReducerPipeline:
             current.extended.previous_context_state = previous_context
             if current.context_state in {ContextState.AWAY, ContextState.SLEEPY}:
                 current.extended.away_started_at = now
+            if current.context_state == ContextState.SLEEPY:
+                current.extended.sleepy_with_face = current.extended.face_present
+            elif current.context_state != ContextState.SLEEPY:
+                current.extended.sleepy_with_face = False
 
         emitted: list[Event] = []
         if previous.context_state != current.context_state:

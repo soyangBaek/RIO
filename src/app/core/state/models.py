@@ -138,6 +138,7 @@ class ExtendedState:
     inflight_requests: dict[str, dict[str, Any]] = field(default_factory=dict)
     capabilities: CapabilityState = field(default_factory=CapabilityState)
     previous_context_state: ContextState | None = None
+    sleepy_with_face: bool = False
 
 
 @dataclass(slots=True)

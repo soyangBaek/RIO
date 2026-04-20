@@ -1,11 +1,11 @@
 presence:
   face_lost_timeout_ms: 800
-  away_timeout_ms: 60000
+  away_timeout_ms: 3000
   welcome_min_away_ms: 3000
   face_moved_sample_hz: 10
 
 behavior:
-  idle_to_sleepy_timeout_ms: 120000
+  idle_to_sleepy_timeout_ms: 3000
   engaged_to_idle_timeout_ms: 5000
   intent_cooldown_ms: 1500
   startled_oneshot_min_ms: 600

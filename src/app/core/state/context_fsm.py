@@ -122,7 +122,9 @@ def transition_context(
         return current
 
     if current == ContextState.SLEEPY:
-        if event.topic == topics.VISION_FACE_DETECTED:
+        if event.topic == topics.VISION_FACE_DETECTED and not extended.sleepy_with_face:
+            return ContextState.IDLE
+        if _is_interaction(event):
             return ContextState.IDLE
         if _no_face_long_timeout(extended, limits, when):
             return ContextState.AWAY
