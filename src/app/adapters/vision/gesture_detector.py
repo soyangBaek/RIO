@@ -57,13 +57,23 @@ class GestureDetector:
         age = (when - self._last_emitted_at).total_seconds()
         return age >= self.emit_cooldown_seconds
 
-    def detect(self, frame: Any, *, trace_id: str | None = None, now: datetime | None = None) -> list[Event]:
+    def detect(
+        self,
+        frame: Any,
+        *,
+        trace_id: str | None = None,
+        now: datetime | None = None,
+        rgb_frame: Any | None = None,
+    ) -> list[Event]:
         when = now or datetime.now(timezone.utc)
         if not isinstance(frame, dict):
             hands = self._ensure_hands()
-            import cv2
+            if rgb_frame is None:
+                import cv2
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
+                rgb = rgb_frame
             result = hands.process(rgb)
             if not result.multi_hand_landmarks:
                 return []

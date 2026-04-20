@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from threading import RLock
 from typing import Callable, TypeVar
 
@@ -19,15 +18,14 @@ class RuntimeStore:
 
     def snapshot(self) -> RuntimeState:
         with self._lock:
-            return deepcopy(self._state)
+            return self._state.copy()
 
     def replace(self, state: RuntimeState) -> RuntimeState:
         with self._lock:
-            self._state = deepcopy(state)
-            return deepcopy(self._state)
+            self._state = state.copy()
+            return self._state.copy()
 
     def mutate(self, mutator: Callable[[RuntimeState], T]) -> tuple[RuntimeState, T]:
         with self._lock:
             value = mutator(self._state)
-            return deepcopy(self._state), value
-
+            return self._state.copy(), value

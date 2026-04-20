@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import select
 import sys
 import time
 from functools import lru_cache
+from threading import Lock
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,7 @@ from src.app.adapters.vision.camera_stream import CameraStream
 from src.app.adapters.vision.face_detector import FaceDetector
 from src.app.adapters.vision.face_tracker import FaceTracker
 from src.app.adapters.vision.gesture_detector import GestureDetector
+from src.app.core.bus.queue_bus import QueueBus
 from src.app.core.events import topics
 from src.app.core.events.models import Event
 from src.app.core.state.context_fsm import ContextThresholds
@@ -48,6 +51,7 @@ from src.app.core.state.scene_selector import select_scene
 from src.app.domains.behavior.executor_registry import ExecutionResult
 from src.app.domains.smart_home.payloads import build_smart_home_command
 from src.app.main import RioOrchestrator
+from src.app.workers.vision_worker import VisionWorker
 
 
 INTENT_LABELS = {
@@ -81,11 +85,61 @@ ACTION_LABELS = {
 }
 
 RECENT_ACTION_HOLD_MS = 1500
+_SCRIPT_PROFILER: "ScriptProfiler | None" = None
 
 
 def _ts() -> str:
     t = time.time()
     return time.strftime("%H:%M:%S", time.localtime(t)) + f".{int((t - int(t)) * 1000):03d}"
+
+
+class ScriptProfiler:
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._durations: dict[str, dict[str, float]] = {}
+        self._counters: dict[str, int] = {}
+
+    def observe_duration_ms(self, name: str, value_ms: float) -> None:
+        with self._lock:
+            metric = self._durations.setdefault(name, {"count": 0.0, "total_ms": 0.0, "last_ms": 0.0, "max_ms": 0.0})
+            metric["count"] += 1.0
+            metric["total_ms"] += float(value_ms)
+            metric["last_ms"] = float(value_ms)
+            metric["max_ms"] = max(metric["max_ms"], float(value_ms))
+
+    def increment(self, name: str, amount: int = 1) -> None:
+        with self._lock:
+            self._counters[name] = self._counters.get(name, 0) + int(amount)
+
+    def record_voice_trace(self, message: str) -> None:
+        if "BUSY drop" in message:
+            self.increment("voice_busy_drop")
+        if "[voice.asr] EMPTY" in message:
+            self.increment("voice_empty_decode_count")
+        match = re.search(r"decode=(\d+)ms", message)
+        if match:
+            self.observe_duration_ms("voice_decode_ms", float(match.group(1)))
+
+    def snapshot(self) -> dict[str, dict[str, object]]:
+        with self._lock:
+            durations = {
+                name: {
+                    "last_ms": round(values["last_ms"], 3),
+                    "avg_ms": round(values["total_ms"] / values["count"], 3) if values["count"] else 0.0,
+                    "max_ms": round(values["max_ms"], 3),
+                }
+                for name, values in self._durations.items()
+            }
+            return {"durations": durations, "counters": dict(self._counters)}
+
+
+def _build_trace_sink(*, enabled: bool, profiler: ScriptProfiler):
+    def sink(message: str) -> None:
+        profiler.record_voice_trace(message)
+        if enabled:
+            print(message)
+
+    return sink
 
 
 def load_yaml(path: str) -> dict[str, object]:
@@ -451,11 +505,20 @@ def describe_http_snapshot(rio: RioOrchestrator, *, service_mode: str) -> dict[s
 
 def describe_runtime_snapshot(rio: RioOrchestrator, *, service_mode: str) -> dict[str, str]:
     snapshot = rio.store.snapshot()
+    profiler_snapshot = _SCRIPT_PROFILER.snapshot() if _SCRIPT_PROFILER is not None else {"durations": {}, "counters": {}}
+    duration_metrics = profiler_snapshot.get("durations", {})
+    counters = profiler_snapshot.get("counters", {})
+    vision_worker = rio.vision_worker
     details = {
         "current_action": describe_current_action(rio),
         "last_intent": describe_recent_intent(rio),
         "last_result": describe_last_result(rio),
         "inflight": str(len(snapshot.extended.inflight_requests)),
+        "pump_ms": str(duration_metrics.get("pump_workers_ms", {}).get("last_ms", 0.0)),
+        "drain_ms": str(duration_metrics.get("drain_bus_ms", {}).get("last_ms", 0.0)),
+        "vision_ms": str(round((vision_worker.last_face_detect_ms + vision_worker.last_gesture_detect_ms) if vision_worker is not None else 0.0, 3)),
+        "decode_ms": str(duration_metrics.get("voice_decode_ms", {}).get("last_ms", 0.0)),
+        "busy_drop": str(counters.get("voice_busy_drop", 0)),
     }
     details.update(describe_http_snapshot(rio, service_mode=service_mode))
     return details
@@ -492,6 +555,11 @@ def snapshot_signature(rio: RioOrchestrator, last_gesture: str | None, *, servic
         details["http_status"],
         details["http_target"],
         details["http_payload"],
+        details["pump_ms"],
+        details["drain_ms"],
+        details["vision_ms"],
+        details["decode_ms"],
+        details["busy_drop"],
     )
 
 
@@ -525,6 +593,14 @@ def print_snapshot(
     print(f"http_status : {details['http_status']}")
     print(f"http_target : {details['http_target']}")
     print(f"http_payload: {details['http_payload']}")
+    print(
+        "perf       : "
+        f"pump={details['pump_ms']}ms "
+        f"drain={details['drain_ms']}ms "
+        f"vision={details['vision_ms']}ms "
+        f"decode={details['decode_ms']}ms "
+        f"busy_drop={details['busy_drop']}"
+    )
     print(f"face_present: {snapshot.extended.face_present}")
     print(f"gesture     : {last_gesture or '-'}")
     print(f"oneshot     : {snapshot.active_oneshot.name.value if snapshot.active_oneshot else '-'}")
@@ -646,6 +722,7 @@ def draw_rounded_rect(
     cv2.ellipse(image, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, color, thickness, cv2.LINE_AA)
 
 
+@lru_cache(maxsize=24)
 def build_gradient_background(
     width: int,
     height: int,
@@ -1611,6 +1688,8 @@ def draw_status_sidebar(
         ("Input", trim_text(last_input, limit=30)),
         ("HTTP", f"{details['http_sent']} / {details['http_status']}"),
         ("Payload", trim_text(details["http_payload"], limit=30)),
+        ("Perf", f"p{trim_text(details['pump_ms'], limit=7)} d{trim_text(details['drain_ms'], limit=7)} v{trim_text(details['vision_ms'], limit=7)}"),
+        ("Voice", f"dec {trim_text(details['decode_ms'], limit=8)} / drop {details['busy_drop']}"),
     ]
 
     card_y = inset_y2 + 24
@@ -1652,11 +1731,11 @@ def show_preview(
     details = describe_runtime_snapshot(rio, service_mode=service_mode)
     now_s = time.time()
     frame_h, frame_w = frame.shape[:2]
-    canvas_h = max(720, frame_h if debug else 800)
-    canvas_w = max(1180, int(canvas_h * 1.72)) if debug else max(1280, int(canvas_h * 16 / 9))
+    canvas_h = max(720, frame_h if debug else 600)
+    canvas_w = max(1180, int(canvas_h * 1.72)) if debug else 1024
 
     palette = mood_palette(render_frame.face.mood, render_frame.ui, dimmed=render_frame.face.dimmed)
-    preview = build_gradient_background(canvas_w, canvas_h, palette["bg_top"], palette["bg_bottom"])
+    preview = build_gradient_background(canvas_w, canvas_h, palette["bg_top"], palette["bg_bottom"]).copy()
 
     for idx in range(3):
         orb_x = int(canvas_w * (0.18 + idx * 0.24) + math.sin(now_s * (0.55 + idx * 0.2)) * 42.0)
@@ -1829,14 +1908,15 @@ def stdin_ready() -> bool:
     return bool(readable)
 
 
-def build_orchestrator(*, use_real_services: bool) -> RioOrchestrator:
-    rio = RioOrchestrator()
+def build_orchestrator(*, use_real_services: bool, vision_worker: VisionWorker) -> RioOrchestrator:
+    rio = RioOrchestrator(bus=vision_worker.bus, vision_worker=vision_worker)
     if not use_real_services:
         configure_mock_services(rio)
     return rio
 
 
 def main() -> int:
+    global _SCRIPT_PROFILER
     parser = argparse.ArgumentParser(description="Live-test RIO state changes via webcam + terminal strings")
     parser.add_argument("--fps", type=float, default=8.0, help="webcam loop refresh rate")
     parser.add_argument("--away-timeout-ms", type=int, default=3000, help="time until Away transition after face lost")
@@ -1858,7 +1938,9 @@ def main() -> int:
     vision = thresholds.get("vision", {}) if isinstance(thresholds, dict) else {}
     presence = thresholds.get("presence", {}) if isinstance(thresholds, dict) else {}
 
+    rio: RioOrchestrator | None = None
     try:
+        bus = QueueBus()
         stream = CameraStream(
             device_index=int(webcam.get("device_index", 0)),
             width=int(webcam.get("width", 640)),
@@ -1869,8 +1951,15 @@ def main() -> int:
         face_detector = FaceDetector(confidence_min=float(vision.get("face_confidence_min", 0.6)))
         face_tracker = FaceTracker(sample_hz=float(presence.get("face_moved_sample_hz", 10)))
         gesture_detector = GestureDetector(confidence_min=float(vision.get("gesture_confidence_min", 0.75)))
+        vision_worker = VisionWorker(
+            bus=bus,
+            stream=stream,
+            detector=face_detector,
+            tracker=face_tracker,
+            gesture_detector=gesture_detector,
+        )
         terminal_voice = TerminalVoiceInput(IntentNormalizer())
-        rio = build_orchestrator(use_real_services=args.real_services)
+        rio = build_orchestrator(use_real_services=args.real_services, vision_worker=vision_worker)
         rio.reducer = ReducerPipeline(
             rio.store,
             thresholds=ContextThresholds(
@@ -1886,7 +1975,6 @@ def main() -> int:
         print("Make sure `.venv/bin/python -m pip install mediapipe opencv-python` is done first.")
         return 1
 
-    had_face = False
     last_gesture: str | None = None
     last_input: str | None = None
     last_signature: tuple[str, ...] | None = None
@@ -1894,6 +1982,7 @@ def main() -> int:
     preview_enabled = not args.no_preview
     service_mode = "real-http" if args.real_services else "mock"
     voice_trace_enabled = not args.no_voice_trace
+    _SCRIPT_PROFILER = ScriptProfiler()
 
     latest_frame_holder: list[Any] = [None]
     if rio.webcam_capture is not None:
@@ -1912,7 +2001,7 @@ def main() -> int:
     # voice backend(mic/VAD/Whisper) 기동: live mic 경로가 있으면 시작하고,
     # 오디오 워커 tick 이 이를 소비하도록 메인 루프에서 pump_workers()를 실행한다.
     if rio.voice_backend is not None:
-        rio.voice_backend.set_trace_sink(print if voice_trace_enabled else None)
+        rio.voice_backend.set_trace_sink(_build_trace_sink(enabled=voice_trace_enabled, profiler=_SCRIPT_PROFILER))
         backend_name = type(rio.voice_backend).__name__
         print(f"[voice] starting live mic backend ({backend_name})...")
         try:
@@ -1929,21 +2018,18 @@ def main() -> int:
 
     try:
         while True:
-            for due_event in rio.scheduler.poll_due():
-                print_voice_intent_trace(rio.process_event(due_event), enabled=voice_trace_enabled)
-            print_voice_intent_trace(rio.drain_bus(), enabled=voice_trace_enabled)
-
+            pump_started_at = time.perf_counter()
             rio.pump_workers()
-            print_voice_intent_trace(rio.drain_bus(), enabled=voice_trace_enabled)
+            _SCRIPT_PROFILER.observe_duration_ms("pump_workers_ms", (time.perf_counter() - pump_started_at) * 1000.0)
+            drain_started_at = time.perf_counter()
+            worker_events = rio.drain_bus()
+            _SCRIPT_PROFILER.observe_duration_ms("drain_bus_ms", (time.perf_counter() - drain_started_at) * 1000.0)
+            print_voice_intent_trace(worker_events, enabled=voice_trace_enabled)
 
-            had_face, detected_gesture, camera_frame, face_event = process_frame(
-                rio,
-                stream,
-                face_detector,
-                face_tracker,
-                gesture_detector,
-                had_face=had_face,
-            )
+            active_vision_worker = rio.vision_worker
+            camera_frame = active_vision_worker.last_frame if active_vision_worker is not None else None
+            face_event = active_vision_worker.last_face_event if active_vision_worker is not None else None
+            detected_gesture = active_vision_worker.last_gesture if active_vision_worker is not None else None
             if camera_frame is not None:
                 latest_frame_holder[0] = camera_frame
             if detected_gesture is not None:
@@ -1951,6 +2037,7 @@ def main() -> int:
 
             if preview_enabled:
                 try:
+                    preview_started_at = time.perf_counter()
                     should_exit_preview = show_preview(
                         camera_frame,
                         rio,
@@ -1960,6 +2047,7 @@ def main() -> int:
                         service_mode=service_mode,
                         debug=args.debug,
                     )
+                    _SCRIPT_PROFILER.observe_duration_ms("preview_draw_ms", (time.perf_counter() - preview_started_at) * 1000.0)
                 except Exception as exc:
                     preview_enabled = False
                     print(f"Disabling preview window: {exc}")
@@ -1996,12 +2084,8 @@ def main() -> int:
         print("\nExiting.")
         return 0
     finally:
-        # voice backend(mic/VAD/Whisper 스레드) 를 stream.close() 보다 먼저 정지.
-        if rio.voice_backend is not None:
-            try:
-                rio.voice_backend.stop()
-            except Exception:
-                pass
+        if rio is not None:
+            rio.shutdown()
         if preview_enabled:
             try:
                 import cv2

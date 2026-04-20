@@ -95,6 +95,14 @@ class CapabilityState:
     touch_available: bool = True
     speaker_available: bool = True
 
+    def copy(self) -> "CapabilityState":
+        return CapabilityState(
+            camera_available=self.camera_available,
+            mic_available=self.mic_available,
+            touch_available=self.touch_available,
+            speaker_available=self.speaker_available,
+        )
+
 
 @dataclass(slots=True)
 class TimerRecord:
@@ -103,6 +111,15 @@ class TimerRecord:
     due_at: datetime
     created_at: datetime
     delay_seconds: float
+
+    def copy(self) -> "TimerRecord":
+        return TimerRecord(
+            timer_id=self.timer_id,
+            label=self.label,
+            due_at=self.due_at,
+            created_at=self.created_at,
+            delay_seconds=self.delay_seconds,
+        )
 
 
 @dataclass(slots=True)
@@ -122,6 +139,15 @@ class Oneshot:
     def is_expired(self, now: datetime) -> bool:
         return self.elapsed_ratio(now) >= 1.0
 
+    def copy(self) -> "Oneshot":
+        return Oneshot(
+            name=self.name,
+            priority=self.priority,
+            duration_ms=self.duration_ms,
+            started_at=self.started_at,
+            payload=dict(self.payload),
+        )
+
 
 @dataclass(slots=True)
 class ExtendedState:
@@ -140,6 +166,24 @@ class ExtendedState:
     previous_context_state: ContextState | None = None
     sleepy_with_face: bool = False
 
+    def copy(self) -> "ExtendedState":
+        return ExtendedState(
+            face_present=self.face_present,
+            last_face_seen_at=self.last_face_seen_at,
+            last_face_lost_at=self.last_face_lost_at,
+            last_user_evidence_at=self.last_user_evidence_at,
+            last_interaction_at=self.last_interaction_at,
+            away_started_at=self.away_started_at,
+            active_executing_kind=self.active_executing_kind,
+            deferred_intent=dict(self.deferred_intent) if self.deferred_intent else None,
+            ui_mode=self.ui_mode,
+            timers={key: value.copy() for key, value in self.timers.items()},
+            inflight_requests={key: dict(value) for key, value in self.inflight_requests.items()},
+            capabilities=self.capabilities.copy(),
+            previous_context_state=self.previous_context_state,
+            sleepy_with_face=self.sleepy_with_face,
+        )
+
 
 @dataclass(slots=True)
 class DerivedScene:
@@ -157,6 +201,14 @@ class RuntimeState:
     activity_state: ActivityState = ActivityState.IDLE
     active_oneshot: Oneshot | None = None
     extended: ExtendedState = field(default_factory=ExtendedState)
+
+    def copy(self) -> "RuntimeState":
+        return RuntimeState(
+            context_state=self.context_state,
+            activity_state=self.activity_state,
+            active_oneshot=self.active_oneshot.copy() if self.active_oneshot is not None else None,
+            extended=self.extended.copy(),
+        )
 
 
 @dataclass(slots=True)

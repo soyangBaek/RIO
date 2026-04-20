@@ -30,12 +30,14 @@ from src.app.adapters.vision.camera_stream import CameraStream
 from src.app.adapters.vision.face_detector import FaceDetector
 from src.app.adapters.vision.face_tracker import FaceTracker
 from src.app.adapters.vision.gesture_detector import GestureDetector
+from src.app.core.bus.queue_bus import QueueBus
 from src.app.core.events import topics
 from src.app.core.events.models import Event
 from src.app.core.state.context_fsm import ContextThresholds
 from src.app.core.state.reducers import ReducerPipeline
 from src.app.main import RioOrchestrator
 from src.app.core.state.scene_selector import select_scene
+from src.app.workers.vision_worker import VisionWorker
 
 
 RESET = "\033[0m"
@@ -171,7 +173,15 @@ def main() -> int:
         face_detector = FaceDetector(confidence_min=float(vision.get("face_confidence_min", 0.6)))
         face_tracker = FaceTracker(sample_hz=float(presence.get("face_moved_sample_hz", 10)))
         gesture_detector = GestureDetector(confidence_min=float(vision.get("gesture_confidence_min", 0.75)))
-        rio = RioOrchestrator(audio_worker=None, vision_worker=None)
+        bus = QueueBus()
+        vision_worker = VisionWorker(
+            bus=bus,
+            stream=stream,
+            detector=face_detector,
+            tracker=face_tracker,
+            gesture_detector=gesture_detector,
+        )
+        rio = RioOrchestrator(bus=bus, vision_worker=vision_worker)
         rio.reducer = ReducerPipeline(
             rio.store,
             thresholds=ContextThresholds(
@@ -187,7 +197,6 @@ def main() -> int:
         print("Make sure `.venv/bin/python -m pip install mediapipe` is done first.")
         return 1
 
-    had_face = False
     last_gesture: str | None = None
     last_rendered_signature: tuple[str, str, str | None, str | None] | None = None
     frame_interval = 1.0 / max(args.fps, 1.0)
@@ -196,14 +205,10 @@ def main() -> int:
 
     try:
         while True:
-            had_face, detected_gesture, _ = process_frame(
-                rio,
-                stream,
-                face_detector,
-                face_tracker,
-                gesture_detector,
-                had_face=had_face,
-            )
+            rio.pump_workers()
+            rio.drain_bus()
+            active_vision_worker = rio.vision_worker
+            detected_gesture = active_vision_worker.last_gesture if active_vision_worker is not None else None
             if detected_gesture is not None:
                 last_gesture = detected_gesture
 

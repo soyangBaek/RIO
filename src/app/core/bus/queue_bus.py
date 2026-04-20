@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import multiprocessing as mp
-import queue
+from collections import deque
 from dataclasses import dataclass
+from threading import Condition
 from typing import Iterable
 
 from src.app.core.events.models import Event
@@ -15,40 +15,38 @@ class PollBatch:
 
 
 class QueueBus:
-    """A bounded multiprocessing queue with drop-oldest overflow policy."""
+    """A bounded in-process queue with drop-oldest overflow policy."""
 
     def __init__(self, maxsize: int = 256) -> None:
-        self._queue: mp.Queue[Event] = mp.Queue(maxsize=maxsize)
+        self._queue: deque[Event] = deque()
+        self._condition = Condition()
         self.maxsize = maxsize
         self.dropped_events = 0
 
     def publish(self, event: Event) -> None:
-        try:
-            self._queue.put_nowait(event)
-        except queue.Full:
-            try:
-                self._queue.get_nowait()
-            except queue.Empty:
-                pass
-            self.dropped_events += 1
-            self._queue.put_nowait(event)
+        with self._condition:
+            if len(self._queue) >= self.maxsize:
+                self._queue.popleft()
+                self.dropped_events += 1
+            self._queue.append(event)
+            self._condition.notify()
 
     def publish_many(self, events: Iterable[Event]) -> None:
         for event in events:
             self.publish(event)
 
     def poll(self, timeout: float | None = None) -> Event | None:
-        try:
-            return self._queue.get(timeout=timeout)
-        except queue.Empty:
-            return None
+        with self._condition:
+            if not self._queue:
+                self._condition.wait(timeout=timeout)
+            if not self._queue:
+                return None
+            return self._queue.popleft()
 
     def drain(self) -> PollBatch:
-        events: list[Event] = []
-        while True:
-            try:
-                events.append(self._queue.get_nowait())
-            except queue.Empty:
-                break
-        return PollBatch(events=events, dropped=self.dropped_events)
-
+        with self._condition:
+            events = list(self._queue)
+            self._queue.clear()
+            dropped = self.dropped_events
+            self.dropped_events = 0
+            return PollBatch(events=events, dropped=dropped)

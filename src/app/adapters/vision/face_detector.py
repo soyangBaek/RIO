@@ -24,13 +24,23 @@ class FaceDetector:
         )
         return self._detector
 
-    def detect(self, frame: Any, *, trace_id: str | None = None, now: datetime | None = None) -> Event | None:
+    def detect(
+        self,
+        frame: Any,
+        *,
+        trace_id: str | None = None,
+        now: datetime | None = None,
+        rgb_frame: Any | None = None,
+    ) -> Event | None:
         when = now or datetime.now(timezone.utc)
         if not isinstance(frame, dict):
             detector = self._ensure_detector()
-            import cv2
+            if rgb_frame is None:
+                import cv2
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
+                rgb = rgb_frame
             result = detector.process(rgb)
             if not result.detections:
                 return None

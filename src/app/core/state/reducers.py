@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime
 
 from src.app.core.events.models import Event
@@ -34,9 +33,9 @@ class ReducerPipeline:
         self.thresholds = thresholds or load_thresholds()
         self.oneshots = oneshots or OneshotDispatcher()
 
-    def process(self, event: Event) -> ReductionResult:
-        previous = self.store.snapshot()
-        current = deepcopy(previous)
+    def process(self, event: Event, *, previous: RuntimeState | None = None) -> ReductionResult:
+        previous_state = previous.copy() if previous is not None else self.store.snapshot()
+        current = previous_state.copy()
         now = event.timestamp
 
         current.extended = apply_extended_state(current.extended, event, now=now)
@@ -71,22 +70,22 @@ class ReducerPipeline:
                 current.extended.sleepy_with_face = False
 
         emitted: list[Event] = []
-        if previous.context_state != current.context_state:
+        if previous_state.context_state != current.context_state:
             emitted.append(
                 Event.create(
                     topics.CONTEXT_STATE_CHANGED,
                     "reducers",
-                    payload={"from": previous.context_state.value, "to": current.context_state.value},
+                    payload={"from": previous_state.context_state.value, "to": current.context_state.value},
                     timestamp=now,
                     trace_id=event.trace_id,
                 )
             )
         if (
-            previous.activity_state != current.activity_state
-            or previous.extended.active_executing_kind != current.extended.active_executing_kind
+            previous_state.activity_state != current.activity_state
+            or previous_state.extended.active_executing_kind != current.extended.active_executing_kind
         ):
             payload = {
-                "from": previous.activity_state.value,
+                "from": previous_state.activity_state.value,
                 "to": current.activity_state.value,
             }
             if current.extended.active_executing_kind is not None:
@@ -110,7 +109,7 @@ class ReducerPipeline:
             candidate_oneshot = OneshotName.STARTLED
         elif event.topic == topics.VOICE_INTENT_UNKNOWN:
             candidate_oneshot = OneshotName.CONFUSED
-        elif event.topic == topics.TOUCH_TAP_DETECTED and previous.context_state == ContextState.SLEEPY:
+        elif event.topic == topics.TOUCH_TAP_DETECTED and previous_state.context_state == ContextState.SLEEPY:
             candidate_oneshot = OneshotName.STARTLED
         elif event.topic == topics.TOUCH_STROKE_DETECTED:
             candidate_oneshot = OneshotName.HAPPY
@@ -129,7 +128,7 @@ class ReducerPipeline:
         elif event.topic == topics.TASK_FAILED:
             candidate_oneshot = OneshotName.CONFUSED
         elif (
-            previous.context_state in {ContextState.AWAY, ContextState.SLEEPY}
+            previous_state.context_state in {ContextState.AWAY, ContextState.SLEEPY}
             and current.context_state == ContextState.IDLE
             and current.extended.away_started_at is not None
             and (now - current.extended.away_started_at).total_seconds() * 1000.0
@@ -164,10 +163,10 @@ class ReducerPipeline:
             current.active_oneshot,
         )
         previous_scene = select_scene(
-            previous.context_state,
-            previous.activity_state,
-            previous.extended,
-            previous.active_oneshot,
+            previous_state.context_state,
+            previous_state.activity_state,
+            previous_state.extended,
+            previous_state.active_oneshot,
         )
         if previous_scene != scene:
             emitted.append(
@@ -182,7 +181,7 @@ class ReducerPipeline:
 
         self.store.replace(current)
         return ReductionResult(
-            previous=previous,
+            previous=previous_state,
             current=current,
             scene=scene,
             emitted_events=emitted,

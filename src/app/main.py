@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -357,6 +358,13 @@ class RioOrchestrator:
     _dance_timer: "threading.Timer | None" = None
     _photo_timer: "threading.Timer | None" = None
     _alert_timeout_timer: "threading.Timer | None" = None
+    _async_executor: ThreadPoolExecutor = field(
+        default_factory=lambda: ThreadPoolExecutor(max_workers=2, thread_name_prefix="rio-exec"),
+        init=False,
+        repr=False,
+    )
+    _pending_futures: set[Future[ExecutionResult]] = field(default_factory=set, init=False, repr=False)
+    _futures_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.reducer = ReducerPipeline(self.store)
@@ -460,7 +468,8 @@ class RioOrchestrator:
         if event.topic == topics.SYSTEM_WORKER_HEARTBEAT:
             self.heartbeat_monitor.record(event)
 
-        decision = evaluate_interrupt(self.store.snapshot(), event)
+        current_state = self.store.snapshot()
+        decision = evaluate_interrupt(current_state, event)
         if decision.action == InterruptAction.DROP:
             return [event]
         if decision.action == InterruptAction.DEFER_INTENT:
@@ -476,7 +485,7 @@ class RioOrchestrator:
             self.held_alerts.extend(decision.held_events)
             return [event]
 
-        reduction = self.reducer.process(event)
+        reduction = self.reducer.process(event, previous=current_state)
         plan = plan_effects(reduction, event)
         self._apply_plan(plan, event)
         produced = [event, *reduction.emitted_events]
@@ -489,9 +498,12 @@ class RioOrchestrator:
                 produced.extend(self.process_event(mapped))
 
         if plan.executor_request is not None:
-            execution = self.registry.dispatch(plan.executor_request)
-            for produced_event in execution.events:
-                produced.extend(self.process_event(produced_event))
+            if plan.executor_request.kind in {ActionKind.SMARTHOME, ActionKind.WEATHER}:
+                self._dispatch_async(plan.executor_request)
+            else:
+                execution = self.registry.dispatch(plan.executor_request)
+                for produced_event in execution.events:
+                    produced.extend(self.process_event(produced_event))
 
         if reduction.previous.activity_state != reduction.current.activity_state:
             self._handle_alert_timeout(
@@ -508,6 +520,29 @@ class RioOrchestrator:
             produced.extend(self._maybe_replay_deferred())
 
         return produced
+
+    def _dispatch_async(self, request: ExecutionRequest) -> None:
+        future = self._async_executor.submit(self.registry.dispatch, request)
+        with self._futures_lock:
+            self._pending_futures.add(future)
+        future.add_done_callback(self._handle_async_result)
+
+    def _handle_async_result(self, future: Future[ExecutionResult]) -> None:
+        with self._futures_lock:
+            self._pending_futures.discard(future)
+        try:
+            execution = future.result()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.bus.publish(
+                Event.create(
+                    topics.TASK_FAILED,
+                    "orchestrator.async_executor",
+                    payload={"kind": "async", "message": str(exc)},
+                )
+            )
+            return
+        for event in execution.events:
+            self.bus.publish(event)
 
     def _handle_long_action_cancel(self, reduction, event: Event) -> None:
         if event.topic != topics.VOICE_INTENT_DETECTED:
@@ -592,6 +627,15 @@ class RioOrchestrator:
         self.pump_workers(now=now)
         return self.drain_bus()
 
+    def shutdown(self) -> None:
+        if self.voice_backend is not None:
+            try:
+                self.voice_backend.stop()
+            except Exception:
+                pass
+            self.voice_backend = None
+        self._async_executor.shutdown(wait=False, cancel_futures=True)
+
     # ── context manager: voice backend 의 mic/VAD/Whisper 스레드 기동/정지 ───
     def __enter__(self) -> "RioOrchestrator":
         if self.voice_backend is not None:
@@ -607,10 +651,4 @@ class RioOrchestrator:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        # voice backend 를 먼저 중지 → capture.feed() 호출이 끝난 뒤 worker 가 잔여 frame 처리
-        if self.voice_backend is not None:
-            try:
-                self.voice_backend.stop()
-            except Exception:
-                pass
-            self.voice_backend = None
+        self.shutdown()
