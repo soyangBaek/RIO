@@ -17,6 +17,7 @@ class GestureDetector:
     _hands: Any = field(default=None, init=False, repr=False)
     _last_gesture: str | None = field(default=None, init=False, repr=False)
     _last_emitted_at: datetime | None = field(default=None, init=False, repr=False)
+    _last_debug: dict = field(default_factory=dict, init=False, repr=False)
 
     def _ensure_hands(self) -> Any:
         if self._hands is not None:
@@ -35,29 +36,81 @@ class GestureDetector:
     def _is_extended(tip: Any, pip: Any, mcp: Any) -> bool:
         return tip.y < pip.y < mcp.y
 
-    def _classify_hand(self, hand_landmarks: Any) -> str | None:
+    @staticmethod
+    def _thumb_extended(lm: Any) -> bool:
+        wrist, mcp, ip, tip = lm[0], lm[2], lm[3], lm[4]
+        v1x, v1y = mcp.x - wrist.x, mcp.y - wrist.y
+        v2x, v2y = tip.x - ip.x, tip.y - ip.y
+        dot = v1x * v2x + v1y * v2y
+        n1 = (v1x * v1x + v1y * v1y) ** 0.5
+        n2 = (v2x * v2x + v2y * v2y) ** 0.5
+        if n1 < 1e-6 or n2 < 1e-6:
+            return False
+        cos_angle = dot / (n1 * n2)
+        tip_far = (
+            ((tip.x - mcp.x) ** 2 + (tip.y - mcp.y) ** 2) ** 0.5
+            > ((ip.x - mcp.x) ** 2 + (ip.y - mcp.y) ** 2) ** 0.5
+        )
+        return cos_angle > 0.5 and tip_far
+
+    @staticmethod
+    def _palm_facing_camera(lm: Any, handedness_label: str | None) -> bool:
+        thumb_x = lm[4].x
+        pinky_mcp_x = lm[17].x
+        if handedness_label == "Right":
+            return thumb_x < pinky_mcp_x
+        if handedness_label == "Left":
+            return thumb_x > pinky_mcp_x
+        return False
+
+    def _classify_hand(
+        self,
+        hand_landmarks: Any,
+        handedness_label: str | None = None,
+    ) -> tuple[str | None, dict]:
         lm = hand_landmarks.landmark
-        thumb_extended = abs(lm[4].x - lm[2].x) >= 0.08
+        thumb_extended = self._thumb_extended(lm)
         index_up = self._is_extended(lm[8], lm[6], lm[5])
         middle_up = self._is_extended(lm[12], lm[10], lm[9])
         ring_up = self._is_extended(lm[16], lm[14], lm[13])
         pinky_up = self._is_extended(lm[20], lm[18], lm[17])
+        palm_facing = self._palm_facing_camera(lm, handedness_label)
 
+        fingers = {
+            "thumb": bool(thumb_extended),
+            "index": bool(index_up),
+            "middle": bool(middle_up),
+            "ring": bool(ring_up),
+            "pinky": bool(pinky_up),
+        }
+
+        gesture: str | None = None
         if thumb_extended and index_up and not middle_up and not ring_up and not pinky_up:
-            return "finger_gun"
-        if index_up and middle_up and not ring_up and not pinky_up:
-            return "v_sign"
-        if index_up and middle_up and ring_up and pinky_up:
-            return "wave"
-        if index_up and not middle_up and not ring_up and not pinky_up:
-            return "point"
-        return None
+            gesture = "finger_gun"
+        elif index_up and middle_up and not ring_up and not pinky_up and palm_facing:
+            gesture = "v_sign"
+        elif index_up and middle_up and ring_up and pinky_up:
+            gesture = "wave"
+        elif index_up and not middle_up and not ring_up and not pinky_up:
+            gesture = "point"
+
+        return gesture, {"fingers": fingers, "palm_facing": palm_facing}
 
     def _cooldown_ready(self, gesture: str, when: datetime) -> bool:
         if self._last_gesture != gesture or self._last_emitted_at is None:
             return True
         age = (when - self._last_emitted_at).total_seconds()
         return age >= self.emit_cooldown_seconds
+
+    def _cooldown_remaining(self, gesture: str | None, when: datetime) -> float:
+        if gesture is None or self._last_emitted_at is None or self._last_gesture != gesture:
+            return 0.0
+        age = (when - self._last_emitted_at).total_seconds()
+        remain = self.emit_cooldown_seconds - age
+        return remain if remain > 0 else 0.0
+
+    def inspect(self) -> dict:
+        return dict(self._last_debug)
 
     def detect(
         self,
@@ -68,6 +121,17 @@ class GestureDetector:
         rgb_frame: Any | None = None,
     ) -> list[Event]:
         when = now or datetime.now(timezone.utc)
+        debug: dict = {
+            "hand_present": False,
+            "fingers": None,
+            "handedness": None,
+            "palm_facing": False,
+            "classified": None,
+            "confidence": 0.0,
+            "emitted": False,
+            "cooldown_remaining": 0.0,
+        }
+
         if not isinstance(frame, dict):
             hands = self._ensure_hands()
             if rgb_frame is None:
@@ -80,19 +144,39 @@ class GestureDetector:
             result = hands.process(rgb)
             record_metric("gesture_detect_ms", (time.perf_counter() - t0) * 1000.0)
             if not result.multi_hand_landmarks:
+                self._last_debug = debug
                 return []
+            debug["hand_present"] = True
             landmarks = result.multi_hand_landmarks[0]
-            gesture = self._classify_hand(landmarks)
+            handedness_label: str | None = None
+            if result.multi_handedness:
+                try:
+                    handedness_label = result.multi_handedness[0].classification[0].label
+                except (AttributeError, IndexError):
+                    handedness_label = None
+            debug["handedness"] = handedness_label
+            gesture, extra = self._classify_hand(landmarks, handedness_label)
+            debug["fingers"] = extra["fingers"]
+            debug["palm_facing"] = extra["palm_facing"]
+            debug["classified"] = gesture
             confidence = 1.0 if gesture else 0.0
         else:
             gesture = frame.get("gesture")
             confidence = float(frame.get("gesture_confidence", 0.0))
             if gesture == "open_palm":
                 gesture = "wave"
+            debug["hand_present"] = gesture is not None
+            debug["classified"] = gesture
+
+        debug["confidence"] = confidence
+        debug["cooldown_remaining"] = self._cooldown_remaining(gesture, when)
 
         if gesture and confidence >= self.confidence_min and self._cooldown_ready(str(gesture), when):
             self._last_gesture = str(gesture)
             self._last_emitted_at = when
+            debug["emitted"] = True
+            debug["cooldown_remaining"] = self.emit_cooldown_seconds
+            self._last_debug = debug
             return [
                 Event.create(
                     topics.VISION_GESTURE_DETECTED,
@@ -103,4 +187,5 @@ class GestureDetector:
                     timestamp=when,
                 )
             ]
+        self._last_debug = debug
         return []
