@@ -433,6 +433,10 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
     def _vad_loop(self) -> None:
         assert self._vad_engine is not None
 
+        threshold = int(self.cfg.vad.threshold)
+        window_rms: list[int] = []
+        last_window_log = time.monotonic()
+
         while not self._stop.is_set():
             try:
                 chunk = self._audio_q.get(timeout=0.2)
@@ -440,6 +444,24 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                 continue
 
             decision = self._vad_engine.process(chunk)
+
+            window_rms.append(decision.rms)
+            now_mono = time.monotonic()
+            if now_mono - last_window_log >= 0.5 and window_rms:
+                rms_min = min(window_rms)
+                rms_max = max(window_rms)
+                rms_avg = int(sum(window_rms) / len(window_rms))
+                _LOGGER.debug(
+                    "vad rms samples=%d min=%d avg=%d max=%d threshold=%d",
+                    len(window_rms),
+                    rms_min,
+                    rms_avg,
+                    rms_max,
+                    threshold,
+                )
+                window_rms.clear()
+                last_window_log = now_mono
+
             if decision.started:
                 self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
                 self.capture.feed({"speech": True})

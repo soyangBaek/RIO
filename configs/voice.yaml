@@ -76,5 +76,6 @@ concurrency:
 
 # ── 로깅 ─────────────────────────────────────────────────────
 logging:
-  # INFO: 발화/디코딩 요약만. DEBUG: VAD 프레임 단위까지.
+  # INFO: 발화/디코딩 요약만. DEBUG: VAD 프레임 RMS(500ms 윈도우) 주기 로그.
+  # CLI `--log info` 를 주면 런타임에 DEBUG + python backend 로 덮어쓴다 (튜닝용).
   level: "INFO"
