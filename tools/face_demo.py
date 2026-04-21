@@ -43,7 +43,7 @@ MOODS_PRIMARY = [
 MOODS_SECONDARY = [
     (pygame.K_0, "photo_ready", "사진 대기"),
     (pygame.K_MINUS, "photo_snap", "촬영 윙크"),
-    (pygame.K_EQUALS, "game_face", "게임 모드"),
+    (pygame.K_EQUALS, "wet_tear", "게임 모드"),
     (pygame.K_BACKSPACE, "dance_face", "댄스"),
 ]
 

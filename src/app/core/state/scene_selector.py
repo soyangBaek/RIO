@@ -18,6 +18,8 @@ ONESHOT_TO_MOOD = {
     OneshotName.CONFUSED: Mood.CONFUSED,
     OneshotName.WELCOME: Mood.WELCOME,
     OneshotName.HAPPY: Mood.HAPPY,
+    OneshotName.ANGRY: Mood.STARTLED,
+    OneshotName.LOVELY: Mood.HAPPY,
 }
 
 

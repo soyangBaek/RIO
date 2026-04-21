@@ -63,8 +63,16 @@ def game_direction(asset: SceneAsset | None = None) -> SceneBlueprint:
     return _build("game_direction", asset)
 
 
-def petting_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
-    return _build("petting_reaction", asset)
+def cry_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("cry_reaction", asset)
+
+
+def fist_angry_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("fist_angry_reaction", asset)
+
+
+def both_palms_lovely_reaction(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("both_palms_lovely_reaction", asset)
 
 
 def listening_mode_loop(asset: SceneAsset | None = None) -> SceneBlueprint:

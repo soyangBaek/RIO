@@ -18,7 +18,7 @@ RELATIVE_COMPONENT_PATTERNS = {
     "minutes": re.compile(r"(?P<value>\d+)\s*(분|minutes?|mins?)"),
     "seconds": re.compile(r"(?P<value>\d+)\s*(초|seconds?|secs?)"),
 }
-RELATIVE_HINT = re.compile(r"(뒤|후|있다|later|after|in\s+\d+)")
+RELATIVE_HINT = re.compile(r"(뒤|후|있다|later|after|in\s+\d+|타이머|알람|알려)")
 ABSOLUTE_PATTERN = re.compile(
     r"(?:(?P<meridiem>오전|오후|am|pm)\s*)?(?P<hour>\d{1,2})\s*시(?:\s*(?P<minute>\d{1,2})\s*분?)?(?:\s*(?P<half>반))?"
 )

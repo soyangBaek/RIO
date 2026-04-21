@@ -265,7 +265,7 @@ F5 → 사진 촬영 시나리오 자동 재생
 | # | 상황 | 기대 표정 | 표시 에셋 | 비고 |
 |---|---|---|---|---|
 | 1 | **"춤 춰!"** — 댄스 실행 중 | attentive (기본) | `dance_face.png` (물결 입) | effect_planner가 dance_face로 override 예정 |
-| 2 | **"게임 하자!"** — 게임 모드 실행 중 | attentive (기본) | `game_face.png` (픽셀 패턴) | GameUI 전용 표정 |
+| 2 | **"게임 하자!"** — 게임 모드 실행 중 | attentive (기본) | `wet_tear.png` (픽셀 패턴) | GameUI 전용 표정 |
 | 3 | **"오늘 날씨 어때?"** — 날씨 조회 중 | attentive (기본) | `weather_face.png` (큰 원형 눈) | 조회 중 표정 |
 | 4 | **"에어컨 꺼줘"** — 스마트홈 실행 중 | attentive | `attentive.png` | 기본 attentive 유지 |
 | 5 | **에어컨 꺼짐! 성공!** — 스마트홈 명령 성공 | happy (oneshot) | `happy.png` | oneshot이 focus lock override |
@@ -273,7 +273,7 @@ F5 → 사진 촬영 시나리오 자동 재생
 
 **face_demo.py 테스트:**
 ```
-키 =  → game_face  (게임 모드 표정 확인)
+키 =  → wet_tear  (게임 모드 표정 확인)
 키 BS → dance_face (댄스 모드 표정 확인)
 키 -  → photo_snap (윙크 확인)
 키 0  → photo_ready (밝은 눈 확인)
@@ -287,7 +287,7 @@ Activity=Executing + kind=game    → Mood=attentive, UI=GameUI
 ```
 
 > 참고: 현재 scene_selector는 Executing 시 mood를 항상 attentive로 파생.
-> dance_face, game_face 등 kind별 전용 표정은 effect_planner/executor가
+> dance_face, wet_tear 등 kind별 전용 표정은 effect_planner/executor가
 > 직접 renderer에 override하는 구조로 구현 예정 (T-030, T-031).
 
 ---
@@ -298,16 +298,16 @@ Activity=Executing + kind=game    → Mood=attentive, UI=GameUI
 
 | # | 상황 | 표시 에셋 | 비고 |
 |---|---|---|---|
-| 1 | **머리 쓰다듬기** — 터치스크린에서 좌우 스트로크 | `petting.png` (하트 눈, 미소) | happy oneshot + 전용 표정 |
+| 1 | **머리 쓰다듬기** — 터치스크린에서 좌우 스트로크 | `cry.png` (하트 눈, 미소) | happy oneshot + 전용 표정 |
 | 2 | **"불 꺼줘" 실패** — 스마트홈 HTTP 타임아웃 | `smarthome_fail.png` (울상 눈, 슬픈 입) | confused oneshot + 전용 표정 |
-| 3 | **게임에서 짐** — 참참참 패배 등 | `ko_defeated.png` (X 눈, 꺾인 입) | game service가 표정 override |
+| 3 | **게임에서 짐** — 참참참 패배 등 | `triangle_tear.png` (X 눈, 꺾인 입) | game service가 표정 override |
 | 4 | **RIO 부팅 중** — 전원 켜지고 초기화 화면 | `boot.png` (다이아 눈, 로봇 느낌) | main.py 초기화 시 표시 |
 
 **테스트 방법:**
 ```
 face_demo.py에서는 직접 키 매핑 없음 (secondary 키로 이미지 확인만 가능).
 실제 트리거는 effect_planner 구현 후 state_demo.py의 이벤트 주입으로 테스트:
-  state_demo.py: 15 (터치 쓰다듬기) → happy/petting 반응 확인
+  state_demo.py: 15 (터치 쓰다듬기) → happy/cry 반응 확인
   state_demo.py: 13 (태스크 실패) → confused/smarthome_fail 반응 확인
 ```
 
@@ -422,12 +422,12 @@ F6 → sleep/wake 시나리오 자동 재생
 | `happy.png` | rosto-24 | 쓰다듬기, 명령 성공, 기분 좋은 순간 | done |
 | `photo_ready.png` | rosto-23 | 사진 카운트다운 중 (3... 2... 1...) | done |
 | `photo_snap.png` | rosto-18 | 셔터 순간 (윙크), 스마트홈 성공 | done |
-| `game_face.png` | rosto-06 | 게임 모드 실행 중 | done |
+| `wet_tear.png` | rosto-06 | 게임 모드 실행 중 | done |
 | `dance_face.png` | rosto-07 | 댄스 모드 실행 중 | done |
 | `smarthome_fail.png` | rosto-16 | 스마트홈 명령 실패, 기기 응답 없음 | done |
 | `weather_face.png` | rosto-25 | 날씨 조회 중 | done |
-| `petting.png` | rosto-12 | 머리 쓰다듬기 반응 (하트 눈) | done |
-| `ko_defeated.png` | rosto-11 | 게임에서 짐 (X 눈) | done |
+| `cry.png` | rosto-12 | 머리 쓰다듬기 반응 (하트 눈) | done |
+| `triangle_tear.png` | rosto-11 | 게임에서 짐 (X 눈) | done |
 | `boot.png` | rosto-08 | RIO 부팅/초기화 화면 | done |
 
 ### 미제작 에셋

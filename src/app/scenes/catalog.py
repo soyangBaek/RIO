@@ -5,11 +5,13 @@ from typing import Callable
 from src.app.scenes.assets import load_scene_assets
 from src.app.scenes.builders import (
     SceneBlueprint,
+    both_palms_lovely_reaction,
+    cry_reaction,
     default_scene,
     finger_gun_reaction,
+    fist_angry_reaction,
     game_direction,
     listening_mode_loop,
-    petting_reaction,
     peekaboo_reaction,
     sleep_mode_loop,
     smarthome_feedback,
@@ -35,7 +37,9 @@ SCENE_CATALOG: dict[str, SceneBuilder] = {
     "peekaboo_reaction": peekaboo_reaction,
     "tap_attention": tap_attention,
     "game_direction": game_direction,
-    "petting_reaction": petting_reaction,
+    "cry_reaction": cry_reaction,
+    "fist_angry_reaction": fist_angry_reaction,
+    "both_palms_lovely_reaction": both_palms_lovely_reaction,
     "listening_mode_loop": listening_mode_loop,
     "default_scene": default_scene,
 }

@@ -493,7 +493,7 @@ RIO는 단순 함수 호출보다 `연출 단위`가 중요하므로 씬 단위 
 - `sleep_mode_loop`
 - `take_photo_countdown`
 - `smarthome_feedback`
-- `petting_reaction`
+- `cry_reaction`
 
 권장 초기 파일:
 

@@ -119,6 +119,10 @@ class ReducerPipeline:
                 candidate_oneshot = OneshotName.WELCOME
             elif gesture == "finger_gun":
                 candidate_oneshot = OneshotName.STARTLED
+            elif gesture == "fist":
+                candidate_oneshot = OneshotName.ANGRY
+            elif gesture == "both_palms":
+                candidate_oneshot = OneshotName.LOVELY
         elif event.topic == topics.SMARTHOME_RESULT:
             candidate_oneshot = (
                 OneshotName.HAPPY if event.payload.get("ok") else OneshotName.CONFUSED
