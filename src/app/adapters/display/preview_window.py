@@ -43,19 +43,29 @@ _FACE_ASSET_TRANSITION: dict[str, Any] = {"current": None, "previous": None, "ch
 LISTENING_SPRITE_PATH = "assets/animations/listening_sprite.png"
 LISTENING_SPRITE_FRAMES = 24
 LISTENING_SPRITE_FPS = 24
+LISTENING_SPRITE_SCALE = 0.7
+LISTENING_MARGIN_PX = 24
 
 
 @lru_cache(maxsize=4)
-def _load_sprite_frames(path: str, frame_count: int) -> tuple[np.ndarray, ...] | None:
+def _load_sprite_frames(
+    path: str, frame_count: int, scale: float = 1.0
+) -> tuple[np.ndarray, ...] | None:
     sheet = cv2.imread(str(REPO_ROOT / path), cv2.IMREAD_UNCHANGED)
     if sheet is None or sheet.ndim != 3 or sheet.shape[2] != 4:
         return None
     frame_w = sheet.shape[1] // frame_count
     if frame_w <= 0:
         return None
+    frames = tuple(
+        sheet[:, i * frame_w : (i + 1) * frame_w].copy() for i in range(frame_count)
+    )
+    if scale == 1.0:
+        return frames
+    target_w = max(1, int(round(frame_w * scale)))
+    target_h = max(1, int(round(sheet.shape[0] * scale)))
     return tuple(
-        sheet[:, i * frame_w : (i + 1) * frame_w].copy()
-        for i in range(frame_count)
+        cv2.resize(f, (target_w, target_h), interpolation=cv2.INTER_AREA) for f in frames
     )
 
 
@@ -658,13 +668,16 @@ def draw_ui_overlay(
         )
 
     if ui == "ListeningUI":
-        frames = _load_sprite_frames(LISTENING_SPRITE_PATH, LISTENING_SPRITE_FRAMES)
+        frames = _load_sprite_frames(
+            LISTENING_SPRITE_PATH, LISTENING_SPRITE_FRAMES, LISTENING_SPRITE_SCALE
+        )
         if frames is not None:
             frame_idx = int(now_s * LISTENING_SPRITE_FPS) % LISTENING_SPRITE_FRAMES
             sprite = frames[frame_idx]
             sh, sw = sprite.shape[:2]
-            blit_x = (x1 + x2) // 2 - sw // 2
-            blit_y = y2 - sh - 24
+            canvas_h = image.shape[0]
+            blit_x = LISTENING_MARGIN_PX
+            blit_y = canvas_h - sh - LISTENING_MARGIN_PX
             blit_sprite_rgba(image, sprite, (blit_x, blit_y))
 
     if ui == "CameraUI" or overlay_key == "camera_countdown":
