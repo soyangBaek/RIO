@@ -48,8 +48,8 @@ class TerminalVoiceInputTest(unittest.TestCase):
         normalizer = IntentNormalizer(deduper=IntentDeduper(cooldown_ms=1500))
         terminal = TerminalVoiceInput(normalizer)
 
-        first = terminal.build_events("불 켜줘", now=self.now)
-        second = terminal.build_events("불 켜줘", now=self.now)
+        first = terminal.build_events("거실 등 켜줘", now=self.now)
+        second = terminal.build_events("거실 등 켜줘", now=self.now)
 
         self.assertEqual(first[1].topic, topics.VOICE_INTENT_DETECTED)
         self.assertEqual([event.topic for event in second], [

@@ -31,12 +31,17 @@ class IntentParserTest(unittest.TestCase):
         self.assertEqual(parsed.intent, "smarthome.heater.off")
 
     def test_light_on_official(self) -> None:
-        parsed = parse_intent("불 켜줘", stt_confidence=0.95)
+        parsed = parse_intent("거실 등 켜줘", stt_confidence=0.95)
         self.assertEqual(parsed.intent, "smarthome.light.on")
 
     def test_light_off_official(self) -> None:
-        parsed = parse_intent("불 꺼줘", stt_confidence=0.95)
+        parsed = parse_intent("거실 등 꺼줘", stt_confidence=0.95)
         self.assertEqual(parsed.intent, "smarthome.light.off")
+
+    def test_light_on_compact_variant(self) -> None:
+        # whisper 가 "거실등" 으로 붙여쓸 때도 인식
+        parsed = parse_intent("거실등 켜줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.light.on")
 
     def test_indirect_light_on_official(self) -> None:
         parsed = parse_intent("간접등 켜줘", stt_confidence=0.95)
@@ -140,6 +145,11 @@ class IntentParserTest(unittest.TestCase):
 
     def test_cancel_variant_그만_rejected(self) -> None:
         parsed = parse_intent("그만", stt_confidence=0.95)
+        self.assertFalse(parsed.is_known)
+
+    def test_bare_light_keyword_rejected(self) -> None:
+        # 공식은 "거실 등 켜줘" — "불 켜줘" 단독은 더 이상 인식 안 함
+        parsed = parse_intent("불 켜줘", stt_confidence=0.95)
         self.assertFalse(parsed.is_known)
 
     # ── 기타 ─────────────────────────────────────────────────

@@ -121,7 +121,9 @@ def _parse_dynamic_smarthome(
         if has_any("켜줘"):
             return result("smarthome.indirect_light.on", matched_alias="__dynamic_indirect_light_on__")
 
-    if has_any("불"):
+    # "거실 등" 은 whisper 가 "거실등/거실 등/거실 덩" 등으로 다양하게 낸다.
+    # compact 매칭으로 공백 유무 모두 흡수.
+    if has_any("거실 등", "거실등"):
         if has_any("꺼줘"):
             return result("smarthome.light.off", matched_alias="__dynamic_light_off__")
         if has_any("켜줘"):

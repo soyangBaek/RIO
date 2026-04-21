@@ -19,9 +19,9 @@ intents:
   smarthome.heater.off:
     - "난방 꺼줘"
   smarthome.light.on:
-    - "불 켜줘"
+    - "거실 등 켜줘"
   smarthome.light.off:
-    - "불 꺼줘"
+    - "거실 등 꺼줘"
   smarthome.indirect_light.on:
     - "간접등 켜줘"
   smarthome.indirect_light.off:
