@@ -435,6 +435,7 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
             decision = self._vad_engine.process(chunk)
             if decision.started:
                 self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
+                self.capture.feed({"speech": True})
 
             if not decision.ended or decision.audio is None:
                 continue
@@ -601,6 +602,7 @@ class RustAudioBackend(_WhisperBridgeBackend):
             return
         if kind == "speech_started":
             self._emit_trace(f"[voice.vad] speech START rms={int(message.get('rms', 0))}")
+            self.capture.feed({"speech": True})
             return
         if kind == "speech_ended":
             suffix = " -> DROP_SHORT" if bool(message.get("dropped_short")) else ""
