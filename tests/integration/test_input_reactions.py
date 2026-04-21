@@ -118,6 +118,25 @@ class InputReactionIntegrationTest(unittest.TestCase):
         self.assertIn("dance", orchestrator.sfx.history)
         self.assertTrue(any(event.topic == topics.TASK_STARTED for event in processed))
 
+    def test_voice_activity_started_triggers_listening_feedback(self) -> None:
+        orchestrator = RioOrchestrator()
+        orchestrator.process_event(Event.create(topics.VISION_FACE_DETECTED, "test", payload={"center": (0.5, 0.5)}))
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+
+        self.assertEqual(orchestrator.store.snapshot().activity_state, ActivityState.LISTENING)
+        last_frame = orchestrator.renderer.history[-1]
+        self.assertEqual(last_frame.ui, "ListeningUI")
+        self.assertEqual(last_frame.overlay.name, "assets/animations/listening_sprite.png")
+        self.assertTrue(last_frame.overlay.visible)
+        self.assertIn("listening_cue", orchestrator.sfx.history)
+
+    def test_voice_activity_started_without_face_skips_listening_cue(self) -> None:
+        orchestrator = RioOrchestrator()
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+
+        self.assertIn("startled", orchestrator.sfx.history)
+        self.assertNotIn("listening_cue", orchestrator.sfx.history)
+
 
 if __name__ == "__main__":
     unittest.main()

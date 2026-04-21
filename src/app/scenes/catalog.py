@@ -6,11 +6,12 @@ from src.app.scenes.assets import load_scene_assets
 from src.app.scenes.builders import (
     SceneBlueprint,
     both_palms_lovely_reaction,
+    cry_reaction,
     default_scene,
     finger_gun_reaction,
     fist_angry_reaction,
     game_direction,
-    cry_reaction,
+    listening_mode_loop,
     peekaboo_reaction,
     sleep_mode_loop,
     smarthome_feedback,
@@ -39,6 +40,7 @@ SCENE_CATALOG: dict[str, SceneBuilder] = {
     "cry_reaction": cry_reaction,
     "fist_angry_reaction": fist_angry_reaction,
     "both_palms_lovely_reaction": both_palms_lovely_reaction,
+    "listening_mode_loop": listening_mode_loop,
     "default_scene": default_scene,
 }
 

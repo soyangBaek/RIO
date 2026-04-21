@@ -75,5 +75,9 @@ def both_palms_lovely_reaction(asset: SceneAsset | None = None) -> SceneBlueprin
     return _build("both_palms_lovely_reaction", asset)
 
 
+def listening_mode_loop(asset: SceneAsset | None = None) -> SceneBlueprint:
+    return _build("listening_mode_loop", asset)
+
+
 def default_scene(asset: SceneAsset | None = None) -> SceneBlueprint:
     return _build("default_scene", asset)

@@ -58,6 +58,8 @@ def _scene_key(result: ReductionResult, event: Event) -> str:
         return "sleep_mode_loop"
     if event.topic == topics.SMARTHOME_RESULT:
         return "smarthome_feedback"
+    if result.scene.ui.value == "ListeningUI":
+        return "listening_mode_loop"
     return "default_scene"
 
 
@@ -148,6 +150,8 @@ def _sfx_names(result: ReductionResult, event: Event) -> list[str]:
         names.append("timer_registered")
     elif event.topic == topics.TASK_FAILED:
         names.append("error")
+    elif event.topic == topics.VOICE_ACTIVITY_STARTED and not names:
+        names.append("listening_cue")
     return names
 
 
