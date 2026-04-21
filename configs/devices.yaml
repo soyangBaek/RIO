@@ -5,7 +5,19 @@ home_client:
   # will override base_url + control_path.
   # control_url: "http://192.168.0.20:8123/api/thinq/control"
 weather:
-  base_url: "https://api.example.invalid/weather"
+  base_url: "https://api.open-meteo.com/v1/forecast"
+  default_location: "seoul"
+  display_seconds: 6.0
+  locations:
+    seoul:
+      latitude: 37.5665
+      longitude: 126.9780
+    busan:
+      latitude: 35.1796
+      longitude: 129.0756
+    incheon:
+      latitude: 37.4563
+      longitude: 126.7052
 devices:
   tv:
     id: "tv.living_room"

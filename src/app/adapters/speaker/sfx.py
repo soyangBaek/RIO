@@ -20,6 +20,8 @@ SFX_FILES: dict[str, str] = {
     "sleepy": "assets/sounds/sleepy-emote.mp3",
     "angry": "assets/sounds/distress-emote.mp3",
     "lovely": "assets/sounds/love-emote.mp3",
+    "weather": "assets/sounds/flourish-emote-animal-crossing.mp3",
+    "weather_failed": "assets/sounds/surprise-emote.mp3",
 }
 
 # 개별 볼륨 조정 (0.0 ~ 1.0, 기본 1.0)
