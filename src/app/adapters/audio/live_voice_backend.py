@@ -245,6 +245,10 @@ class _WhisperBridgeBackend:
                 no_speech_threshold=self.cfg.asr.no_speech_threshold,
                 condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
                 initial_prompt=self.cfg.asr.initial_prompt,
+                # Base 모델이 짧은 한국어 명령에서 "X X X..." 반복 루프에
+                # 빠지는 문제 방어. 기본 2.4 → 1.8 로 낮추면 반복 생성이
+                # 감지되자마자 해당 fallback 경로로 빠르게 포기한다.
+                compression_ratio_threshold=1.8,
             )
             segs = list(segments)
         except Exception as exc:
