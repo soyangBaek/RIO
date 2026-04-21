@@ -128,7 +128,7 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
         terminal = TerminalVoiceInput(IntentNormalizer())
 
-        for phrase in ("티비 꺼줘", "음악 멈춰줘", "청소기 멈춰줘"):
+        for phrase in ("티비 꺼줘", "음악 꺼줘", "청소기 정지"):
             for event in terminal.build_events(phrase):
                 orchestrator.process_event(event)
             self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT)
