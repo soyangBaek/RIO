@@ -16,6 +16,7 @@ SFX_FILES: dict[str, str] = {
     "timer_registered": "assets/sounds/timer_ring.mp3",
     "success": "assets/sounds/pride-emote.mp3",
     "error": "assets/sounds/surprise-emote.mp3",
+    "listening_cue": "assets/sounds/listening_cue.mp3",
 }
 
 

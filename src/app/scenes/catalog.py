@@ -8,6 +8,7 @@ from src.app.scenes.builders import (
     default_scene,
     finger_gun_reaction,
     game_direction,
+    listening_mode_loop,
     petting_reaction,
     peekaboo_reaction,
     sleep_mode_loop,
@@ -35,6 +36,7 @@ SCENE_CATALOG: dict[str, SceneBuilder] = {
     "tap_attention": tap_attention,
     "game_direction": game_direction,
     "petting_reaction": petting_reaction,
+    "listening_mode_loop": listening_mode_loop,
     "default_scene": default_scene,
 }
 

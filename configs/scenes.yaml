@@ -46,5 +46,8 @@ scenes:
   petting_reaction:
     overlay: "assets/animations/petting.txt"
     sfx: ["happy"]
+  listening_mode_loop:
+    overlay: "assets/animations/listening.txt"
+    sfx: []
   default_scene:
     overlay: null
