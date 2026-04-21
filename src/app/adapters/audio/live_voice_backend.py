@@ -481,6 +481,25 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                 self._feed_silence()
                 continue
 
+            # 구간 평균 RMS 가 너무 낮으면 whisper 로 보내지 않는다.
+            # 관찰: 스파이크로 시작됐지만 실제 발화가 거의 없는 오디오
+            # (segment_rms < 0.05) 가 들어가면 base 모델이 "자" 같은 단일
+            # 글자 hallucination 루프에 빠져 16 초+ 디코딩 + BUSY drop
+            # 연쇄 발생. 정상 발화는 segment_rms ≈ 0.15~0.4 수준이라
+            # 0.05 하한은 여유가 있다.
+            if decision.segment_rms < 0.05:
+                _LOGGER.info(
+                    "drop quiet utterance dur=%dms rms=%.3f (likely noise spike)",
+                    decision.duration_ms,
+                    decision.segment_rms,
+                )
+                self._emit_trace(
+                    f"[voice.vad] speech END dur={decision.duration_ms}ms "
+                    f"rms={decision.segment_rms:.3f} -> DROP_QUIET"
+                )
+                self._feed_silence()
+                continue
+
             self._emit_trace(
                 f"[voice.vad] speech END dur={decision.duration_ms}ms "
                 f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f}"

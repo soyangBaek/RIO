@@ -58,7 +58,11 @@ asr:
   beam_size: 1
   compute_type: "int8"
   device: "cpu"
-  no_speech_threshold: 0.6
+  # 0.6 에서는 "자" 단일글자 + no_speech=0.58 같이 경계선상 디코딩이
+  # 통과해 16 초 걸리는 루프 + BUSY drop 연쇄 유발. 0.8 로 올려 애매한
+  # 구간은 whisper 가 직접 버리게 한다. 발화 RMS 가 수천 수준인 본 환경
+  # 에선 정상 발화는 no_speech≈0 이라 부작용 없음.
+  no_speech_threshold: 0.8
   # 이전 디코딩 텍스트를 다음 컨텍스트로 넣으면 base 모델이 짧은 한국어
   # 명령에서 "컴퓨터 컴퓨터 컴퓨터..." 식 반복 hallucination 에 빠져
   # 디코딩이 30 초 이상 걸리는 케이스가 관찰됐다. 단발 명령이라 이전
