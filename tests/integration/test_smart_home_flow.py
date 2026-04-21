@@ -79,34 +79,6 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertEqual(failure_client.calls, ["aircon.living_room:on"])
         self.assertTrue(any("failed" in text for text in orchestrator.tts.history))
 
-    def test_dynamic_temperature_command_builds_http_payload(self) -> None:
-        orchestrator = RioOrchestrator()
-        client = FakeHomeClient(ok=True)
-        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
-        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
-
-        processed = orchestrator.process_event(
-            Event.create(
-                topics.VOICE_INTENT_DETECTED,
-                "test",
-                payload={
-                    "intent": "smarthome.aircon.set_temperature",
-                    "text": "온도 28도로 맞춰줘",
-                    "temperature_c": 28,
-                    "device_key": "aircon",
-                    "action": "set_temperature",
-                },
-            )
-        )
-        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_REQUEST_SENT))
-
-        request_events = [event for event in processed if event.topic == topics.SMARTHOME_REQUEST_SENT]
-        self.assertTrue(request_events)
-        self.assertEqual(client.calls, ["aircon.living_room:set_temperature:28"])
-        self.assertEqual(request_events[-1].payload["content"], "aircon.living_room:set_temperature:28")
-        self.assertEqual(request_events[-1].payload["params"]["temperature_c"], 28)
-        self.assertTrue(any("success" in text for text in orchestrator.tts.history))
-
     def test_smarthome_command_executes_even_without_visible_face(self) -> None:
         orchestrator = RioOrchestrator()
         client = FakeHomeClient(ok=True)
@@ -126,28 +98,6 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertTrue(any(event.topic == topics.SMARTHOME_RESULT for event in processed))
         self.assertEqual(orchestrator.store.snapshot().context_state, ContextState.IDLE)
         self.assertTrue(any("success" in text for text in orchestrator.tts.history))
-
-    def test_heater_temperature_command_builds_http_payload(self) -> None:
-        orchestrator = RioOrchestrator()
-        client = FakeHomeClient(ok=True)
-        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
-        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
-
-        orchestrator.process_event(
-            Event.create(
-                topics.VOICE_INTENT_DETECTED,
-                "test",
-                payload={
-                    "intent": "smarthome.heater.set_temperature",
-                    "text": "난방 26도로 맞춰줘",
-                    "temperature_c": 26,
-                    "device_key": "heater",
-                    "action": "set_temperature",
-                },
-            )
-        )
-        self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT)
-        self.assertEqual(client.calls, ["heater.living_room:set_temperature:26"])
 
     def test_all_off_intent_calls_reset(self) -> None:
         orchestrator = RioOrchestrator()

@@ -41,17 +41,6 @@ class IntentParserTest(unittest.TestCase):
         self.assertFalse(parsed.is_known)
         self.assertEqual(parsed.reason, "unknown_intent")
 
-    def test_dynamic_aircon_temperature_command(self) -> None:
-        parsed = parse_intent("온도 28도로 맞춰줘", stt_confidence=0.95)
-        self.assertTrue(parsed.is_known)
-        self.assertEqual(parsed.intent, "smarthome.aircon.set_temperature")
-        self.assertEqual(parsed.payload["temperature_c"], 28)
-
-    def test_out_of_range_temperature_becomes_unknown(self) -> None:
-        parsed = parse_intent("온도 45도로 맞춰줘", stt_confidence=0.95)
-        self.assertFalse(parsed.is_known)
-        self.assertEqual(parsed.reason, "temperature_out_of_range")
-
     def test_matches_tv_off_alias(self) -> None:
         parsed = parse_intent("티비 꺼줘", stt_confidence=0.95)
         self.assertTrue(parsed.is_known)
@@ -86,12 +75,6 @@ class IntentParserTest(unittest.TestCase):
         parsed = parse_intent("3분 뒤에 알려줘", stt_confidence=0.95)
         self.assertTrue(parsed.is_known)
         self.assertEqual(parsed.intent, "timer.create")
-
-    def test_dynamic_heater_temperature_command(self) -> None:
-        parsed = parse_intent("난방 26도로 맞춰줘", stt_confidence=0.95)
-        self.assertTrue(parsed.is_known)
-        self.assertEqual(parsed.intent, "smarthome.heater.set_temperature")
-        self.assertEqual(parsed.payload["temperature_c"], 26)
 
     def test_static_computer_on_alias(self) -> None:
         parsed = parse_intent("컴퓨터 켜줘", stt_confidence=0.95)

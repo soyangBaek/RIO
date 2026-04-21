@@ -37,19 +37,6 @@ class TerminalVoiceInputTest(unittest.TestCase):
             topics.VOICE_ACTIVITY_ENDED,
         ])
 
-    def test_builds_dynamic_smarthome_intent_for_temperature_phrase(self) -> None:
-        terminal = TerminalVoiceInput(IntentNormalizer())
-
-        events = terminal.build_events("온도 28도로 맞춰줘", now=self.now)
-
-        self.assertEqual([event.topic for event in events], [
-            topics.VOICE_ACTIVITY_STARTED,
-            topics.VOICE_INTENT_DETECTED,
-            topics.VOICE_ACTIVITY_ENDED,
-        ])
-        self.assertEqual(events[1].payload["intent"], "smarthome.aircon.set_temperature")
-        self.assertEqual(events[1].payload["temperature_c"], 28)
-
     def test_empty_text_is_ignored(self) -> None:
         terminal = TerminalVoiceInput(IntentNormalizer())
 

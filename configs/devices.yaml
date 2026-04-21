@@ -35,18 +35,10 @@ devices:
     id: "aircon.living_room"
     name: "Air conditioner"
     template: "{device_id}:{action}"
-    actions:
-      set_temperature:
-        template: "{device_id}:set_temperature:{temperature_c}"
-        label: "Set temperature"
   heater:
     id: "heater.living_room"
     name: "Heater"
     template: "{device_id}:{action}"
-    actions:
-      set_temperature:
-        template: "{device_id}:set_temperature:{temperature_c}"
-        label: "Set temperature"
   music:
     id: "speaker.main"
     name: "Music"

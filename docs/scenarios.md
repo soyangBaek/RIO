@@ -55,7 +55,6 @@
 | `VOICE-09` | `weather.current` | `Activity: Listening -> Executing(weather)` | 날씨 조회, HUD, 아이콘, TTS 브리핑 |
 | `VOICE-10` | `smarthome.aircon.on` | `Activity: Listening -> Executing(smarthome)` | 에어컨 제어 요청과 결과 피드백 |
 | `VOICE-11` | `smarthome.aircon.off` | `Activity: Listening -> Executing(smarthome)` | 에어컨 종료 요청과 결과 피드백 |
-| `VOICE-12` | `smarthome.aircon.set_temperature` | `Activity: Listening -> Executing(smarthome)` | 온도 설정 요청과 결과 피드백 |
 | `VOICE-13` | `smarthome.light.on` | `Activity: Listening -> Executing(smarthome)` | 조명 제어 요청과 결과 피드백 |
 | `VOICE-14` | `smarthome.light.off` | `Activity: Listening -> Executing(smarthome)` | 조명 종료 요청과 결과 피드백 |
 | `VOICE-15` | `smarthome.robot_cleaner.start` | `Activity: Listening -> Executing(smarthome)` | 로봇청소기 제어 요청과 결과 피드백 |

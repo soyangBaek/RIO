@@ -24,10 +24,8 @@ INTENT_TO_DEVICE_ACTION = {
     "smarthome.air_purifier.off": ("air_purifier", "off"),
     "smarthome.aircon.on": ("aircon", "on"),
     "smarthome.aircon.off": ("aircon", "off"),
-    "smarthome.aircon.set_temperature": ("aircon", "set_temperature"),
     "smarthome.heater.on": ("heater", "on"),
     "smarthome.heater.off": ("heater", "off"),
-    "smarthome.heater.set_temperature": ("heater", "set_temperature"),
     "smarthome.music.play": ("music", "play"),
     "smarthome.music.stop": ("music", "stop"),
 }

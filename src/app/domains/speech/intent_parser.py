@@ -97,62 +97,6 @@ def _parse_dynamic_smarthome(
             payload=dict(payload or {}),
         )
 
-    temp_match = re.search(r"(-?\d{1,2})\s*도(?:로)?", text)
-    if temp_match is None:
-        temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
-    if temp_match is not None:
-        heater_keywords = ("난방", "히터", "heater", "heating", "보일러")
-        aircon_keywords = (
-            "온도",
-            "temperature",
-            "맞춰",
-            "설정",
-            "set",
-            "에어컨",
-            "aircon",
-            "air conditioner",
-        )
-        temperature_c = int(temp_match.group(1))
-
-        if any(keyword in normalized_text for keyword in heater_keywords):
-            if temperature_c < 16 or temperature_c > 30:
-                return IntentParseResult(
-                    intent=None,
-                    confidence=stt_confidence,
-                    text=text,
-                    normalized_text=normalized_text,
-                    reason="temperature_out_of_range",
-                )
-            return result(
-                "smarthome.heater.set_temperature",
-                matched_alias="__dynamic_heater_temperature__",
-                payload={
-                    "device_key": "heater",
-                    "action": "set_temperature",
-                    "temperature_c": temperature_c,
-                },
-            )
-
-        if any(keyword in normalized_text for keyword in aircon_keywords):
-            if temperature_c < 16 or temperature_c > 30:
-                return IntentParseResult(
-                    intent=None,
-                    confidence=stt_confidence,
-                    text=text,
-                    normalized_text=normalized_text,
-                    reason="temperature_out_of_range",
-                )
-
-            return result(
-                "smarthome.aircon.set_temperature",
-                matched_alias="__dynamic_aircon_temperature__",
-                payload={
-                    "device_key": "aircon",
-                    "action": "set_temperature",
-                    "temperature_c": temperature_c,
-                },
-            )
-
     if has_any("에어컨", "aircon", "air conditioner", "ac", "냉방"):
         if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
             return result("smarthome.aircon.off", matched_alias="__dynamic_aircon_off__")

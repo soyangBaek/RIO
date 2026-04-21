@@ -33,7 +33,7 @@ _device_states: dict[str, dict] = {
     "light.indirect": {"name": "간접등", "on": False, "last_action": None, "updated_at": None},
     "cleaner.bot": {"name": "로봇청소기", "on": False, "last_action": None, "updated_at": None},
     "purifier.living_room": {"name": "공기청정기", "on": False, "last_action": None, "updated_at": None},
-    "aircon.living_room": {"name": "에어컨", "on": False, "last_action": None, "updated_at": None, "temperature_c": None, "mode": "cool"},
+    "aircon.living_room": {"name": "에어컨", "on": False, "last_action": None, "updated_at": None, "mode": "cool"},
     "heater.living_room": {"name": "난방", "on": False, "last_action": None, "updated_at": None},
     "speaker.main": {"name": "음악", "on": False, "last_action": None, "updated_at": None},
 }
@@ -76,7 +76,6 @@ def _process_control(content: str) -> dict:
 
     device_id = parts[0]
     action = parts[1]
-    params = parts[2:] if len(parts) > 2 else []
 
     now = datetime.now(timezone.utc).isoformat()
 
@@ -96,12 +95,6 @@ def _process_control(content: str) -> dict:
             dev["on"] = True
         elif action in ("off", "stop"):
             dev["on"] = False
-        elif action == "set_temperature" and params:
-            dev["on"] = True
-            try:
-                dev["temperature_c"] = int(params[0])
-            except ValueError:
-                pass
 
     _broadcast_state()
 

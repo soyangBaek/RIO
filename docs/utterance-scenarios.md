@@ -26,7 +26,7 @@
 6. 도메인 서비스가 `task.started` → (도메인 고유 이벤트) → `task.succeeded | task.failed` 발행
    - 성공/실패에 따라 `oneshot=happy | confused`가 따라붙음
 
-> `VOICE_INTENT_DETECTED` payload는 `intent`, `text`, `confidence` 외에 파서가 넣은 `payload`(예: `device_key`, `action`, `temperature_c`, `delay_seconds`)를 그대로 실행 쪽에 전달합니다.
+> `VOICE_INTENT_DETECTED` payload는 `intent`, `text`, `confidence` 외에 파서가 넣은 `payload`(예: `delay_seconds`)를 그대로 실행 쪽에 전달합니다.
 
 ---
 
@@ -42,10 +42,7 @@
 
 YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가되므로 alias보다 우선합니다.
 
-- `_parse_dynamic_smarthome` — 스마트홈 명령 ([intent_parser.py:79-213](../src/app/domains/speech/intent_parser.py#L79-L213))
-  - `N도(로)` 또는 `N degrees|c` 패턴 + `에어컨/온도` → `smarthome.aircon.set_temperature`
-  - `N도(로)` + `난방/히터/보일러` → `smarthome.heater.set_temperature`
-  - 둘 다 16~30°C 범위를 벗어나면 `reason=temperature_out_of_range`로 `unknown`
+- `_parse_dynamic_smarthome` — 스마트홈 명령 ([intent_parser.py](../src/app/domains/speech/intent_parser.py))
   - `에어컨|aircon|ac|냉방` + `켜|꺼` → `smarthome.aircon.on/off`
   - `난방|히터|보일러|heater` + `켜|꺼` → `smarthome.heater.on/off`
   - `간접등|무드등|indirect light|mood light` + `켜|꺼` → `smarthome.indirect_light.on/off`
@@ -77,7 +74,6 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 | "5분 뒤에 알려줘" | `timer.create` | `TIMER_SETUP` | `TimerService` ([timers/service.py](../src/app/domains/timers/service.py)) | `Listening → Executing(timer_setup) → Idle` (즉시 복귀) | `confused` on 파싱 실패 |
 | "날씨 알려줘" | `weather.current` | `WEATHER` | `_weather_execution_handler` ([main.py:193-221](../src/app/main.py#L193-L221)) | `Listening → Executing(weather) → Idle` | `confused` on 실패 |
 | "에어컨 켜줘" | `smarthome.aircon.on` | `SMARTHOME` | `SmartHomeService` ([smart_home/service.py](../src/app/domains/smart_home/service.py)) | `Listening → Executing(smarthome) → Idle` | `happy`/`confused` |
-| "에어컨 28도로 맞춰줘" | `smarthome.aircon.set_temperature` | `SMARTHOME` | 동일 | 동일 | 동일 |
 | "불 꺼줘" | `smarthome.light.off` | `SMARTHOME` | 동일 | 동일 | 동일 |
 | "다 꺼" | `smarthome.all.off` | `SMARTHOME` | `SmartHomeService._handle_all_off` | 동일 (client의 `reset_all()` 호출) | 동일 |
 | "취소" | `system.cancel` | — | Activity reducer 직접 처리 | `Listening/Executing(dance|game) → Idle` | — |
@@ -183,8 +179,6 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 |---|---|---|
 | "에어컨 켜줘" | `smarthome.aircon.on` | `aircon.living_room:on` |
 | "에어컨 꺼줘" | `smarthome.aircon.off` | `aircon.living_room:off` |
-| "에어컨 28도로 맞춰줘" | `smarthome.aircon.set_temperature` | `aircon.living_room:set_temperature:28` |
-| "난방 26도로 맞춰줘" | `smarthome.heater.set_temperature` | `heater.living_room:set_temperature:26` |
 | "난방 켜줘" | `smarthome.heater.on` | `heater.living_room:on` |
 | "불 켜줘" / "불 꺼줘" | `smarthome.light.on/off` | `light.main:on` / `light.main:off` |
 | "간접등 켜줘" | `smarthome.indirect_light.on` | `light.indirect:on` |
@@ -197,7 +191,6 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 | "음악 꺼줘" | `smarthome.music.stop` | `speaker.main:stop` |
 | "다 꺼" | `smarthome.all.off` | `all:off` (POST `/api/reset`) |
 
-- **온도 경계**: `16 ≤ temperature_c ≤ 30`만 허용. 벗어나면 `intent=None, reason="temperature_out_of_range"` → `voice.intent.unknown`처럼 `oneshot=confused` 처리
 - **인터럽트 정책**: Executing(smarthome) 중 새 intent는 `DEFER_INTENT`로 1개만 저장. 현재 작업 종료 직후 `_maybe_replay_deferred`가 재주입 ([interrupts.py:65-74](../src/app/domains/behavior/interrupts.py#L65-L74), [main.py:470+](../src/app/main.py#L470))
 
 ### 4.7 시스템 제어 `system.cancel` / `system.ack`
@@ -275,14 +268,14 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 
 ## 7. 샘플 시나리오 (End-to-End)
 
-### 7.1 "RIO, 에어컨 28도로 맞춰줘"
+### 7.1 "RIO, 에어컨 켜줘"
 
 1. 얼굴 없이 말 시작 → `voice.activity.started` → `Activity: Idle→Listening`, `oneshot=startled`, `ListeningUI + search indicator`, sfx `listening_cue`+`startled`
-2. STT가 "RIO 에어컨 28도로 맞춰줘" 전달
-3. `_parse_dynamic_smarthome`이 `N도(로)` + `에어컨` 매칭, `16 ≤ 28 ≤ 30` 통과 → `smarthome.aircon.set_temperature`, payload=`{device_key:"aircon", action:"set_temperature", temperature_c:28}`
+2. STT가 "RIO 에어컨 켜줘" 전달
+3. `_parse_dynamic_smarthome`이 `에어컨` + `켜` 매칭 → `smarthome.aircon.on`
 4. `VOICE_INTENT_DETECTED` → `Activity: Listening→Executing(smarthome)`, Mood=`ATTENTIVE`, UI=`NormalFace`
-5. `SmartHomeService`가 `content="aircon.living_room:set_temperature:28"` 생성 → `PUT /device/control` 전송
-6. 응답 `ok=true` → `SMARTHOME_RESULT(ok=true)` + `TASK_SUCCEEDED` → `oneshot=happy` → sfx `success`+`happy` + TTS `"Air conditioner Set temperature done"` → `Activity → Idle`
+5. `SmartHomeService`가 `content="aircon.living_room:on"` 생성 → `PUT /device/control` 전송
+6. 응답 `ok=true` → `SMARTHOME_RESULT(ok=true)` + `TASK_SUCCEEDED` → `oneshot=happy` → sfx `success`+`happy` + TTS `"Air conditioner on done"` → `Activity → Idle`
 
 ### 7.2 "사진 찍어줘" 도중 타이머 만료
 

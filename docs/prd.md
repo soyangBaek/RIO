@@ -115,7 +115,6 @@
 | `weather.current` | "날씨 알려줘" | 날씨 조회 후 응답 |
 | `smarthome.aircon.on` | "에어컨 켜줘" | home-client 제어 요청 |
 | `smarthome.aircon.off` | "에어컨 꺼줘" | home-client 제어 요청 |
-| `smarthome.aircon.set_temperature` | "온도 28도로 맞춰줘" | home-client 제어 요청 |
 | `smarthome.light.on` | "불 켜줘" | home-client 제어 요청 |
 | `smarthome.light.off` | "불 꺼줘" | home-client 제어 요청 |
 | `smarthome.robot_cleaner.start` | "로봇 청소기 실행시켜줘" | home-client 제어 요청 |
@@ -198,7 +197,6 @@ RIO는 스마트홈 제어를 직접 벤더 SDK에 붙이지 않고, 우선 `로
 - 음성 명령은 먼저 intent로 정규화합니다.
 - MVP 현재 구현에서는 intent를 canonical control message string으로 변환해 `content`에 담아 전송합니다.
   - 예: `aircon.living_room:on`
-  - 예: `aircon.living_room:set_temperature:28`
   - 예: `light.main:off`
 - 실패하더라도 RIO는 표정과 사운드로 결과를 반드시 피드백합니다.
 

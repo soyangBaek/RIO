@@ -105,11 +105,6 @@ intents:
     - "pc 꺼줘"
     - "turn off the computer"
     - "computer off"
-  smarthome.heater.set_temperature:
-    - "난방 온도 맞춰줘"
-    - "히터 온도 맞춰줘"
-    - "난방 온도 설정"
-    - "set heater temperature"
   smarthome.all.off:
     - "다 꺼줘"
     - "전부 꺼줘"
