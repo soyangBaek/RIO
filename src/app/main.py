@@ -190,15 +190,33 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
     return _build_python_backend()
 
 
-def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequest], ExecutionResult]:
+DANCE_DURATION_SECONDS = 10.0
+PHOTO_COUNTDOWN_SECONDS = 3.0
+ALERT_AUTO_DISMISS_SECONDS = 15.0
+WEATHER_DISPLAY_DURATION_SECONDS = 6.0
+
+
+def _weather_execution_handler_factory(
+    orchestrator: "RioOrchestrator",
+    client: WeatherClient,
+    display_seconds: float = WEATHER_DISPLAY_DURATION_SECONDS,
+) -> Callable[[ExecutionRequest], ExecutionResult]:
     def handler(request: ExecutionRequest) -> ExecutionResult:
+        task_id = request.payload.get("task_id", request.trace_id or "weather")
         task_started = Event.create(
             topics.TASK_STARTED,
             "weather.handler",
-            payload={"task_id": request.payload.get("task_id", request.trace_id or "weather"), "kind": ActionKind.WEATHER.value},
+            payload={"task_id": task_id, "kind": ActionKind.WEATHER.value},
             trace_id=request.trace_id,
         )
-        result = client.fetch_current(location=str(request.payload.get("location") or "seoul"))
+        location_raw = request.payload.get("location")
+        location = str(location_raw) if isinstance(location_raw, str) and location_raw else None
+        result = client.fetch_current(location=location)
+        if result.get("ok"):
+            orchestrator.weather_display_end_at = datetime.now(timezone.utc) + timedelta(
+                seconds=display_seconds
+            )
+            orchestrator.weather_icon_key = str(result.get("icon_key", "unknown"))
         weather_event = Event.create(
             topics.WEATHER_RESULT,
             "weather.handler",
@@ -210,7 +228,7 @@ def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequ
             terminal_topic,
             "weather.handler",
             payload={
-                "task_id": request.payload.get("task_id", request.trace_id or "weather"),
+                "task_id": task_id,
                 "kind": ActionKind.WEATHER.value,
                 "message": result.get("message", "weather complete"),
             },
@@ -219,11 +237,6 @@ def _weather_execution_handler(client: WeatherClient) -> Callable[[ExecutionRequ
         return ExecutionResult(events=[task_started, weather_event, terminal])
 
     return handler
-
-
-DANCE_DURATION_SECONDS = 10.0
-PHOTO_COUNTDOWN_SECONDS = 3.0
-ALERT_AUTO_DISMISS_SECONDS = 15.0
 
 
 def _photo_execution_handler_factory(
@@ -356,6 +369,8 @@ class RioOrchestrator:
     held_alerts: list[Event] = field(default_factory=list)
     webcam_capture: "WebcamCapture | None" = None
     photo_countdown_end_at: "datetime | None" = None
+    weather_display_end_at: "datetime | None" = None
+    weather_icon_key: "str | None" = None
     _dance_timer: "threading.Timer | None" = None
     _photo_timer: "threading.Timer | None" = None
     _alert_timeout_timer: "threading.Timer | None" = None
@@ -436,11 +451,15 @@ class RioOrchestrator:
             _LOGGER.info("ThinQ bridge UP — %s", home_client.base_url)
         else:
             _LOGGER.warning("ThinQ bridge DOWN — %s (%s)", home_client.base_url, hc.get("message", ""))
+        weather_cfg = devices_cfg.get("weather") or {}
         weather_client = WeatherClient(
-            base_url=str((devices_cfg.get("weather") or {}).get("base_url", "https://api.example.invalid/weather")),
+            base_url=str(weather_cfg.get("base_url", "https://api.open-meteo.com/v1/forecast")),
+            locations=dict(weather_cfg.get("locations") or {}),
+            default_location=str(weather_cfg.get("default_location", "seoul")),
             http_timeout_ms=int((thresholds_cfg.get("task") or {}).get("http_timeout_ms", 3000)),
             retry_count=int((thresholds_cfg.get("task") or {}).get("http_retry_count", 1)),
         )
+        weather_display_seconds = float(weather_cfg.get("display_seconds", WEATHER_DISPLAY_DURATION_SECONDS))
         photo_storage = PhotoStorage(root_dir=Path(str((robot_cfg.get("photo") or {}).get("storage_dir", "data/photos"))))
         self.webcam_capture = WebcamCapture(photo_storage)
         self.registry.register(ActionKind.PHOTO, _photo_execution_handler_factory(self))
@@ -448,7 +467,10 @@ class RioOrchestrator:
         self.registry.register(ActionKind.SMARTHOME, SmartHomeService(home_client))
         self.registry.register(ActionKind.GAME, GamesService())
         self.registry.register(ActionKind.DANCE, _dance_execution_handler_factory(self))
-        self.registry.register(ActionKind.WEATHER, _weather_execution_handler(weather_client))
+        self.registry.register(
+            ActionKind.WEATHER,
+            _weather_execution_handler_factory(self, weather_client, weather_display_seconds),
+        )
 
     def publish(self, event: Event) -> None:
         self.bus.publish(event)

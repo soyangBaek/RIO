@@ -103,14 +103,6 @@ def _tts_messages(event: Event) -> list[str]:
         if event.payload.get("ok"):
             return [event.payload.get("message") or "Command completed."]
         return [event.payload.get("message") or "Command failed."]
-    if event.topic == topics.WEATHER_RESULT:
-        if not event.payload.get("ok", True):
-            return ["Failed to fetch weather."]
-        condition = event.payload.get("condition", "Unknown")
-        temperature = event.payload.get("temperature_c")
-        if temperature is None:
-            return [f"Current weather is {condition}."]
-        return [f"Current weather is {condition}, temperature {temperature} degrees."]
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.PHOTO.value:
         return ["Photo taken."]
     if event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:
@@ -142,6 +134,8 @@ def _sfx_names(result: ReductionResult, event: Event) -> list[str]:
         names.append("alert")
     elif event.topic == topics.SMARTHOME_RESULT:
         names.append("success" if event.payload.get("ok") else "error")
+    elif event.topic == topics.WEATHER_RESULT:
+        names.append("weather" if event.payload.get("ok") else "weather_failed")
     elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.PHOTO.value:
         names.append("shutter")
     elif event.topic == topics.TASK_SUCCEEDED and event.payload.get("kind") == ActionKind.GAME.value:

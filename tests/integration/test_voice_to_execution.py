@@ -47,7 +47,7 @@ class VoiceToExecutionIntegrationTest(unittest.TestCase):
         self.assertIn(topics.WEATHER_RESULT, seen_topics)
         self.assertIn(topics.TASK_SUCCEEDED, seen_topics)
         self.assertEqual(orchestrator.store.snapshot().activity_state, ActivityState.IDLE)
-        self.assertTrue(any("맑음" in text for text in orchestrator.tts.history))
+        self.assertIn("weather", orchestrator.sfx.history)
 
 
 if __name__ == "__main__":
