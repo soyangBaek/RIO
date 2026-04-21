@@ -44,7 +44,8 @@ LISTENING_SPRITE_PATH = "assets/animations/listening_sprite.png"
 LISTENING_SPRITE_FRAMES = 24
 LISTENING_SPRITE_FPS = 24
 LISTENING_SPRITE_SCALE = 0.7
-LISTENING_MARGIN_PX = 50
+LISTENING_MARGIN_X = 100
+LISTENING_MARGIN_Y = 50
 
 
 @lru_cache(maxsize=4)
@@ -676,8 +677,8 @@ def draw_ui_overlay(
             sprite = frames[frame_idx]
             sh, sw = sprite.shape[:2]
             canvas_h = image.shape[0]
-            blit_x = LISTENING_MARGIN_PX
-            blit_y = canvas_h - sh - LISTENING_MARGIN_PX
+            blit_x = LISTENING_MARGIN_X
+            blit_y = canvas_h - sh - LISTENING_MARGIN_Y
             blit_sprite_rgba(image, sprite, (blit_x, blit_y))
 
     if ui == "CameraUI" or overlay_key == "camera_countdown":
