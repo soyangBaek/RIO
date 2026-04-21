@@ -59,7 +59,11 @@ asr:
   compute_type: "int8"
   device: "cpu"
   no_speech_threshold: 0.6
-  condition_on_previous_text: true
+  # 이전 디코딩 텍스트를 다음 컨텍스트로 넣으면 base 모델이 짧은 한국어
+  # 명령에서 "컴퓨터 컴퓨터 컴퓨터..." 식 반복 hallucination 에 빠져
+  # 디코딩이 30 초 이상 걸리는 케이스가 관찰됐다. 단발 명령이라 이전
+  # 문맥이 주는 이득도 없으므로 false 로 둔다.
+  condition_on_previous_text: false
 
   # logprob 하한. 이보다 낮으면 capture 에 주입 안 함 (환각 차단).
   # 샌드박스의 wake_word.min_asr_logprob 와 동일 역할.
