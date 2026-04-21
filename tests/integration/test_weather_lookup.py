@@ -14,7 +14,12 @@ def success_weather_handler(request):
     return ExecutionResult(
         events=[
             Event.create(topics.TASK_STARTED, "test.weather", payload={"task_id": "weather-ok", "kind": ActionKind.WEATHER.value}),
-            Event.create(topics.WEATHER_RESULT, "test.weather", payload={"ok": True, "condition": "비", "temperature_c": 18.5}, trace_id=request.trace_id),
+            Event.create(
+                topics.WEATHER_RESULT,
+                "test.weather",
+                payload={"ok": True, "condition": "rain", "temperature_c": 18.5, "icon_key": "rainy"},
+                trace_id=request.trace_id,
+            ),
             Event.create(topics.TASK_SUCCEEDED, "test.weather", payload={"task_id": "weather-ok", "kind": ActionKind.WEATHER.value}),
         ]
     )
@@ -55,7 +60,11 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
             )
         )
         self._wait_for_topic(orchestrator, topics.WEATHER_RESULT)
-        self.assertTrue(any("비" in text for text in orchestrator.tts.history))
+        self.assertFalse(
+            any("Current weather" in text or "Failed to fetch weather" in text for text in orchestrator.tts.history),
+            msg="weather result should not emit TTS after SFX migration",
+        )
+        self.assertIn("weather", orchestrator.sfx.history)
         self.assertIn("Weather OK", [frame.hud.message for frame in orchestrator.renderer.history])
 
         orchestrator = RioOrchestrator()
@@ -71,6 +80,7 @@ class WeatherLookupIntegrationTest(unittest.TestCase):
         )
         self._wait_for_topic(orchestrator, topics.WEATHER_RESULT)
         self.assertEqual(orchestrator.store.snapshot().active_oneshot.name, OneshotName.CONFUSED)
+        self.assertIn("weather_failed", orchestrator.sfx.history)
         self.assertIn("Weather failed", [frame.hud.message for frame in orchestrator.renderer.history])
 
 

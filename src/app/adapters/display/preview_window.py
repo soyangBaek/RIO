@@ -318,6 +318,10 @@ def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
     if photo_task is not None and photo_task.topic == topics.TASK_SUCCEEDED and _is_recent_event(photo_task, within_ms=900):
         return pick("photo_cute", "happy")
 
+    if rio.weather_display_end_at is not None:
+        if (rio.weather_display_end_at - datetime.now(timezone.utc)).total_seconds() > 0:
+            return pick("robot_right", "attentive")
+
     smarthome_result = _find_recent_event(rio, topics.SMARTHOME_RESULT)
     if smarthome_result is not None and _is_recent_event(smarthome_result) and not smarthome_result.payload.get("ok", True):
         return pick("smarthome_fail", "confused")
@@ -333,7 +337,7 @@ def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
         if kind == ActionKind.DANCE:
             return pick("dance_face", "happy")
         if kind == ActionKind.WEATHER:
-            return pick("weather_face", "attentive")
+            return pick("robot_right", "attentive")
 
     if render_frame.ui == "CameraUI":
         return pick("photo_ready", "attentive")
@@ -653,6 +657,199 @@ def draw_eye(
     cv2.line(image, left, right, scale_color(accent, 0.86), 5, cv2.LINE_AA)
 
 
+def _draw_weather_icon(
+    image: np.ndarray,
+    face_rect: tuple[int, int, int, int],
+    icon_key: str,
+    palette: dict[str, tuple[int, int, int]],
+    now_s: float,
+    remaining: float,
+) -> None:
+    x1, y1, x2, y2 = face_rect
+    cx = (x1 + x2) // 2
+    cy = (y1 + y2) // 2
+    r = 110
+    fade = 1.0 if remaining >= 1.0 else max(0.0, remaining)
+
+    sun_color = rgb(255, 210, 80)
+    cloud_color = rgb(210, 218, 230)
+    cloud_edge = rgb(170, 180, 200)
+    rain_color = rgb(110, 170, 240)
+    snow_color = rgb(245, 250, 255)
+    thunder_color = rgb(255, 236, 110)
+    fog_color = rgb(200, 206, 216)
+    panel_bg = scale_color(palette["panel"], 0.78)
+
+    alpha_composite(
+        image,
+        lambda layer: cv2.circle(layer, (cx, cy), r + 32, panel_bg, -1, cv2.LINE_AA),
+        alpha=0.55 * fade,
+    )
+
+    def _draw_cloud(center: tuple[int, int], scale: float = 2.0, color: tuple[int, int, int] = cloud_color) -> None:
+        ccx, ccy = center
+        radii = [int(26 * scale), int(22 * scale), int(20 * scale)]
+        offsets = [(0, 0), (int(-24 * scale), int(6 * scale)), (int(22 * scale), int(6 * scale))]
+        for (ox, oy), rr in zip(offsets, radii):
+            alpha_composite(
+                image,
+                lambda layer, p=(ccx + ox, ccy + oy), rad=rr: cv2.circle(layer, p, rad, color, -1, cv2.LINE_AA),
+                alpha=fade,
+            )
+        alpha_composite(
+            image,
+            lambda layer: cv2.ellipse(
+                layer,
+                (ccx, ccy + int(16 * scale)),
+                (int(44 * scale), int(12 * scale)),
+                0, 0, 360, color, -1, cv2.LINE_AA,
+            ),
+            alpha=fade,
+        )
+        alpha_composite(
+            image,
+            lambda layer: cv2.ellipse(
+                layer,
+                (ccx, ccy + int(16 * scale)),
+                (int(44 * scale), int(12 * scale)),
+                0, 0, 360, cloud_edge, 3, cv2.LINE_AA,
+            ),
+            alpha=fade,
+        )
+
+    if icon_key == "sunny":
+        for i in range(8):
+            angle = now_s * 0.6 + i * math.pi / 4
+            x_inner = int(cx + math.cos(angle) * (r - 12))
+            y_inner = int(cy + math.sin(angle) * (r - 12))
+            x_outer = int(cx + math.cos(angle) * (r + 36))
+            y_outer = int(cy + math.sin(angle) * (r + 36))
+            alpha_composite(
+                image,
+                lambda layer, a=(x_inner, y_inner), b=(x_outer, y_outer): cv2.line(
+                    layer, a, b, sun_color, 10, cv2.LINE_AA
+                ),
+                alpha=fade,
+            )
+        alpha_composite(
+            image,
+            lambda layer: cv2.circle(layer, (cx, cy), r - 20, sun_color, -1, cv2.LINE_AA),
+            alpha=fade,
+        )
+        alpha_composite(
+            image,
+            lambda layer: cv2.circle(layer, (cx, cy), r - 20, scale_color(sun_color, 0.75), 6, cv2.LINE_AA),
+            alpha=fade,
+        )
+        return
+
+    if icon_key == "cloudy":
+        _draw_cloud((cx, cy), scale=2.0)
+        _draw_cloud((cx - 36, cy - 28), scale=1.5, color=scale_color(cloud_color, 1.08))
+        return
+
+    if icon_key == "rainy":
+        _draw_cloud((cx, cy - 20), scale=2.0)
+        offset = (now_s * 140.0) % 48.0
+        for i in range(4):
+            drop_x = cx - 66 + i * 44
+            drop_y0 = cy + 36 + int(offset) - (i * 12 % 48)
+            drop_y1 = drop_y0 + 32
+            alpha_composite(
+                image,
+                lambda layer, a=(drop_x, drop_y0), b=(drop_x - 8, drop_y1): cv2.line(
+                    layer, a, b, rain_color, 8, cv2.LINE_AA
+                ),
+                alpha=fade,
+            )
+        return
+
+    if icon_key == "snowy":
+        _draw_cloud((cx, cy - 20), scale=2.0)
+        for i in range(4):
+            sx = cx - 66 + i * 44
+            sy = cy + 56 + int(math.sin(now_s * 2 + i) * 6)
+            rot = now_s * 0.8 + i
+            for k in range(3):
+                angle = rot + k * math.pi / 3
+                ex = int(sx + math.cos(angle) * 16)
+                ey = int(sy + math.sin(angle) * 16)
+                alpha_composite(
+                    image,
+                    lambda layer, a=(sx, sy), b=(ex, ey): cv2.line(
+                        layer, a, b, snow_color, 4, cv2.LINE_AA
+                    ),
+                    alpha=fade,
+                )
+        return
+
+    if icon_key == "thunder":
+        _draw_cloud((cx, cy - 16), scale=2.0, color=scale_color(cloud_color, 0.85))
+        if math.sin(now_s * 6.0) > -0.3:
+            bolt = np.array(
+                [
+                    [cx - 8, cy + 28],
+                    [cx + 20, cy + 28],
+                    [cx - 4, cy + 60],
+                    [cx + 28, cy + 60],
+                    [cx - 12, cy + 108],
+                    [cx + 8, cy + 72],
+                    [cx - 16, cy + 72],
+                    [cx + 4, cy + 44],
+                    [cx - 20, cy + 44],
+                ],
+                dtype=np.int32,
+            )
+            alpha_composite(
+                image,
+                lambda layer: cv2.fillPoly(layer, [bolt], thunder_color, cv2.LINE_AA),
+                alpha=fade,
+            )
+            alpha_composite(
+                image,
+                lambda layer: cv2.polylines(
+                    layer, [bolt], True, scale_color(thunder_color, 0.7), 4, cv2.LINE_AA
+                ),
+                alpha=fade,
+            )
+        return
+
+    if icon_key == "fog":
+        for i in range(5):
+            row_y = cy - 60 + i * 28
+            pts = []
+            for step in range(-120, 126, 5):
+                px = cx + step
+                py = row_y + int(math.sin(step / 10.0 + now_s * 2) * 8)
+                pts.append((px, py))
+            arr = np.array(pts, dtype=np.int32)
+            alpha_composite(
+                image,
+                lambda layer, poly=arr: cv2.polylines(
+                    layer, [poly], False, fog_color, 8, cv2.LINE_AA
+                ),
+                alpha=fade,
+            )
+        return
+
+    text = "?"
+    (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, 4.4, 8)
+    alpha_composite(
+        image,
+        lambda layer: cv2.putText(
+            layer,
+            text,
+            (cx - tw // 2, cy + th // 2),
+            cv2.FONT_HERSHEY_DUPLEX,
+            4.4,
+            palette["accent"],
+            8,
+            cv2.LINE_AA,
+        ),
+        alpha=fade,
+    )
+
+
 def draw_ui_overlay(
     image: np.ndarray,
     *,
@@ -665,6 +862,8 @@ def draw_ui_overlay(
     gesture: str | None,
     asset_key: str | None = None,
     photo_countdown_remaining: float | None = None,
+    weather_remaining: float | None = None,
+    weather_icon_key: str | None = None,
 ) -> None:
     x1, y1, x2, y2 = face_rect
     accent = palette["accent"]
@@ -694,6 +893,9 @@ def draw_ui_overlay(
             blit_x = LISTENING_MARGIN_X
             blit_y = canvas_h - sh - LISTENING_MARGIN_Y
             blit_sprite_rgba(image, sprite, (blit_x, blit_y))
+
+    if weather_remaining is not None and weather_remaining > 0 and weather_icon_key:
+        _draw_weather_icon(image, face_rect, weather_icon_key, palette, now_s, weather_remaining)
 
     if ui == "CameraUI" or overlay_key == "camera_countdown":
         bracket_color = mix_color(panel_edge, rgb(255, 238, 178), 0.4)
@@ -831,6 +1033,11 @@ def draw_robot_face(
         delta = (rio.photo_countdown_end_at - datetime.now(timezone.utc)).total_seconds()
         if delta > 0:
             countdown_remaining = delta
+    weather_remaining: float | None = None
+    if rio.weather_display_end_at is not None:
+        wdelta = (rio.weather_display_end_at - datetime.now(timezone.utc)).total_seconds()
+        if wdelta > 0:
+            weather_remaining = wdelta
 
     if draw_face_asset_panel(canvas, rect=face_rect, asset_key=asset_key, render_frame=render_frame, now_s=now_s):
         draw_ui_overlay(
@@ -844,6 +1051,8 @@ def draw_robot_face(
             gesture=last_gesture,
             asset_key=asset_key,
             photo_countdown_remaining=countdown_remaining,
+            weather_remaining=weather_remaining,
+            weather_icon_key=rio.weather_icon_key,
         )
         _draw_action_badge(canvas, face_rect, palette, current_action)
         return
@@ -945,6 +1154,8 @@ def draw_robot_face(
         now_s=now_s,
         gesture=last_gesture,
         photo_countdown_remaining=countdown_remaining,
+        weather_remaining=weather_remaining,
+        weather_icon_key=rio.weather_icon_key,
     )
     _draw_action_badge(canvas, face_rect, palette, current_action)
 

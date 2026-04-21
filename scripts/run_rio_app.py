@@ -157,7 +157,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        default=None,
+        default="app",
         help="Load configs/runtime_<profile>.yaml for defaults (e.g. 'app' or 'live_test').",
     )
     # 명시적으로 지정되지 않은 플래그는 None 으로 두고, 프로파일/빌트인 기본값으로 채운다.
