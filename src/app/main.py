@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -99,8 +100,35 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
     asr = (cfg.get("asr") or {}) if isinstance(cfg, dict) else {}
     concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
     backend = (cfg.get("backend") or {}) if isinstance(cfg, dict) else {}
+    voice_logging = (cfg.get("logging") or {}) if isinstance(cfg, dict) else {}
+
+    # run_rio_app.py --log info 가 설정하는 튜닝 모드 플래그.
+    # 없으면 voice.yaml 값을 그대로 쓴다 (기존 동작 유지).
+    voice_debug_tuning = os.environ.get("RIO_VOICE_DEBUG") == "1"
+
+    log_level_name = str(voice_logging.get("level", "INFO")).strip().upper()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+    if voice_debug_tuning:
+        log_level = logging.DEBUG
+    voice_logger = logging.getLogger("src.app.adapters.audio.live_voice_backend")
+    voice_logger.setLevel(log_level)
+    if log_level < logging.INFO and not any(
+        getattr(h, "_rio_voice_debug", False) for h in voice_logger.handlers
+    ):
+        handler = logging.StreamHandler()
+        handler.setLevel(log_level)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s - %(message)s"))
+        handler._rio_voice_debug = True  # type: ignore[attr-defined]
+        voice_logger.addHandler(handler)
+        voice_logger.propagate = False
 
     backend_type = str(backend.get("type", "python")).strip().lower() or "python"
+    if voice_debug_tuning and backend_type != "python":
+        _LOGGER.info(
+            "RIO_VOICE_DEBUG=1: forcing python voice backend (was %r) so per-frame RMS logs are emitted",
+            backend_type,
+        )
+        backend_type = "python"
     fallback_to_python = bool(backend.get("fallback_to_python", True))
     missing = _missing_voice_dependencies(
         backend_type=backend_type,

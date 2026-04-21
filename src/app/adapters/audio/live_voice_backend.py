@@ -245,6 +245,10 @@ class _WhisperBridgeBackend:
                 no_speech_threshold=self.cfg.asr.no_speech_threshold,
                 condition_on_previous_text=self.cfg.asr.condition_on_previous_text,
                 initial_prompt=self.cfg.asr.initial_prompt,
+                # Base 모델이 짧은 한국어 명령에서 "X X X..." 반복 루프에
+                # 빠지는 문제 방어. 기본 2.4 → 1.8 로 낮추면 반복 생성이
+                # 감지되자마자 해당 fallback 경로로 빠르게 포기한다.
+                compression_ratio_threshold=1.8,
             )
             segs = list(segments)
         except Exception as exc:
@@ -433,6 +437,10 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
     def _vad_loop(self) -> None:
         assert self._vad_engine is not None
 
+        threshold = int(self.cfg.vad.threshold)
+        window_rms: list[int] = []
+        last_window_log = time.monotonic()
+
         while not self._stop.is_set():
             try:
                 chunk = self._audio_q.get(timeout=0.2)
@@ -440,6 +448,24 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                 continue
 
             decision = self._vad_engine.process(chunk)
+
+            window_rms.append(decision.rms)
+            now_mono = time.monotonic()
+            if now_mono - last_window_log >= 0.5 and window_rms:
+                rms_min = min(window_rms)
+                rms_max = max(window_rms)
+                rms_avg = int(sum(window_rms) / len(window_rms))
+                _LOGGER.debug(
+                    "vad rms samples=%d min=%d avg=%d max=%d threshold=%d",
+                    len(window_rms),
+                    rms_min,
+                    rms_avg,
+                    rms_max,
+                    threshold,
+                )
+                window_rms.clear()
+                last_window_log = now_mono
+
             if decision.started:
                 self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
                 self.capture.feed({"speech": True})
@@ -451,6 +477,25 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                 self._emit_trace(
                     f"[voice.vad] speech END dur={decision.duration_ms}ms "
                     f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f} -> DROP_SHORT"
+                )
+                self._feed_silence()
+                continue
+
+            # 구간 평균 RMS 가 너무 낮으면 whisper 로 보내지 않는다.
+            # 관찰: 스파이크로 시작됐지만 실제 발화가 거의 없는 오디오
+            # (segment_rms < 0.05) 가 들어가면 base 모델이 "자" 같은 단일
+            # 글자 hallucination 루프에 빠져 16 초+ 디코딩 + BUSY drop
+            # 연쇄 발생. 정상 발화는 segment_rms ≈ 0.15~0.4 수준이라
+            # 0.05 하한은 여유가 있다.
+            if decision.segment_rms < 0.05:
+                _LOGGER.info(
+                    "drop quiet utterance dur=%dms rms=%.3f (likely noise spike)",
+                    decision.duration_ms,
+                    decision.segment_rms,
+                )
+                self._emit_trace(
+                    f"[voice.vad] speech END dur={decision.duration_ms}ms "
+                    f"rms={decision.segment_rms:.3f} -> DROP_QUIET"
                 )
                 self._feed_silence()
                 continue

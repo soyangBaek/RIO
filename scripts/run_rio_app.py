@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -202,6 +203,16 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=None,
         help="Log per-tick gesture/task events one line each (verbose).",
     )
+    parser.add_argument(
+        "--log",
+        default=None,
+        choices=["info"],
+        help=(
+            "Runtime logging mode override. `info` enables VAD RMS DEBUG logs "
+            "and forces the python voice backend for threshold tuning. "
+            "Omit to keep configs/voice.yaml defaults."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -266,6 +277,8 @@ def run(argv: list[str] | None = None) -> int:
         level=getattr(logging, str(cfg["log_level"]).upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
+    if args.log == "info":
+        os.environ["RIO_VOICE_DEBUG"] = "1"
     if args.profile:
         _LOGGER.info("loaded profile '%s'", args.profile)
 

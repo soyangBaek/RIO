@@ -39,11 +39,16 @@ audio:
 
 # ── VAD: RMS 기반 세그먼터 ──────────────────────────────────
 vad:
-  # 16-bit PCM 기준 RMS 임계값. 조용한 근접 발화는 250~450 정도부터 시작.
-  threshold: 350
-  min_silence_duration_ms: 300
+  # 16-bit PCM 기준 RMS 임계값. AB13X close-talk 실측:
+  # 조용한 방 일반 소음 max≈100~290, 간헐 스파이크 400~700 관측됨.
+  # 350 에서는 소음 스파이크가 speech 로 오트리거되어 Listening↔Idle 플래핑 발생.
+  # 700 으로 올려 스파이크를 거의 차단하면서 발화 RMS(수천) 여유 유지.
+  threshold: 700
+  # 300ms 는 숨쉬는 간격에 조각나기 쉬워 500ms 로 여유.
+  min_silence_duration_ms: 500
   speech_pad_ms: 30
-  min_speech_ms: 150
+  # 150ms 이하 짧은 스파이크는 발화 아님으로 확실히 drop.
+  min_speech_ms: 300
 
 
 # ── ASR: faster-whisper 1.2.x ────────────────────────────────
@@ -53,18 +58,29 @@ asr:
   beam_size: 1
   compute_type: "int8"
   device: "cpu"
-  no_speech_threshold: 0.6
-  condition_on_previous_text: true
+  # 0.6 에서는 "자" 단일글자 + no_speech=0.58 같이 경계선상 디코딩이
+  # 통과해 16 초 걸리는 루프 + BUSY drop 연쇄 유발. 0.8 로 올려 애매한
+  # 구간은 whisper 가 직접 버리게 한다. 발화 RMS 가 수천 수준인 본 환경
+  # 에선 정상 발화는 no_speech≈0 이라 부작용 없음.
+  no_speech_threshold: 0.8
+  # 이전 디코딩 텍스트를 다음 컨텍스트로 넣으면 base 모델이 짧은 한국어
+  # 명령에서 "컴퓨터 컴퓨터 컴퓨터..." 식 반복 hallucination 에 빠져
+  # 디코딩이 30 초 이상 걸리는 케이스가 관찰됐다. 단발 명령이라 이전
+  # 문맥이 주는 이득도 없으므로 false 로 둔다.
+  condition_on_previous_text: false
 
   # logprob 하한. 이보다 낮으면 capture 에 주입 안 함 (환각 차단).
   # 샌드박스의 wake_word.min_asr_logprob 와 동일 역할.
   min_logprob: -1.0
 
-  # Whisper 디코더 바이어싱. 도메인 어휘를 가짜 직전 문맥으로 주입해
-  # "티비/에어컨/꺼줘/켜줘" 같은 명령어 방향으로 디코딩을 기울인다.
-  # 공백 구분 문장이면 충분. 길이는 수십~100자 수준 권장.
-  # null 또는 빈 문자열이면 바이어싱 없음(현행 동작과 동일).
-  initial_prompt: "티비 에어컨 조명 불 청소기 댄스 타이머 날씨 사진 음악 켜줘 꺼줘 틀어줘 맞춰줘 찍어줘 알려줘 취소 그만 확인 알겠어"
+  # Whisper 디코더 바이어싱. 공식 발화(docs/user-utterance-scenarios.md)
+  # 어휘를 직전 문맥으로 주입해 디코딩을 해당 방향으로 기울인다.
+  #
+  # ⚠️ 과거에 공식 발화 전체 문장을 연결한 긴 prompt ("에어컨 켜줘 에어컨
+  # 꺼줘 ...") 를 쓰니, base 모델이 "X 켜줘 / X 꺼줘" 반복 패턴을 학습한
+  # 컨텍스트 위에서 디코딩 루프에 빠져 ASR 이 응답하지 않는 현상 발생.
+  # → 중복 없는 명사/동사 어휘만 짧게 나열한다.
+  initial_prompt: "에어컨 난방 거실 등 간접등 티비 컴퓨터 청소기 공기청정기 음악 사진 날씨 타이머 켜줘 꺼줘 틀어줘 돌려줘 찍어줘 알려줘 정지 확인 취소"
 
 
 # ── 동시성 ───────────────────────────────────────────────────
@@ -76,5 +92,6 @@ concurrency:
 
 # ── 로깅 ─────────────────────────────────────────────────────
 logging:
-  # INFO: 발화/디코딩 요약만. DEBUG: VAD 프레임 단위까지.
+  # INFO: 발화/디코딩 요약만. DEBUG: VAD 프레임 RMS(500ms 윈도우) 주기 로그.
+  # CLI `--log info` 를 주면 런타임에 DEBUG + python backend 로 덮어쓴다 (튜닝용).
   level: "INFO"

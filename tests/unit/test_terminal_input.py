@@ -37,19 +37,6 @@ class TerminalVoiceInputTest(unittest.TestCase):
             topics.VOICE_ACTIVITY_ENDED,
         ])
 
-    def test_builds_dynamic_smarthome_intent_for_temperature_phrase(self) -> None:
-        terminal = TerminalVoiceInput(IntentNormalizer())
-
-        events = terminal.build_events("온도 28도로 맞춰줘", now=self.now)
-
-        self.assertEqual([event.topic for event in events], [
-            topics.VOICE_ACTIVITY_STARTED,
-            topics.VOICE_INTENT_DETECTED,
-            topics.VOICE_ACTIVITY_ENDED,
-        ])
-        self.assertEqual(events[1].payload["intent"], "smarthome.aircon.set_temperature")
-        self.assertEqual(events[1].payload["temperature_c"], 28)
-
     def test_empty_text_is_ignored(self) -> None:
         terminal = TerminalVoiceInput(IntentNormalizer())
 
@@ -61,8 +48,8 @@ class TerminalVoiceInputTest(unittest.TestCase):
         normalizer = IntentNormalizer(deduper=IntentDeduper(cooldown_ms=1500))
         terminal = TerminalVoiceInput(normalizer)
 
-        first = terminal.build_events("불 켜줘", now=self.now)
-        second = terminal.build_events("불 켜줘", now=self.now)
+        first = terminal.build_events("거실 등 켜줘", now=self.now)
+        second = terminal.build_events("거실 등 켜줘", now=self.now)
 
         self.assertEqual(first[1].topic, topics.VOICE_INTENT_DETECTED)
         self.assertEqual([event.topic for event in second], [
@@ -78,18 +65,18 @@ class TerminalVoiceInputTest(unittest.TestCase):
         self.assertEqual(events[1].topic, topics.VOICE_INTENT_DETECTED)
         self.assertEqual(events[1].payload["intent"], "smarthome.tv.off")
 
-    def test_builds_music_stop_sequence_for_stop_phrase(self) -> None:
+    def test_builds_music_stop_sequence_for_official_phrase(self) -> None:
         terminal = TerminalVoiceInput(IntentNormalizer())
 
-        events = terminal.build_events("음악 멈춰줘", now=self.now)
+        events = terminal.build_events("음악 꺼줘", now=self.now)
 
         self.assertEqual(events[1].topic, topics.VOICE_INTENT_DETECTED)
         self.assertEqual(events[1].payload["intent"], "smarthome.music.stop")
 
-    def test_builds_dance_sequence_for_compact_phrase(self) -> None:
+    def test_builds_dance_sequence_for_official_phrase(self) -> None:
         terminal = TerminalVoiceInput(IntentNormalizer())
 
-        events = terminal.build_events("댄스모드", now=self.now)
+        events = terminal.build_events("춤춰줘", now=self.now)
 
         self.assertEqual(events[1].topic, topics.VOICE_INTENT_DETECTED)
         self.assertEqual(events[1].payload["intent"], "dance.start")

@@ -76,7 +76,6 @@ python3 live_interaction_test.py --real-services
 | `춤춰`, `댄스 모드`, `rio dance` | `dance.start` | 댄스 실행 흐름 시작 |
 | `에어컨 켜줘`, `에어컨 켜기` | `smarthome.aircon.on` | 스마트홈 제어 요청 |
 | `에어컨 꺼줘`, `에어컨 끄기` | `smarthome.aircon.off` | 스마트홈 제어 요청 |
-| `온도 28도로 맞춰줘` | `smarthome.aircon.set_temperature` | 에어컨 온도 설정 요청 |
 | `불 켜줘`, `조명 켜기` | `smarthome.light.on` | 조명 켜기 요청 |
 | `불 꺼줘`, `조명 끄기` | `smarthome.light.off` | 조명 끄기 요청 |
 | `로봇 청소기 실행시켜줘`, `청소기 돌려줘` | `smarthome.robot_cleaner.start` | 로봇청소기 시작 요청 |
@@ -93,6 +92,7 @@ python3 live_interaction_test.py --real-services
 | `음악 틀어줘`, `노래 틀어줘` | `smarthome.music.play` | 음악 재생 요청 |
 | `음악 꺼줘`, `노래 꺼줘` | `smarthome.music.stop` | 음악 정지 요청 |
 | `로봇청소기 꺼줘`, `청소기 멈춰` | `smarthome.robot_cleaner.stop` | 로봇청소기 정지 요청 |
+| `다 꺼줘`, `전부 꺼`, `외출 모드` | `smarthome.all.off` | ThinQ 브리지의 `POST /api/reset` 으로 모든 장치 off |
 | `취소` | `system.cancel` | Listening 중 입력 취소, 게임 모드 같은 UI mode도 해제 |
 | `확인`, `알겠어` | `system.ack` | Alerting 중 알림 해제 |
 
@@ -196,7 +196,6 @@ python3 live_interaction_test.py --real-services
 
 - `에어컨 켜줘` -> `http_payload: aircon.living_room:on`
 - `에어컨 꺼줘` -> `http_payload: aircon.living_room:off`
-- `온도 28도로 맞춰줘` -> `http_payload: aircon.living_room:set_temperature:28`
 - `조명 켜기` -> `http_payload: light.main:on`
 
 ## 8. 화면/사운드 반응

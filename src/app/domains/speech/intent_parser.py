@@ -97,94 +97,70 @@ def _parse_dynamic_smarthome(
             payload=dict(payload or {}),
         )
 
-    temp_match = re.search(r"(-?\d{1,2})\s*도(?:로)?", text)
-    if temp_match is None:
-        temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
-    if temp_match is not None:
-        intent_keywords = (
-            "온도",
-            "temperature",
-            "맞춰",
-            "설정",
-            "set",
-            "에어컨",
-            "aircon",
-            "air conditioner",
-        )
-        if any(keyword in normalized_text for keyword in intent_keywords):
-            temperature_c = int(temp_match.group(1))
-            if temperature_c < 16 or temperature_c > 30:
-                return IntentParseResult(
-                    intent=None,
-                    confidence=stt_confidence,
-                    text=text,
-                    normalized_text=normalized_text,
-                    reason="temperature_out_of_range",
-                )
+    # 공식 발화만 허용. alias/영어/유사 표현은 의도적으로 제거 — 단일 발화
+    # 원칙 (docs/user-utterance-scenarios.md) 에 맞춘다. STT 오인식 보정은
+    # 개별 intent 블록 안 keyword 리스트에 점진 추가.
 
-            return result(
-                "smarthome.aircon.set_temperature",
-                matched_alias="__dynamic_aircon_temperature__",
-                payload={
-                    "device_key": "aircon",
-                    "action": "set_temperature",
-                    "temperature_c": temperature_c,
-                },
-            )
-
-    if has_any("에어컨", "aircon", "air conditioner", "ac", "냉방"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+    if has_any("에어컨"):
+        if has_any("꺼줘"):
             return result("smarthome.aircon.off", matched_alias="__dynamic_aircon_off__")
-        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+        if has_any("켜줘"):
             return result("smarthome.aircon.on", matched_alias="__dynamic_aircon_on__")
 
-    if has_any("난방", "히터", "heater", "heating", "보일러"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+    if has_any("난방"):
+        if has_any("꺼줘"):
             return result("smarthome.heater.off", matched_alias="__dynamic_heater_off__")
-        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+        if has_any("켜줘"):
             return result("smarthome.heater.on", matched_alias="__dynamic_heater_on__")
 
-    if has_any("간접등", "간접 조명", "무드등", "indirect light", "mood light"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+    # 간접등은 whisper 가 "간접든/간접 등/간접 던" 등으로 자주 쪼개/바꿔 낸다.
+    # compact 매칭이 "간접등" 을 잡도록 유지하되, 관찰된 오인식은 여기 추가.
+    if has_any("간접등", "간접든"):
+        if has_any("꺼줘"):
             return result("smarthome.indirect_light.off", matched_alias="__dynamic_indirect_light_off__")
-        if has_any("켜줘", "켜", "켜기", "on"):
+        if has_any("켜줘"):
             return result("smarthome.indirect_light.on", matched_alias="__dynamic_indirect_light_on__")
 
-    if has_any("조명", "전등", "불", "light", "lamp"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+    # "거실 등" 은 whisper 가 "거실등/거실 등/거실 덩" 등으로 다양하게 낸다.
+    # compact 매칭으로 공백 유무 모두 흡수.
+    if has_any("거실 등", "거실등"):
+        if has_any("꺼줘"):
             return result("smarthome.light.off", matched_alias="__dynamic_light_off__")
-        if has_any("켜줘", "켜", "켜기", "on"):
+        if has_any("켜줘"):
             return result("smarthome.light.on", matched_alias="__dynamic_light_on__")
 
-    if has_any("로봇청소기", "로봇 청소기", "청소기", "robot cleaner", "vacuum", "cleaner"):
-        if has_any("멈춰줘", "멈춰", "정지", "stop", "꺼줘", "꺼", "끄기", "off"):
+    if has_any("청소기"):
+        if has_any("정지"):
             return result("smarthome.robot_cleaner.stop", matched_alias="__dynamic_robot_cleaner_stop__")
-        if has_any("실행", "시작", "돌려", "켜줘", "켜", "켜기", "on", "틀어줘", "start"):
+        if has_any("돌려줘"):
             return result("smarthome.robot_cleaner.start", matched_alias="__dynamic_robot_cleaner_start__")
 
-    if has_any("공기청정기", "공기 청정기", "air purifier", "purifier"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지", "멈춰"):
+    if has_any("공기청정기"):
+        if has_any("꺼줘"):
             return result("smarthome.air_purifier.off", matched_alias="__dynamic_air_purifier_off__")
-        if has_any("켜줘", "켜", "켜기", "on", "틀어줘"):
+        if has_any("켜줘"):
             return result("smarthome.air_purifier.on", matched_alias="__dynamic_air_purifier_on__")
 
-    if has_any("컴퓨터", "computer", "pc", "피씨"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+    if has_any("컴퓨터"):
+        if has_any("꺼줘"):
             return result("smarthome.computer.off", matched_alias="__dynamic_computer_off__")
-        if has_any("켜줘", "켜", "켜기", "on"):
+        if has_any("켜줘"):
             return result("smarthome.computer.on", matched_alias="__dynamic_computer_on__")
 
-    if has_any("티비", "tv", "텔레비전", "teevee"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "정지"):
+    if has_any("티비"):
+        if has_any("꺼줘"):
             return result("smarthome.tv.off", matched_alias="__dynamic_tv_off__")
-        if has_any("켜줘", "켜", "켜기", "on"):
+        if has_any("켜줘"):
             return result("smarthome.tv.on", matched_alias="__dynamic_tv_on__")
 
-    if has_any("음악", "노래", "music", "speaker"):
-        if has_any("꺼줘", "꺼", "끄기", "off", "멈춰줘", "멈춰", "정지", "stop"):
+    if has_any("음악"):
+        if has_any("꺼줘"):
             return result("smarthome.music.stop", matched_alias="__dynamic_music_stop__")
-        if has_any("틀어줘", "틀어", "재생", "play", "켜줘", "켜", "켜기", "on"):
+        if has_any("틀어줘"):
             return result("smarthome.music.play", matched_alias="__dynamic_music_play__")
+
+    if has_any("다 꺼줘", "다꺼줘"):
+        return result("smarthome.all.off", matched_alias="__dynamic_all_off__")
 
     return None
 
@@ -200,7 +176,9 @@ def _parse_dynamic_generic(
     def has_any(*words: str) -> bool:
         return any(word in normalized_text or word in compact for word in words)
 
-    if has_any("댄스모드", "댄스", "춤춰", "dance mode", "dance"):
+    # 공식 발화만. 영어/유사 표현 제거.
+
+    if has_any("춤춰줘"):
         return IntentParseResult(
             intent="dance.start",
             confidence=stt_confidence,
@@ -209,7 +187,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_dance__",
         )
 
-    if has_any("사진", "photo", "picture") and has_any("찍어", "찍자", "take", "capture", "please", "사진"):
+    if has_any("사진") and has_any("찍어줘"):
         return IntentParseResult(
             intent="camera.capture",
             confidence=stt_confidence,
@@ -218,7 +196,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_camera__",
         )
 
-    if has_any("게임모드", "게임 모드", "game mode", "게임"):
+    if has_any("게임 모드", "게임모드"):
         return IntentParseResult(
             intent="ui.game_mode.enter",
             confidence=stt_confidence,
@@ -227,7 +205,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_game_mode__",
         )
 
-    if has_any("날씨", "weather"):
+    if has_any("날씨") and has_any("알려줘"):
         return IntentParseResult(
             intent="weather.current",
             confidence=stt_confidence,
@@ -236,8 +214,9 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_weather__",
         )
 
-    timer_hint = re.search(r"(\d+\s*(시간|분|초)|오전|오후|am|pm|\d+\s*시)", normalized_text)
-    if timer_hint and has_any("알려줘", "타이머", "알람", "timer", "later", "뒤", "후", "맞춰줘"):
+    # 타이머는 숫자+단위 필수 유지 ("N분 뒤에 알려줘").
+    timer_hint = re.search(r"\d+\s*(분|초)", normalized_text)
+    if timer_hint and has_any("뒤에 알려줘", "뒤에알려줘"):
         return IntentParseResult(
             intent="timer.create",
             confidence=stt_confidence,
@@ -246,7 +225,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_timer__",
         )
 
-    if has_any("취소", "cancel", "그만"):
+    if has_any("취소"):
         return IntentParseResult(
             intent="system.cancel",
             confidence=stt_confidence,
@@ -255,7 +234,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_cancel__",
         )
 
-    if has_any("알겠어", "확인", "오케이", "okay", "ok"):
+    if has_any("확인"):
         return IntentParseResult(
             intent="system.ack",
             confidence=stt_confidence,

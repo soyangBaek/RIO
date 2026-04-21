@@ -71,7 +71,6 @@ INTENT_LABELS = {
     "smarthome.air_purifier.off": "Air purifier off",
     "smarthome.aircon.on": "AC on",
     "smarthome.aircon.off": "AC off",
-    "smarthome.aircon.set_temperature": "AC set temperature",
     "smarthome.heater.on": "Heater on",
     "smarthome.heater.off": "Heater off",
     "smarthome.music.play": "Play music",

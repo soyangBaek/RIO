@@ -84,9 +84,9 @@ INTENT_TO_ACTION_KIND: dict[str, ActionKind] = {
     "smarthome.air_purifier.off": ActionKind.SMARTHOME,
     "smarthome.aircon.on": ActionKind.SMARTHOME,
     "smarthome.aircon.off": ActionKind.SMARTHOME,
-    "smarthome.aircon.set_temperature": ActionKind.SMARTHOME,
     "smarthome.heater.on": ActionKind.SMARTHOME,
     "smarthome.heater.off": ActionKind.SMARTHOME,
+    "smarthome.all.off": ActionKind.SMARTHOME,
     "smarthome.music.play": ActionKind.SMARTHOME,
     "smarthome.music.stop": ActionKind.SMARTHOME,
 }

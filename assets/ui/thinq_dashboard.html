@@ -631,22 +631,6 @@
     0%, 100% { transform: translateX(-50%) translateY(0); }
     50% { transform: translateX(-50%) translateY(5px); }
   }
-  .aircon-temp {
-    position: absolute;
-    bottom: -50px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.5);
-    color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .device-spot.on .aircon-temp.visible { opacity: 1; }
-
   /* ═══ Heater ═══════════════════ */
   .heater-body {
     width: 64px; height: 44px;
@@ -1183,7 +1167,6 @@
           <div class="wind-line"></div>
         </div>
       </div>
-      <div class="aircon-temp" id="aircon-temp"></div>
       <div class="dev-label">에어컨</div>
     </div>
 
@@ -1272,7 +1255,7 @@
 (function() {
   var ACTION_KO = {
     on:'ON', off:'OFF', start:'시작', stop:'정지',
-    play:'재생', set_temperature:'온도 설정', reset:'RESET'
+    play:'재생', reset:'RESET'
   };
 
   /* ── Click to toggle ──────────── */
@@ -1295,14 +1278,6 @@
       var el = document.getElementById('dev-' + id);
       if (!el) continue;
       if (dev.on) { el.classList.add('on'); } else { el.classList.remove('on'); }
-      /* Aircon temperature badge */
-      if (id === 'aircon.living_room') {
-        var tag = document.getElementById('aircon-temp');
-        if (dev.temperature_c != null && dev.on) {
-          tag.textContent = dev.temperature_c + '\u00B0C';
-          tag.classList.add('visible');
-        } else { tag.classList.remove('visible'); }
-      }
     }
     /* Light overlay */
     var lightDev = state.devices['light.main'];

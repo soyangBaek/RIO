@@ -41,7 +41,7 @@ class HomeClientTest(unittest.TestCase):
 
         try:
             client = HomeClient(base_url=base_url, control_path="/device/control", http_timeout_ms=1000)
-            response = client.control("aircon.living_room:set_temperature:28")
+            response = client.control("aircon.living_room:on")
         finally:
             thread.join(timeout=2.0)
             server.server_close()
@@ -49,11 +49,11 @@ class HomeClientTest(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(response["request_url"], f"{base_url}/device/control")
         self.assertEqual(response["request_method"], "PUT")
-        self.assertEqual(response["request_content"], "aircon.living_room:set_temperature:28")
+        self.assertEqual(response["request_content"], "aircon.living_room:on")
         recorded = server.recorded  # type: ignore[attr-defined]
         self.assertEqual(recorded["method"], "PUT")
         self.assertEqual(recorded["path"], "/device/control")
-        self.assertEqual(json.loads(recorded["body"]), {"content": "aircon.living_room:set_temperature:28"})
+        self.assertEqual(json.loads(recorded["body"]), {"content": "aircon.living_room:on"})
 
     def test_control_url_overrides_base_url_and_path(self) -> None:
         server = HTTPServer(("127.0.0.1", 0), _RecordingHandler)

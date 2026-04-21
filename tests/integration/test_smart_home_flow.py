@@ -16,12 +16,19 @@ class FakeHomeClient:
     def __init__(self, ok: bool) -> None:
         self.ok = ok
         self.calls: list[str] = []
+        self.reset_calls: int = 0
 
     def control(self, content: str):
         self.calls.append(content)
         if self.ok:
             return {"ok": True, "message": f"{content} success"}
         return {"ok": False, "message": f"{content} failed"}
+
+    def reset_all(self):
+        self.reset_calls += 1
+        if self.ok:
+            return {"ok": True, "message": "All devices reset"}
+        return {"ok": False, "message": "reset failed"}
 
 
 class SmartHomeFlowIntegrationTest(unittest.TestCase):
@@ -72,34 +79,6 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertEqual(failure_client.calls, ["aircon.living_room:on"])
         self.assertTrue(any("failed" in text for text in orchestrator.tts.history))
 
-    def test_dynamic_temperature_command_builds_http_payload(self) -> None:
-        orchestrator = RioOrchestrator()
-        client = FakeHomeClient(ok=True)
-        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
-        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
-
-        processed = orchestrator.process_event(
-            Event.create(
-                topics.VOICE_INTENT_DETECTED,
-                "test",
-                payload={
-                    "intent": "smarthome.aircon.set_temperature",
-                    "text": "온도 28도로 맞춰줘",
-                    "temperature_c": 28,
-                    "device_key": "aircon",
-                    "action": "set_temperature",
-                },
-            )
-        )
-        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_REQUEST_SENT))
-
-        request_events = [event for event in processed if event.topic == topics.SMARTHOME_REQUEST_SENT]
-        self.assertTrue(request_events)
-        self.assertEqual(client.calls, ["aircon.living_room:set_temperature:28"])
-        self.assertEqual(request_events[-1].payload["content"], "aircon.living_room:set_temperature:28")
-        self.assertEqual(request_events[-1].payload["params"]["temperature_c"], 28)
-        self.assertTrue(any("success" in text for text in orchestrator.tts.history))
-
     def test_smarthome_command_executes_even_without_visible_face(self) -> None:
         orchestrator = RioOrchestrator()
         client = FakeHomeClient(ok=True)
@@ -120,13 +99,36 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertEqual(orchestrator.store.snapshot().context_state, ContextState.IDLE)
         self.assertTrue(any("success" in text for text in orchestrator.tts.history))
 
+    def test_all_off_intent_calls_reset(self) -> None:
+        orchestrator = RioOrchestrator()
+        client = FakeHomeClient(ok=True)
+        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+
+        processed = orchestrator.process_event(
+            Event.create(
+                topics.VOICE_INTENT_DETECTED,
+                "test",
+                payload={"intent": "smarthome.all.off", "text": "다 꺼줘"},
+            )
+        )
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT))
+
+        self.assertEqual(client.reset_calls, 1)
+        self.assertEqual(client.calls, [])  # must not use per-device control
+        result_events = [e for e in processed if e.topic == topics.SMARTHOME_RESULT]
+        self.assertTrue(result_events)
+        self.assertTrue(result_events[-1].payload["ok"])
+        self.assertEqual(result_events[-1].payload["device_id"], "all")
+        self.assertEqual(result_events[-1].payload["action"], "off")
+
     def test_voice_commands_cover_stop_and_off_payloads(self) -> None:
         orchestrator = RioOrchestrator()
         client = FakeHomeClient(ok=True)
         orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
         terminal = TerminalVoiceInput(IntentNormalizer())
 
-        for phrase in ("티비 꺼줘", "음악 멈춰줘", "청소기 멈춰줘"):
+        for phrase in ("티비 꺼줘", "음악 꺼줘", "청소기 정지"):
             for event in terminal.build_events(phrase):
                 orchestrator.process_event(event)
             self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT)
