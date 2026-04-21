@@ -17,6 +17,14 @@ SFX_FILES: dict[str, str] = {
     "success": "assets/sounds/pride-emote.mp3",
     "error": "assets/sounds/surprise-emote.mp3",
     "listening_cue": "assets/sounds/listening_cue.mp3",
+    "sleepy": "assets/sounds/sleepy-emote.mp3",
+    "angry": "assets/sounds/distress-emote.mp3",
+    "lovely": "assets/sounds/love-emote.mp3",
+}
+
+# 개별 볼륨 조정 (0.0 ~ 1.0, 기본 1.0)
+SFX_VOLUME: dict[str, float] = {
+    "sleepy": 1.0,
 }
 
 
@@ -61,13 +69,13 @@ class SFXPlayer:
         self._sounds[name] = sound
         return sound
 
-    def play(self, name: str) -> str:
+    def play(self, name: str, *, loops: int = 0) -> str:
         self.history.append(name)
         if name in SFX_FILES and self._ensure_mixer():
             sound = self._load(name)
             if sound is not None:
                 try:
-                    channel = sound.play()
+                    channel = sound.play(loops=loops)
                     if channel is not None:
                         self._channels[name] = channel
                 except Exception:

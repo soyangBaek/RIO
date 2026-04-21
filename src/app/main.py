@@ -47,7 +47,7 @@ from src.app.core.safety.capabilities import detect_capabilities
 from src.app.core.safety.heartbeat_monitor import HeartbeatMonitor
 from src.app.core.scheduler.timer_scheduler import TimerScheduler
 from src.app.core.state.extended_state import set_capabilities, set_deferred_intent
-from src.app.core.state.models import ActionKind, ActivityState, RuntimeState
+from src.app.core.state.models import ActionKind, ActivityState, ContextState, RuntimeState
 from src.app.core.state.reducers import ReducerPipeline
 from src.app.core.state.store import RuntimeStore
 from src.app.domains.behavior.effect_planner import EffectPlan, plan_effects
@@ -534,6 +534,12 @@ class RioOrchestrator:
                 event.trace_id,
             )
             self._handle_long_action_cancel(reduction, event)
+
+        if reduction.previous.context_state != reduction.current.context_state:
+            if reduction.current.context_state == ContextState.SLEEPY:
+                self.sfx.play("sleepy", loops=-1)
+            elif reduction.previous.context_state == ContextState.SLEEPY:
+                self.sfx.stop("sleepy")
 
         if (
             reduction.previous.activity_state != reduction.current.activity_state
