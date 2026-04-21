@@ -250,6 +250,7 @@ class _WhisperBridgeBackend:
         except Exception as exc:
             _LOGGER.warning("whisper transcribe error: %s", exc)
             self._emit_trace(f"[voice.asr] ERROR {exc}")
+            self._feed_silence()
             return
         decode_ms = int((time.perf_counter() - t0) * 1000)
         record_metric("asr_decode_ms", float(decode_ms))
@@ -258,6 +259,7 @@ class _WhisperBridgeBackend:
             _LOGGER.info("asr empty (decode=%dms)", decode_ms)
             self._emit_trace(f"[voice.asr] EMPTY decode={decode_ms}ms")
             increment_metric("asr_empty_count")
+            self._feed_silence()
             return
 
         text = " ".join(segment.text.strip() for segment in segs).strip()
@@ -287,6 +289,7 @@ class _WhisperBridgeBackend:
                 f"[voice.asr] DROP_LOW_CONF logprob={avg_logprob:.2f} "
                 f"threshold={self.cfg.asr.min_logprob:.2f}"
             )
+            self._feed_silence()
             return
 
         confidence = max(0.0, min(1.0, 1.0 - no_speech_prob))
@@ -295,6 +298,10 @@ class _WhisperBridgeBackend:
     def _feed_frames(self, text: str, confidence: float) -> None:
         self.capture.feed({"speech": True})
         self.capture.feed({"speech": True, "transcript": text, "confidence": confidence})
+        for _ in range(max(1, self.cfg.silence_frames_to_feed)):
+            self.capture.feed({"speech": False})
+
+    def _feed_silence(self) -> None:
         for _ in range(max(1, self.cfg.silence_frames_to_feed)):
             self.capture.feed({"speech": False})
 
@@ -445,6 +452,7 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                     f"[voice.vad] speech END dur={decision.duration_ms}ms "
                     f"peak={decision.peak:.3f} rms={decision.segment_rms:.3f} -> DROP_SHORT"
                 )
+                self._feed_silence()
                 continue
 
             self._emit_trace(
@@ -456,6 +464,7 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
                 _LOGGER.info("BUSY drop utterance dur=%dms (ASR working)", decision.duration_ms)
                 self._emit_trace(f"[voice.asr] BUSY drop dur={decision.duration_ms}ms")
                 increment_metric("asr_busy_drop_count")
+                self._feed_silence()
                 continue
 
             try:
@@ -605,15 +614,19 @@ class RustAudioBackend(_WhisperBridgeBackend):
             self.capture.feed({"speech": True})
             return
         if kind == "speech_ended":
-            suffix = " -> DROP_SHORT" if bool(message.get("dropped_short")) else ""
+            dropped_short = bool(message.get("dropped_short"))
+            suffix = " -> DROP_SHORT" if dropped_short else ""
             self._emit_trace(
                 f"[voice.vad] speech END dur={int(message.get('duration_ms', 0))}ms "
                 f"peak={float(message.get('peak', 0.0)):.3f} "
                 f"rms={float(message.get('rms', 0.0)):.3f}{suffix}"
             )
+            if dropped_short:
+                self._feed_silence()
             return
         if kind == "busy_drop":
             self._emit_trace(f"[voice.asr] BUSY drop dur={int(message.get('duration_ms', 0))}ms")
+            self._feed_silence()
             return
         if kind == "trace":
             text = str(message.get("message") or "").strip()
