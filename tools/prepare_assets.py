@@ -35,12 +35,12 @@ MAPPING = {
     # secondary (Executing kind / 특수 장면)
     "rosto-23": "photo_ready",
     "rosto-18": "photo_snap",
-    "rosto-06": "game_face",
+    "rosto-06": "wet_tear",
     "rosto-07": "dance_face",
     "rosto-16": "smarthome_fail",
     "rosto-25": "weather_face",
-    "rosto-12": "petting",
-    "rosto-11": "ko_defeated",
+    "rosto-12": "cry",
+    "rosto-11": "triangle_tear",
     "rosto-08": "boot",
 }
 

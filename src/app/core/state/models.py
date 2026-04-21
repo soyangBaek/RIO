@@ -60,6 +60,8 @@ class OneshotName(StrEnum):
     CONFUSED = "confused"
     WELCOME = "welcome"
     HAPPY = "happy"
+    ANGRY = "angry"
+    LOVELY = "lovely"
 
 
 INTENT_TO_ACTION_KIND: dict[str, ActionKind] = {

@@ -11,6 +11,12 @@ oneshots:
   happy:
     priority: 20
     duration_ms: 1000
+  angry:
+    priority: 25
+    duration_ms: 2000
+  lovely:
+    priority: 20
+    duration_ms: 2500
 
 scenes:
   startled_then_track:
@@ -43,8 +49,14 @@ scenes:
   game_direction:
     overlay: "assets/ui/game_direction.txt"
     sfx: ["game_move"]
-  petting_reaction:
-    overlay: "assets/animations/petting.txt"
+  cry_reaction:
+    overlay: "assets/animations/cry.txt"
     sfx: ["happy"]
+  fist_angry_reaction:
+    overlay: null
+    sfx: []
+  both_palms_lovely_reaction:
+    overlay: null
+    sfx: []
   default_scene:
     overlay: null

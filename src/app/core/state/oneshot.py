@@ -17,6 +17,8 @@ DEFAULT_ONESHOT_SETTINGS: dict[str, dict[str, int]] = {
     "confused": {"priority": 25, "duration_ms": 800},
     "welcome": {"priority": 20, "duration_ms": 1500},
     "happy": {"priority": 20, "duration_ms": 1000},
+    "angry": {"priority": 25, "duration_ms": 2000},
+    "lovely": {"priority": 20, "duration_ms": 2500},
 }
 
 
@@ -31,6 +33,8 @@ def load_oneshot_settings(path: str | Path = "configs/scenes.yaml") -> dict[str,
     for name, values in configured.items():
         if name in merged:
             merged[name].update(values or {})
+        else:
+            merged[name] = dict(values or {})
     return merged
 
 

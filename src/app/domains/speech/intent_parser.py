@@ -246,7 +246,7 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_timer__",
         )
 
-    if has_any("취소", "cancel"):
+    if has_any("취소", "cancel", "그만"):
         return IntentParseResult(
             intent="system.cancel",
             confidence=stt_confidence,

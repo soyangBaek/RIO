@@ -12,6 +12,7 @@ class Renderer:
 
     def __init__(self) -> None:
         self.history: list[RenderFrame] = []
+        self._last_eye_offset: tuple[int, int] = (0, 0)
 
     def render(
         self,
@@ -27,10 +28,12 @@ class Renderer:
         overlay_name = scene.overlay
         if overlay_name is None and scene.search_indicator:
             overlay_name = "search_indicator"
+        if face_center is not None:
+            self._last_eye_offset = normalized_center_to_eye_offset(face_center)
         frame = RenderFrame(
             face=FaceLayer(
                 mood=scene.mood.value,
-                eye_offset=normalized_center_to_eye_offset(face_center),
+                eye_offset=self._last_eye_offset,
                 dimmed=scene.dimmed,
             ),
             overlay=OverlayLayer(name=overlay_name, visible=overlay_name is not None),

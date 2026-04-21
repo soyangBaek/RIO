@@ -269,18 +269,20 @@ def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
 
     photo_task = _recent_task_event(rio, ActionKind.PHOTO)
     if photo_task is not None and photo_task.topic == topics.TASK_SUCCEEDED and _is_recent_event(photo_task, within_ms=900):
-        return pick("photo_snap", "happy")
+        return pick("photo_cute", "happy")
 
     smarthome_result = _find_recent_event(rio, topics.SMARTHOME_RESULT)
     if smarthome_result is not None and _is_recent_event(smarthome_result) and not smarthome_result.payload.get("ok", True):
         return pick("smarthome_fail", "confused")
+    if smarthome_result is not None and _is_recent_event(smarthome_result) and smarthome_result.payload.get("ok"):
+        return pick("cute", "happy")
 
     if snapshot.activity_state == ActivityState.EXECUTING:
         kind = snapshot.extended.active_executing_kind
         if kind == ActionKind.PHOTO:
             return pick("photo_ready", "attentive")
         if kind == ActionKind.GAME:
-            return pick("game_face", "attentive")
+            return pick("wet_tear", "attentive")
         if kind == ActionKind.DANCE:
             return pick("dance_face", "happy")
         if kind == ActionKind.WEATHER:
@@ -289,12 +291,24 @@ def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
     if render_frame.ui == "CameraUI":
         return pick("photo_ready", "attentive")
     if render_frame.ui == "GameUI":
-        return pick("game_face", "attentive")
+        return pick("wet_tear", "attentive")
 
-    if overlay_key in {"petting", "welcome", "startled"}:
+    if overlay_key in {"cry", "welcome", "startled"}:
         return pick(overlay_key, render_frame.face.mood)
     if overlay_key == "sleep":
+        if snapshot.extended.sleepy_with_face:
+            return pick("robot_idle", "calm")
         return pick("sleepy")
+
+    if snapshot.active_oneshot is not None and snapshot.active_oneshot.name.value == "angry":
+        elapsed = (datetime.now(timezone.utc) - snapshot.active_oneshot.started_at).total_seconds()
+        if int(elapsed / 0.5) % 2 == 0:
+            return pick("angry_idle", "startled")
+        else:
+            return pick("angry_talking", "startled")
+
+    if snapshot.active_oneshot is not None and snapshot.active_oneshot.name.value == "lovely":
+        return pick("lovely", "happy")
 
     if render_frame.face.mood == "inactive":
         return pick("sleepy")
@@ -702,7 +716,7 @@ def draw_ui_overlay(
             cv2.putText(image, "Z", pos, cv2.FONT_HERSHEY_DUPLEX, 0.9 + idx * 0.12, scale_color(accent, 1.05), 2, cv2.LINE_AA)
         draw_star(image, (x1 + 90, y1 + 78), 12, scale_color(accent, 1.08))
 
-    if overlay_key in {"petting", "welcome", "peekaboo", "wave"}:
+    if overlay_key in {"cry", "welcome", "peekaboo", "wave"}:
         for idx in range(3):
             heart_center = (x1 + 96 + idx * 42, y1 + 96 - int(math.sin(now_s * 2.8 + idx) * 8.0))
             draw_heart(image, heart_center, 16, scale_color(palette["cheek"], 1.06))

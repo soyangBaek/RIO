@@ -26,7 +26,7 @@ class GestureDetector:
 
         self._hands = mp.solutions.hands.Hands(
             static_image_mode=False,
-            max_num_hands=1,
+            max_num_hands=2,
             min_detection_confidence=self.confidence_min,
             min_tracking_confidence=self.confidence_min,
         )
@@ -91,6 +91,8 @@ class GestureDetector:
             gesture = "v_sign"
         elif index_up and middle_up and ring_up and pinky_up:
             gesture = "wave"
+        elif not index_up and not middle_up and not ring_up and not pinky_up:
+            gesture = "fist"
         elif index_up and not middle_up and not ring_up and not pinky_up:
             gesture = "point"
 
@@ -147,6 +149,43 @@ class GestureDetector:
                 self._last_debug = debug
                 return []
             debug["hand_present"] = True
+
+            # Check for both_palms: two hands, both palms facing camera
+            if len(result.multi_hand_landmarks) >= 2:
+                both_facing = True
+                for i in range(2):
+                    h_label = None
+                    if result.multi_handedness:
+                        try:
+                            h_label = result.multi_handedness[i].classification[0].label
+                        except (AttributeError, IndexError):
+                            pass
+                    if not self._palm_facing_camera(result.multi_hand_landmarks[i].landmark, h_label):
+                        both_facing = False
+                        break
+                if both_facing:
+                    gesture = "both_palms"
+                    debug["classified"] = gesture
+                    confidence = 1.0
+                    # skip single-hand classification
+                    self._last_debug = debug
+                    if confidence >= self.confidence_min and self._cooldown_ready(gesture, when):
+                        self._last_gesture = gesture
+                        self._last_emitted_at = when
+                        debug["emitted"] = True
+                        debug["cooldown_remaining"] = self.emit_cooldown_seconds
+                        return [
+                            Event.create(
+                                topics.VISION_GESTURE_DETECTED,
+                                "vision.gesture_detector",
+                                payload={"gesture": gesture, "confidence": confidence},
+                                confidence=confidence,
+                                trace_id=trace_id,
+                                timestamp=when,
+                            )
+                        ]
+                    return []
+
             landmarks = result.multi_hand_landmarks[0]
             handedness_label: str | None = None
             if result.multi_handedness:

@@ -34,15 +34,21 @@ def _scene_key(result: ReductionResult, event: Event) -> str:
             return "peekaboo_reaction"
         if gesture in {"head_left", "head_right"}:
             return "game_direction"
+        if gesture == "fist":
+            return "fist_angry_reaction"
+        if gesture == "both_palms":
+            return "both_palms_lovely_reaction"
     if event.topic == topics.TOUCH_TAP_DETECTED:
         return "tap_attention"
     if event.topic == topics.TOUCH_STROKE_DETECTED:
-        return "petting_reaction"
+        return "cry_reaction"
     if result.triggered_oneshot is not None:
         mapping = {
             "startled": "startled_then_track",
             "welcome": "welcome_back",
-            "happy": "petting_reaction",
+            "happy": "cry_reaction",
+            "angry": "fist_angry_reaction",
+            "lovely": "both_palms_lovely_reaction",
         }
         return mapping.get(result.triggered_oneshot.name.value, "default")
     kind = result.current.extended.active_executing_kind

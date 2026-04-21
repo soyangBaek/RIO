@@ -35,14 +35,14 @@ Figma 30개 Rosto 표정을 RIO 상태 머신의 Mood/UI/Oneshot에 매핑하고
 | Executing(smarthome) 성공 | 18 | 윙크 | smarthome 성공 피드백 |
 | Executing(smarthome) 실패 | 16 | 슬픈 눈, 울상 입 | smarthome 실패 피드백 |
 | Executing(weather) | 25 | 큰 원형 눈, 디테일 입 | 날씨 조회 중 |
-| petting reaction | 12 | 하트 눈, 미소 | 터치 쓰다듬기 반응 |
+| cry reaction | 12 | 하트 눈, 미소 | 터치 쓰다듬기 반응 |
 | KO/defeated (게임 패배) | 11 | X 눈, 꺾인 입 | 게임 결과 |
 
 ### 1.3 Reserve Pool (확장/변형용)
 
 | Rosto # | 표정 설명 | 잠재 용도 |
 |---|---|---|
-| 01 | 혀 내민 행복, 볼 터치 | petting 대안, 특수 happy 변형 |
+| 01 | 혀 내민 행복, 볼 터치 | cry 대안, 특수 happy 변형 |
 | 05 | 큰 눈, 혀 내밀기 | 장난스러운 반응 |
 | 08 | 다이아 눈, 일자 입 | 로봇 모드/부팅 |
 | 09 | ><  찡그린 눈, 곡선 입 | 장난꾸러기 |
@@ -85,13 +85,13 @@ assets/expressions/
 ├── happy.png             ← rosto-24
 ├── photo_ready.png       ← rosto-23
 ├── photo_snap.png        ← rosto-18
-├── game_face.png         ← rosto-06
+├── wet_tear.png         ← rosto-06
 ├── dance_face.png        ← rosto-07
 ├── smarthome_ok.png      ← rosto-18 (= photo_snap과 공유)
 ├── smarthome_fail.png    ← rosto-16
 ├── weather_face.png      ← rosto-25
-├── petting.png           ← rosto-12
-├── ko_defeated.png       ← rosto-11
+├── cry.png               ← rosto-12
+├── triangle_tear.png     ← rosto-11
 └── boot.png              ← rosto-08
 ```
 
@@ -247,7 +247,7 @@ assets/ui/overlays/
 ├── timer_ring.png             ← 타이머 알림 아이콘 (AlertUI)
 ├── note_01.png                ← 음표 (댄스 오버레이)
 ├── note_02.png
-├── heart_01.png               ← 하트 (petting 오버레이)
+├── heart_01.png               ← 하트 (cry 오버레이)
 ├── heart_02.png
 ├── heart_03.png
 ├── exclamation.png            ← 느낌표 (startled 보조)
@@ -311,12 +311,12 @@ assets/
 │   ├── happy.png
 │   ├── photo_ready.png
 │   ├── photo_snap.png
-│   ├── game_face.png
+│   ├── wet_tear.png
 │   ├── dance_face.png
 │   ├── smarthome_fail.png
 │   ├── weather_face.png
-│   ├── petting.png
-│   ├── ko_defeated.png
+│   ├── cry.png
+│   ├── triangle_tear.png
 │   ├── boot.png
 │   └── parts/                 ← Gaze tracking용 분리 파츠
 │       ├── calm/
@@ -391,7 +391,7 @@ assets/
 
 ### P1 — Executing 장면
 
-4. photo_ready, photo_snap, game_face, dance_face, weather_face, smarthome_fail, petting
+4. photo_ready, photo_snap, wet_tear, dance_face, weather_face, smarthome_fail, cry
 5. 카운트다운 숫자 오버레이 (3, 2, 1)
 6. listening_indicator, timer_ring
 
