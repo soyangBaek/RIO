@@ -27,6 +27,7 @@ INTENT_TO_DEVICE_ACTION = {
     "smarthome.aircon.set_temperature": ("aircon", "set_temperature"),
     "smarthome.heater.on": ("heater", "on"),
     "smarthome.heater.off": ("heater", "off"),
+    "smarthome.heater.set_temperature": ("heater", "set_temperature"),
     "smarthome.music.play": ("music", "play"),
     "smarthome.music.stop": ("music", "stop"),
 }

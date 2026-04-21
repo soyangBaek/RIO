@@ -87,6 +87,27 @@ class IntentParserTest(unittest.TestCase):
         self.assertTrue(parsed.is_known)
         self.assertEqual(parsed.intent, "timer.create")
 
+    def test_dynamic_heater_temperature_command(self) -> None:
+        parsed = parse_intent("난방 26도로 맞춰줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.heater.set_temperature")
+        self.assertEqual(parsed.payload["temperature_c"], 26)
+
+    def test_static_computer_on_alias(self) -> None:
+        parsed = parse_intent("컴퓨터 켜줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.computer.on")
+
+    def test_matches_all_off_alias(self) -> None:
+        parsed = parse_intent("다 꺼줘", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.all.off")
+
+    def test_matches_all_off_outing_mode(self) -> None:
+        parsed = parse_intent("외출 모드", stt_confidence=0.95)
+        self.assertTrue(parsed.is_known)
+        self.assertEqual(parsed.intent, "smarthome.all.off")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -64,3 +64,36 @@ class HomeClient:
             "request_method": "PUT",
             "request_content": content,
         }
+
+    def reset_all(self) -> dict[str, object]:
+        """Turn every registered device off via POST /api/reset."""
+        request_url = f"{self.base_url.rstrip('/')}/api/reset"
+        request = Request(
+            url=request_url,
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        last_error: Exception | None = None
+        for _ in range(self.retry_count + 1):
+            try:
+                with urlopen(request, timeout=self.http_timeout_ms / 1000.0) as resp:
+                    body = resp.read().decode("utf-8")
+                try:
+                    data = json.loads(body) if body else {}
+                except json.JSONDecodeError:
+                    data = {"raw": body}
+                data.setdefault("ok", True)
+                data.setdefault("request_url", request_url)
+                data.setdefault("request_method", "POST")
+                data.setdefault("request_content", "all:off")
+                return data
+            except (URLError, TimeoutError) as exc:
+                last_error = exc
+        return {
+            "ok": False,
+            "message": str(last_error) if last_error else "home_client_reset_failed",
+            "request_url": request_url,
+            "request_method": "POST",
+            "request_content": "all:off",
+        }

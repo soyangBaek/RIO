@@ -90,9 +90,11 @@ python3 live_interaction_test.py --real-services
 | `공기청정기 꺼줘` | `smarthome.air_purifier.off` | 공기청정기 끄기 요청 |
 | `히터 켜줘`, `난방 켜줘` | `smarthome.heater.on` | 히터 켜기 요청 |
 | `히터 꺼줘`, `난방 꺼줘` | `smarthome.heater.off` | 히터 끄기 요청 |
+| `난방 26도로 맞춰줘`, `히터 온도 맞춰줘` | `smarthome.heater.set_temperature` | 히터 온도 설정 요청 |
 | `음악 틀어줘`, `노래 틀어줘` | `smarthome.music.play` | 음악 재생 요청 |
 | `음악 꺼줘`, `노래 꺼줘` | `smarthome.music.stop` | 음악 정지 요청 |
 | `로봇청소기 꺼줘`, `청소기 멈춰` | `smarthome.robot_cleaner.stop` | 로봇청소기 정지 요청 |
+| `다 꺼줘`, `전부 꺼`, `외출 모드` | `smarthome.all.off` | ThinQ 브리지의 `POST /api/reset` 으로 모든 장치 off |
 | `취소` | `system.cancel` | Listening 중 입력 취소, 게임 모드 같은 UI mode도 해제 |
 | `확인`, `알겠어` | `system.ack` | Alerting 중 알림 해제 |
 

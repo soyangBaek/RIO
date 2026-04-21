@@ -16,12 +16,19 @@ class FakeHomeClient:
     def __init__(self, ok: bool) -> None:
         self.ok = ok
         self.calls: list[str] = []
+        self.reset_calls: int = 0
 
     def control(self, content: str):
         self.calls.append(content)
         if self.ok:
             return {"ok": True, "message": f"{content} success"}
         return {"ok": False, "message": f"{content} failed"}
+
+    def reset_all(self):
+        self.reset_calls += 1
+        if self.ok:
+            return {"ok": True, "message": "All devices reset"}
+        return {"ok": False, "message": "reset failed"}
 
 
 class SmartHomeFlowIntegrationTest(unittest.TestCase):
@@ -119,6 +126,51 @@ class SmartHomeFlowIntegrationTest(unittest.TestCase):
         self.assertTrue(any(event.topic == topics.SMARTHOME_RESULT for event in processed))
         self.assertEqual(orchestrator.store.snapshot().context_state, ContextState.IDLE)
         self.assertTrue(any("success" in text for text in orchestrator.tts.history))
+
+    def test_heater_temperature_command_builds_http_payload(self) -> None:
+        orchestrator = RioOrchestrator()
+        client = FakeHomeClient(ok=True)
+        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+
+        orchestrator.process_event(
+            Event.create(
+                topics.VOICE_INTENT_DETECTED,
+                "test",
+                payload={
+                    "intent": "smarthome.heater.set_temperature",
+                    "text": "난방 26도로 맞춰줘",
+                    "temperature_c": 26,
+                    "device_key": "heater",
+                    "action": "set_temperature",
+                },
+            )
+        )
+        self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT)
+        self.assertEqual(client.calls, ["heater.living_room:set_temperature:26"])
+
+    def test_all_off_intent_calls_reset(self) -> None:
+        orchestrator = RioOrchestrator()
+        client = FakeHomeClient(ok=True)
+        orchestrator.registry.register(ActionKind.SMARTHOME, SmartHomeService(client))
+        orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
+
+        processed = orchestrator.process_event(
+            Event.create(
+                topics.VOICE_INTENT_DETECTED,
+                "test",
+                payload={"intent": "smarthome.all.off", "text": "다 꺼줘"},
+            )
+        )
+        processed.extend(self._wait_for_topic(orchestrator, topics.SMARTHOME_RESULT))
+
+        self.assertEqual(client.reset_calls, 1)
+        self.assertEqual(client.calls, [])  # must not use per-device control
+        result_events = [e for e in processed if e.topic == topics.SMARTHOME_RESULT]
+        self.assertTrue(result_events)
+        self.assertTrue(result_events[-1].payload["ok"])
+        self.assertEqual(result_events[-1].payload["device_id"], "all")
+        self.assertEqual(result_events[-1].payload["action"], "off")
 
     def test_voice_commands_cover_stop_and_off_payloads(self) -> None:
         orchestrator = RioOrchestrator()

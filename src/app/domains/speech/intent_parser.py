@@ -101,7 +101,8 @@ def _parse_dynamic_smarthome(
     if temp_match is None:
         temp_match = re.search(r"(-?\d{1,2})\s*(?:degrees?|c)\b", normalized_text)
     if temp_match is not None:
-        intent_keywords = (
+        heater_keywords = ("난방", "히터", "heater", "heating", "보일러")
+        aircon_keywords = (
             "온도",
             "temperature",
             "맞춰",
@@ -111,8 +112,28 @@ def _parse_dynamic_smarthome(
             "aircon",
             "air conditioner",
         )
-        if any(keyword in normalized_text for keyword in intent_keywords):
-            temperature_c = int(temp_match.group(1))
+        temperature_c = int(temp_match.group(1))
+
+        if any(keyword in normalized_text for keyword in heater_keywords):
+            if temperature_c < 16 or temperature_c > 30:
+                return IntentParseResult(
+                    intent=None,
+                    confidence=stt_confidence,
+                    text=text,
+                    normalized_text=normalized_text,
+                    reason="temperature_out_of_range",
+                )
+            return result(
+                "smarthome.heater.set_temperature",
+                matched_alias="__dynamic_heater_temperature__",
+                payload={
+                    "device_key": "heater",
+                    "action": "set_temperature",
+                    "temperature_c": temperature_c,
+                },
+            )
+
+        if any(keyword in normalized_text for keyword in aircon_keywords):
             if temperature_c < 16 or temperature_c > 30:
                 return IntentParseResult(
                     intent=None,
@@ -185,6 +206,9 @@ def _parse_dynamic_smarthome(
             return result("smarthome.music.stop", matched_alias="__dynamic_music_stop__")
         if has_any("틀어줘", "틀어", "재생", "play", "켜줘", "켜", "켜기", "on"):
             return result("smarthome.music.play", matched_alias="__dynamic_music_play__")
+
+    if has_any("다 꺼", "다꺼", "전부 꺼", "전부꺼", "모두 꺼", "모두꺼", "외출 모드", "외출모드", "turn everything off", "all off"):
+        return result("smarthome.all.off", matched_alias="__dynamic_all_off__")
 
     return None
 
