@@ -44,11 +44,15 @@ vad:
   # 350 에서는 소음 스파이크가 speech 로 오트리거되어 Listening↔Idle 플래핑 발생.
   # 700 으로 올려 스파이크를 거의 차단하면서 발화 RMS(수천) 여유 유지.
   threshold: 700
-  # 300ms 는 숨쉬는 간격에 조각나기 쉬워 500ms 로 여유.
-  min_silence_duration_ms: 500
+  # 500ms 도 "컴퓨터 켜줘" 중간 자음 공백에 끊겨 발화가 "컴" + "퓨터 켜줘"
+  # 로 쪼개지는 현상 관찰 → 800ms 로 상향. 2 단어 명령까지 자연스럽게
+  # 한 utterance 로 묶는다.
+  min_silence_duration_ms: 800
   speech_pad_ms: 30
-  # 150ms 이하 짧은 스파이크는 발화 아님으로 확실히 drop.
-  min_speech_ms: 300
+  # 300ms 짜리 파편(위의 "컴"만 잡힌 케이스) 이 whisper 에 들어가면
+  # asr empty + 3~4 초 decode 낭비 + 후속 BUSY drop 연쇄 발생.
+  # 500ms 미만은 아예 DROP_SHORT 으로 내보낸다.
+  min_speech_ms: 500
 
 
 # ── ASR: faster-whisper 1.2.x ────────────────────────────────
