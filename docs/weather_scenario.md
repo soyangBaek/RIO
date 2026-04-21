@@ -14,7 +14,7 @@ RIO의 날씨 조회 기능을 사용자가 언제/어떻게 쓰는지, 내부�
 
 1. 음성을 `weather.current` intent 로 해석
 2. Open-Meteo API 로 현재 날씨 조회
-3. 얼굴 패널을 `weather_face.png` 로 전환
+3. 얼굴 패널을 `robot_right.png` 로 전환
 4. 우상단에 조건별 벡터 아이콘 오버레이 (맑음=해, 흐림=구름, 비=우산 등)
 5. 효과음 재생 (Animal Crossing flourish)
 6. 6초 후 얼굴과 아이콘이 동시에 원래 상태로 복귀
@@ -100,17 +100,17 @@ VOICE_INTENT_DETECTED {intent: weather.current}
 
 | 상황 | 표정 asset_key | fallback |
 |---|---|---|
-| 날씨 조회 중 (Activity=Executing weather) | `weather_face` | `attentive` |
-| 조회 완료 후 6초간 | `weather_face` | `attentive` |
+| 날씨 조회 중 (Activity=Executing weather) | `robot_right` | `attentive` |
+| 조회 완료 후 6초간 | `robot_right` | `attentive` |
 | 6초 경과 후 | 평상시 mood 로 복귀 | - |
 
-핵심 동작: weather 는 네트워크 호출이 1초 내로 끝나 `Executing → Idle` 로 금방 돌아가므로, `rio.weather_display_end_at` 타이머를 이용해 Idle 복귀 후에도 6초간 `weather_face.png` 를 유지한다. 이 분기는 `preview_window.py:choose_face_asset_key` 안에 있다.
+핵심 동작: weather 는 네트워크 호출이 1초 내로 끝나 `Executing → Idle` 로 금방 돌아가므로, `rio.weather_display_end_at` 타이머를 이용해 Idle 복귀 후에도 6초간 `robot_right.png` 를 유지한다. 이 분기는 `preview_window.py:choose_face_asset_key` 안에 있다. (참고: `assets/expressions/weather_face.png` 는 현재 사용되지 않음.)
 
 ---
 
 ## 6. 아이콘 오버레이
 
-얼굴 패널 우상단 (face_rect 기준 `(x2-130, y1+130)`) 에 반경 54px 의 원형 영역으로 그려진다. 6초의 마지막 1초는 선형 페이드아웃.
+얼굴 패널 중앙 (face_rect 의 중심) 에 반경 110px 의 원형 영역으로 그려진다. 반투명 배경 원(alpha≈0.55) 이 아이콘 뒤에 깔려서 얼굴 표정 위에 올라가도 아이콘 모양이 선명하게 보인다. 6초의 마지막 1초는 선형 페이드아웃.
 
 | icon_key | 그려지는 요소 | 애니메이션 |
 |---|---|---|
@@ -171,7 +171,7 @@ python scripts/run_rio_app.py --profile app --preview
 1. `[RIO] startup report` 에서 weather 항목은 별도 표시 없음 (endpoint 확인은 하고 싶으면 `configs/devices.yaml` 열기)
 2. 마이크에 "날씨 알려줘" → 인식 블록에 `intent: weather.current`, `confidence` 표시
 3. `── activity: Listening → Executing (weather) ──` 전이 로그
-4. 프리뷰 창 얼굴이 `weather_face` 로 전환
+4. 프리뷰 창 얼굴이 `robot_right` 로 전환
 5. 우상단 아이콘 등장 (맑음/흐림/비 등)
 6. Animal Crossing flourish 효과음 재생
 7. 6초 뒤 얼굴 + 아이콘 동시 소멸, Idle 복귀
@@ -279,7 +279,7 @@ python -m unittest discover -s tests -t .
 | SFX 트리거 / TTS 제거 | `src/app/domains/behavior/effect_planner.py` |
 | 얼굴 표정 선택 | `src/app/adapters/display/preview_window.py:choose_face_asset_key` |
 | 아이콘 드로잉 | `src/app/adapters/display/preview_window.py:_draw_weather_icon` |
-| 얼굴 에셋 | `assets/expressions/weather_face.png` |
+| 얼굴 에셋 | `assets/expressions/robot_right.png` |
 | 효과음 에셋 | `assets/sounds/flourish-emote-animal-crossing.mp3`, `assets/sounds/surprise-emote.mp3` |
 | Intent alias | `configs/triggers.yaml` |
 | 위치 / 엔드포인트 | `configs/devices.yaml` |

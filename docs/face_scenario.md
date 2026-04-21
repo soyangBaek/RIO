@@ -27,12 +27,12 @@ RIO가 사용하는 모든 표정(PNG) 에셋과, 각 표정이 언제 표시되
 | 17 | `photo_snap.png`    | `photo_snap`     | ❌ 미사용  |
 | 18 | `robot_idle.png`    | `robot_idle`     | ✅ 사용    |
 | 19 | `robot_left.png`    | `robot_left`     | ❌ 미사용  |
-| 20 | `robot_right.png`   | `robot_right`    | ❌ 미사용  |
+| 20 | `robot_right.png`   | `robot_right`    | ✅ 사용    |
 | 21 | `sleepy.png`        | `sleepy`         | ✅ 사용    |
 | 22 | `smarthome_fail.png`| `smarthome_fail` | ✅ 사용    |
 | 23 | `startled.png`      | `startled`       | ✅ 사용    |
 | 24 | `triangle_tear.png` | `triangle_tear`  | ❌ 미사용  |
-| 25 | `weather_face.png`  | `weather_face`   | ✅ 사용    |
+| 25 | `weather_face.png`  | `weather_face`   | ❌ 미사용  |
 | 26 | `welcome.png`       | `welcome`        | ✅ 사용    |
 | 27 | `wet_tear.png`      | `wet_tear`       | ✅ 사용    |
 
@@ -68,9 +68,10 @@ RIO가 사용하는 모든 표정(PNG) 에셋과, 각 표정이 언제 표시되
 
 ### 5. 날씨 조회
 
-| 상황             | 표정              | fallback     | 효과음 |
-|------------------|--------------------|--------------|--------|
-| 날씨 조회 중     | `weather_face`     | `attentive`  | —      |
+| 상황                                | 표정           | fallback     | 효과음                                   |
+|-------------------------------------|----------------|--------------|------------------------------------------|
+| 날씨 조회 중 (EXECUTING WEATHER)    | `robot_right`  | `attentive`  | `flourish-emote-animal-crossing.mp3` (성공 시) / `surprise-emote.mp3` (실패 시) |
+| 조회 완료 후 6초 디스플레이 유지     | `robot_right`  | `attentive`  | —                                        |
 
 ### 6. 제스처 반응 (Oneshot)
 
@@ -154,12 +155,12 @@ RIO가 사용하는 모든 표정(PNG) 에셋과, 각 표정이 언제 표시되
 
 ## 미사용 에셋
 
-| 파일                 | 설명                                        |
-|----------------------|---------------------------------------------|
-| `boot.png`           | 부팅 화면용 (예정)                           |
-| `bored_old.png`      | 이전 버전 지루함 표정                        |
-| `cute_lips.png`      | 대체 귀여움 표정                             |
-| `photo_snap.png`     | 촬영 순간 표정 (현재 photo_cute로 대체)      |
-| `robot_left.png`     | 로봇 좌측 시선 (예정)                        |
-| `robot_right.png`    | 로봇 우측 시선 (예정)                        |
-| `triangle_tear.png`  | 삼각 눈물 표정                               |
+| 파일                 | 설명                                                   |
+|----------------------|--------------------------------------------------------|
+| `boot.png`           | 부팅 화면용 (예정)                                      |
+| `bored_old.png`      | 이전 버전 지루함 표정                                   |
+| `cute_lips.png`      | 대체 귀여움 표정                                        |
+| `photo_snap.png`     | 촬영 순간 표정 (현재 photo_cute로 대체)                 |
+| `robot_left.png`     | 로봇 좌측 시선 (예정)                                   |
+| `triangle_tear.png`  | 삼각 눈물 표정                                          |
+| `weather_face.png`   | 초기 설계용 날씨 전용 표정 (현재 robot_right로 대체)    |
