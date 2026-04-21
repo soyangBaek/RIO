@@ -114,6 +114,26 @@ class IntentParserTest(unittest.TestCase):
         parsed = parse_intent("간접든 켜줘", stt_confidence=0.95)
         self.assertEqual(parsed.intent, "smarthome.indirect_light.on")
 
+    def test_tv_off_stt_misrecognition_고추(self) -> None:
+        parsed = parse_intent("티비 고추", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.tv.off")
+
+    def test_tv_off_stt_misrecognition_고중(self) -> None:
+        parsed = parse_intent("티비 고중", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.tv.off")
+
+    def test_music_stop_stt_misrecognition_고쳐(self) -> None:
+        parsed = parse_intent("음악 고쳐", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.music.stop")
+
+    def test_cleaner_start_stt_misrecognition_들려줘(self) -> None:
+        parsed = parse_intent("청소기 들려줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.robot_cleaner.start")
+
+    def test_heater_stt_misrecognition_단방(self) -> None:
+        parsed = parse_intent("단방 켜줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.heater.on")
+
     # ── 지원 중단된 변형 (unknown 이어야 함) ─────────────────
 
     def test_english_command_rejected(self) -> None:
