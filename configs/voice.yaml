@@ -39,11 +39,16 @@ audio:
 
 # ── VAD: RMS 기반 세그먼터 ──────────────────────────────────
 vad:
-  # 16-bit PCM 기준 RMS 임계값. 조용한 근접 발화는 250~450 정도부터 시작.
-  threshold: 350
-  min_silence_duration_ms: 300
+  # 16-bit PCM 기준 RMS 임계값. AB13X close-talk 실측:
+  # 조용한 방 일반 소음 max≈100~290, 간헐 스파이크 400~700 관측됨.
+  # 350 에서는 소음 스파이크가 speech 로 오트리거되어 Listening↔Idle 플래핑 발생.
+  # 700 으로 올려 스파이크를 거의 차단하면서 발화 RMS(수천) 여유 유지.
+  threshold: 700
+  # 300ms 는 숨쉬는 간격에 조각나기 쉬워 500ms 로 여유.
+  min_silence_duration_ms: 500
   speech_pad_ms: 30
-  min_speech_ms: 150
+  # 150ms 이하 짧은 스파이크는 발화 아님으로 확실히 drop.
+  min_speech_ms: 300
 
 
 # ── ASR: faster-whisper 1.2.x ────────────────────────────────
