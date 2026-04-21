@@ -126,7 +126,7 @@ class InputReactionIntegrationTest(unittest.TestCase):
         self.assertEqual(orchestrator.store.snapshot().activity_state, ActivityState.LISTENING)
         last_frame = orchestrator.renderer.history[-1]
         self.assertEqual(last_frame.ui, "ListeningUI")
-        self.assertEqual(last_frame.overlay.name, "assets/animations/listening.txt")
+        self.assertEqual(last_frame.overlay.name, "assets/animations/listening_sprite.png")
         self.assertTrue(last_frame.overlay.visible)
         self.assertIn("listening_cue", orchestrator.sfx.history)
 

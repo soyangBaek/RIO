@@ -1,4 +1,0 @@
-listening overlay placeholder
-layer: action_overlay
-loop: true
-visual: pulse ring + speaker with sound waves (rendered by draw_ui_overlay in preview_window.py)

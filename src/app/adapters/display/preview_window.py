@@ -40,6 +40,42 @@ RECENT_ACTION_HOLD_MS = 1500
 
 _FACE_ASSET_TRANSITION: dict[str, Any] = {"current": None, "previous": None, "changed_at": 0.0}
 
+LISTENING_SPRITE_PATH = "assets/animations/listening_sprite.png"
+LISTENING_SPRITE_FRAMES = 24
+LISTENING_SPRITE_FPS = 24
+
+
+@lru_cache(maxsize=4)
+def _load_sprite_frames(path: str, frame_count: int) -> tuple[np.ndarray, ...] | None:
+    sheet = cv2.imread(str(REPO_ROOT / path), cv2.IMREAD_UNCHANGED)
+    if sheet is None or sheet.ndim != 3 or sheet.shape[2] != 4:
+        return None
+    frame_w = sheet.shape[1] // frame_count
+    if frame_w <= 0:
+        return None
+    return tuple(
+        sheet[:, i * frame_w : (i + 1) * frame_w].copy()
+        for i in range(frame_count)
+    )
+
+
+def blit_sprite_rgba(canvas: np.ndarray, sprite_bgra: np.ndarray, top_left: tuple[int, int]) -> None:
+    x, y = top_left
+    h, w = sprite_bgra.shape[:2]
+    ch, cw = canvas.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(cw, x + w), min(ch, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return
+    sx0, sy0 = x0 - x, y0 - y
+    sx1, sy1 = sx0 + (x1 - x0), sy0 + (y1 - y0)
+    region = sprite_bgra[sy0:sy1, sx0:sx1]
+    alpha = region[..., 3:4].astype(np.float32) / 255.0
+    canvas[y0:y1, x0:x1] = (
+        region[..., :3].astype(np.float32) * alpha
+        + canvas[y0:y1, x0:x1].astype(np.float32) * (1.0 - alpha)
+    ).astype(np.uint8)
+
 
 # ── 기본 유틸 ───────────────────────────────────────────────────────
 
@@ -622,37 +658,14 @@ def draw_ui_overlay(
         )
 
     if ui == "ListeningUI":
-        alpha_composite(
-            image,
-            lambda layer: cv2.circle(layer, ((x1 + x2) // 2, (y1 + y2) // 2), int((x2 - x1) * (0.38 + pulse * 0.06)), accent, 7, cv2.LINE_AA),
-            alpha=0.22,
-        )
-        speaker_color = rgb(20, 20, 20)
-        sx = (x1 + x2) // 2
-        sy = y2 - 56
-        body_pts = np.array(
-            [
-                (sx - 16, sy - 7), (sx - 5, sy - 7), (sx + 6, sy - 14),
-                (sx + 6, sy + 14), (sx - 5, sy + 7), (sx - 16, sy + 7),
-            ],
-            dtype=np.int32,
-        )
-        cv2.fillPoly(image, [body_pts], speaker_color, cv2.LINE_AA)
-        for idx, base_radius in enumerate((9, 15)):
-            wave_alpha = max(0.0, min(1.0, pulse - idx * 0.22))
-            if wave_alpha > 0.05:
-                alpha_composite(
-                    image,
-                    lambda layer, r=base_radius: cv2.ellipse(layer, (sx + 10, sy), (r, r), 0, -38, 38, speaker_color, 2, cv2.LINE_AA),
-                    alpha=wave_alpha,
-                )
-        if search_indicator:
-            sweep_x = int(x1 + ((math.sin(now_s * 2.7) + 1.0) * 0.5) * (x2 - x1))
-            alpha_composite(
-                image,
-                lambda layer: cv2.rectangle(layer, (max(x1, sweep_x - 16), y1 + 24), (min(x2, sweep_x + 16), y2 - 24), accent, -1, cv2.LINE_AA),
-                alpha=0.12,
-            )
+        frames = _load_sprite_frames(LISTENING_SPRITE_PATH, LISTENING_SPRITE_FRAMES)
+        if frames is not None:
+            frame_idx = int(now_s * LISTENING_SPRITE_FPS) % LISTENING_SPRITE_FRAMES
+            sprite = frames[frame_idx]
+            sh, sw = sprite.shape[:2]
+            blit_x = (x1 + x2) // 2 - sw // 2
+            blit_y = y2 - sh - 24
+            blit_sprite_rgba(image, sprite, (blit_x, blit_y))
 
     if ui == "CameraUI" or overlay_key == "camera_countdown":
         bracket_color = mix_color(panel_edge, rgb(255, 238, 178), 0.4)
