@@ -59,7 +59,7 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
   - `게임(모드)|game mode` → `ui.game_mode.enter`
   - `날씨|weather` → `weather.current`
   - `(숫자)시간|분|초|시` + `알려줘|타이머|알람|뒤|후` → `timer.create`
-  - `취소|cancel|그만` → `system.cancel`
+  - `멈춰줘` (exact match only) → `system.cancel`
   - `알겠어|확인|오케이|okay|ok` → `system.ack`
 
 ---
@@ -76,7 +76,7 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 | "에어컨 켜줘" | `smarthome.aircon.on` | `SMARTHOME` | `SmartHomeService` ([smart_home/service.py](../src/app/domains/smart_home/service.py)) | `Listening → Executing(smarthome) → Idle` | `happy`/`confused` |
 | "불 꺼줘" | `smarthome.light.off` | `SMARTHOME` | 동일 | 동일 | 동일 |
 | "다 꺼" | `smarthome.all.off` | `SMARTHOME` | `SmartHomeService._handle_all_off` | 동일 (client의 `reset_all()` 호출) | 동일 |
-| "취소" | `system.cancel` | — | Activity reducer 직접 처리 | `Listening/Executing(dance|game) → Idle` | — |
+| "멈춰줘" | `system.cancel` | — | Activity reducer 직접 처리 | `Listening/Executing(dance|game) → Idle` | — |
 | "알겠어" | `system.ack` | — | Activity reducer 직접 처리 | `Alerting → Idle` | — |
 
 ---
@@ -196,7 +196,7 @@ YAML에 적지 않아도 되는 자연어 패턴입니다. 가장 먼저 평가�
 ### 4.7 시스템 제어 `system.cancel` / `system.ack`
 
 - **발화 예시**
-  - `system.cancel`: "취소", "cancel", "그만"
+  - `system.cancel`: "멈춰줘" (exact match only)
   - `system.ack`: "알겠어", "확인", "okay", "ok", "오케이"
 - **동작** ([activity_fsm.py:19-57](../src/app/core/state/activity_fsm.py#L19-L57))
   - `Listening` 중 → `Activity: Listening → Idle` (조용히 종료)

@@ -267,7 +267,7 @@ venv/bin/python scripts/live_voice_interaction_test.py 2>&1 | tee /tmp/rio_run.l
 ### MT-VOICE-LIVE-SCN-05: 시스템 명령
 
 1. "알겠어" → `voice.intent.detected(system.ack)` — ack scene
-2. "취소" → `voice.intent.detected(system.cancel)` — 현재 실행 중인 task 취소 시도
+2. "멈춰줘" → `voice.intent.detected(system.cancel)` — 현재 실행 중인 task 취소 시도
 
 ---
 
