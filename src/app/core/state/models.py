@@ -32,6 +32,7 @@ class ActionKind(StrEnum):
     TIMER_SETUP = "timer_setup"
     GAME = "game"
     DANCE = "dance"
+    SING = "sing"
 
 
 class Mood(StrEnum):
@@ -66,6 +67,7 @@ class OneshotName(StrEnum):
 
 INTENT_TO_ACTION_KIND: dict[str, ActionKind] = {
     "dance.start": ActionKind.DANCE,
+    "sing.start": ActionKind.SING,
     "camera.capture": ActionKind.PHOTO,
     "ui.game_mode.enter": ActionKind.GAME,
     "timer.create": ActionKind.TIMER_SETUP,

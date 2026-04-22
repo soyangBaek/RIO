@@ -303,7 +303,7 @@ def load_expression_assets() -> dict[str, np.ndarray]:
     return assets
 
 
-def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
+def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any, now_s: float = 0.0) -> str:
     snapshot = rio.store.snapshot()
     assets = load_expression_assets()
     overlay_key = Path(render_frame.overlay.name).stem if render_frame.overlay.name else ""
@@ -336,6 +336,8 @@ def choose_face_asset_key(rio: "RioOrchestrator", render_frame: Any) -> str:
             return pick("wet_tear", "attentive")
         if kind == ActionKind.DANCE:
             return pick("dance_face", "happy")
+        if kind == ActionKind.SING:
+            return pick("attentive") if int(now_s * 2) % 2 == 0 else pick("calm")
         if kind == ActionKind.WEATHER:
             return pick("robot_right", "attentive")
 
@@ -657,6 +659,32 @@ def draw_eye(
     cv2.line(image, left, right, scale_color(accent, 0.86), 5, cv2.LINE_AA)
 
 
+def _draw_rising_notes(
+    image: np.ndarray,
+    face_rect: tuple[int, int, int, int],
+    now_s: float,
+) -> None:
+    x1, y1, x2, y2 = face_rect
+    width = x2 - x1
+    height = y2 - y1
+    symbols = ("d", "J", "F")  # FONT_HERSHEY 글립 근사: d≈♪ 모양, J/F도 note 느낌
+    count = 5
+    for i in range(count):
+        phase = (now_s * 0.25 + i * 0.23) % 1.0
+        col_ratio = ((i * 0.37 + now_s * 0.03) % 1.0)
+        cx = x1 + 40 + int((width - 80) * col_ratio)
+        cy = int(y2 - 30 - phase * (height - 60))
+        fade = 1.0 - abs(phase - 0.5) * 2.0
+        if fade <= 0.05:
+            continue
+        base_color = rgb(255, 220, 120)
+        color = scale_color(base_color, max(0.2, fade))
+        sym = symbols[i % len(symbols)]
+        font_scale = 2.0 + 0.15 * math.sin(now_s * 2.0 + i)
+        cv2.putText(image, sym, (cx, cy), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, font_scale, rgb(20, 20, 20), 5, cv2.LINE_AA)
+        cv2.putText(image, sym, (cx, cy), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, font_scale, color, 3, cv2.LINE_AA)
+
+
 def _draw_weather_icon(
     image: np.ndarray,
     face_rect: tuple[int, int, int, int],
@@ -881,6 +909,9 @@ def draw_ui_overlay(
             alpha=0.20,
         )
 
+    if overlay_key == "sing_notes":
+        _draw_rising_notes(image, face_rect, now_s)
+
     if ui == "ListeningUI":
         frames = _load_sprite_frames(
             LISTENING_SPRITE_PATH, LISTENING_SPRITE_FRAMES, LISTENING_SPRITE_SCALE
@@ -1027,7 +1058,7 @@ def draw_robot_face(
     draw_rounded_rect(canvas, (x1, y1), (x2, y2), scale_color(palette["panel"], 0.96), radius=48)
     draw_rounded_rect(canvas, (x1, y1), (x2, y2), palette["panel_edge"], radius=48, thickness=4)
 
-    asset_key = choose_face_asset_key(rio, render_frame)
+    asset_key = choose_face_asset_key(rio, render_frame, now_s)
     countdown_remaining: float | None = None
     if rio.photo_countdown_end_at is not None:
         delta = (rio.photo_countdown_end_at - datetime.now(timezone.utc)).total_seconds()

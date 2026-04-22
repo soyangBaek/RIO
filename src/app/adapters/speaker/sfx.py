@@ -11,6 +11,7 @@ SFX_FILES: dict[str, str] = {
     "startled": "assets/sounds/shocked-emote.mp3",
     "welcome": "assets/sounds/pleased-emote.mp3",
     "dance": "assets/sounds/dance.mp3",
+    "sing": "assets/sounds/miku-alarm.mp3",
     "shutter": "assets/sounds/camera_shutter.mp3",
     "alert": "assets/sounds/timer_ring.mp3",
     "timer_registered": "assets/sounds/timer_ring.mp3",

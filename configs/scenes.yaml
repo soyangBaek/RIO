@@ -61,5 +61,8 @@ scenes:
   listening_mode_loop:
     overlay: "assets/animations/listening_sprite.png"
     sfx: []
+  sing_mode_loop:
+    overlay: "assets/animations/sing_notes.png"
+    sfx: []
   default_scene:
     overlay: null

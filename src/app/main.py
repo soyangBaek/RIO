@@ -219,6 +219,7 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
 
 
 DANCE_DURATION_SECONDS = 10.0
+SING_DURATION_SECONDS = 14.0
 PHOTO_COUNTDOWN_SECONDS = 3.0
 ALERT_AUTO_DISMISS_SECONDS = 15.0
 WEATHER_DISPLAY_DURATION_SECONDS = 6.0
@@ -377,6 +378,43 @@ def _dance_execution_handler_factory(
     return handler
 
 
+def _sing_execution_handler_factory(
+    orchestrator: "RioOrchestrator",
+) -> Callable[[ExecutionRequest], ExecutionResult]:
+    def handler(request: ExecutionRequest) -> ExecutionResult:
+        task_id = request.payload.get("task_id", request.trace_id or "sing")
+        trace_id = request.trace_id
+        started = Event.create(
+            topics.TASK_STARTED,
+            "sing.handler",
+            payload={"task_id": task_id, "kind": ActionKind.SING.value},
+            trace_id=trace_id,
+        )
+        orchestrator.sfx.play("sing")
+
+        def finish() -> None:
+            orchestrator.sfx.stop("sing")
+            succeeded = Event.create(
+                topics.TASK_SUCCEEDED,
+                "sing.handler",
+                payload={
+                    "task_id": task_id,
+                    "kind": ActionKind.SING.value,
+                    "message": "Singing finished",
+                },
+                trace_id=trace_id,
+            )
+            orchestrator.bus.publish(succeeded)
+
+        timer = threading.Timer(SING_DURATION_SECONDS, finish)
+        timer.daemon = True
+        timer.start()
+        orchestrator._sing_timer = timer
+        return ExecutionResult(events=[started])
+
+    return handler
+
+
 @dataclass(slots=True)
 class RioOrchestrator:
     bus: QueueBus = field(default_factory=QueueBus)
@@ -400,6 +438,7 @@ class RioOrchestrator:
     weather_display_end_at: "datetime | None" = None
     weather_icon_key: "str | None" = None
     _dance_timer: "threading.Timer | None" = None
+    _sing_timer: "threading.Timer | None" = None
     _photo_timer: "threading.Timer | None" = None
     _alert_timeout_timer: "threading.Timer | None" = None
     _async_executor: ThreadPoolExecutor = field(
@@ -495,6 +534,7 @@ class RioOrchestrator:
         self.registry.register(ActionKind.SMARTHOME, SmartHomeService(home_client))
         self.registry.register(ActionKind.GAME, GamesService())
         self.registry.register(ActionKind.DANCE, _dance_execution_handler_factory(self))
+        self.registry.register(ActionKind.SING, _sing_execution_handler_factory(self))
         self.registry.register(
             ActionKind.WEATHER,
             _weather_execution_handler_factory(self, weather_client, weather_display_seconds),
@@ -637,6 +677,12 @@ class RioOrchestrator:
             if pending is not None and pending.is_alive():
                 pending.cancel()
             self._dance_timer = None
+        elif previous_kind == ActionKind.SING:
+            self.sfx.stop("sing")
+            pending = self._sing_timer
+            if pending is not None and pending.is_alive():
+                pending.cancel()
+            self._sing_timer = None
 
     def _handle_alert_timeout(
         self,

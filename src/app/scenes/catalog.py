@@ -13,6 +13,7 @@ from src.app.scenes.builders import (
     game_direction,
     listening_mode_loop,
     peekaboo_reaction,
+    sing_mode_loop,
     sleep_mode_loop,
     smarthome_feedback,
     startled_then_track,
@@ -41,6 +42,7 @@ SCENE_CATALOG: dict[str, SceneBuilder] = {
     "fist_angry_reaction": fist_angry_reaction,
     "both_palms_lovely_reaction": both_palms_lovely_reaction,
     "listening_mode_loop": listening_mode_loop,
+    "sing_mode_loop": sing_mode_loop,
     "default_scene": default_scene,
 }
 

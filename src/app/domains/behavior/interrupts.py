@@ -62,6 +62,17 @@ def evaluate_interrupt(state: RuntimeState, event: Event) -> InterruptDecision:
             return InterruptDecision(InterruptAction.DROP, "long_action_lock")
         return InterruptDecision(InterruptAction.ALLOW, "long_action_non_intent")
 
+    if kind == ActionKind.SING:
+        if event.topic == topics.TIMER_EXPIRED:
+            return InterruptDecision(InterruptAction.ALLOW, "high_priority_alert")
+        if intent_name in {"system.ack", "system.cancel"}:
+            return InterruptDecision(InterruptAction.ALLOW, "long_action_control")
+        if event.topic == topics.VOICE_INTENT_DETECTED:
+            return InterruptDecision(InterruptAction.DROP, "sing_lock")
+        if event.topic == topics.VISION_GESTURE_DETECTED:
+            return InterruptDecision(InterruptAction.DROP, "sing_gesture_block")
+        return InterruptDecision(InterruptAction.ALLOW, "long_action_non_intent")
+
     if kind in {ActionKind.SMARTHOME, ActionKind.WEATHER, ActionKind.TIMER_SETUP}:
         if event.topic == topics.TIMER_EXPIRED:
             return InterruptDecision(InterruptAction.ALLOW, "high_priority_alert")

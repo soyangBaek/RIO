@@ -178,6 +178,15 @@ def _parse_dynamic_generic(
 
     # 공식 발화만. 영어/유사 표현 제거.
 
+    if has_any("노래 해줘", "노래해줘"):
+        return IntentParseResult(
+            intent="sing.start",
+            confidence=stt_confidence,
+            text=text,
+            normalized_text=normalized_text,
+            matched_alias="__dynamic_sing__",
+        )
+
     if has_any("춤춰줘"):
         return IntentParseResult(
             intent="dance.start",

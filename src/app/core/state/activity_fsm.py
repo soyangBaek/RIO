@@ -53,6 +53,7 @@ def transition_activity(
             if intent in {"system.cancel", "system.ack"} and active_kind in {
                 ActionKind.DANCE,
                 ActionKind.GAME,
+                ActionKind.SING,
             }:
                 return ActivityState.IDLE, None
         return current, active_kind

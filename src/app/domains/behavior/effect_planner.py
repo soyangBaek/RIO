@@ -54,6 +54,8 @@ def _scene_key(result: ReductionResult, event: Event) -> str:
     kind = result.current.extended.active_executing_kind
     if kind == ActionKind.PHOTO:
         return "take_photo_countdown"
+    if kind == ActionKind.SING:
+        return "sing_mode_loop"
     if result.scene.ui.value == "SleepUI":
         return "sleep_mode_loop"
     if event.topic == topics.SMARTHOME_RESULT:

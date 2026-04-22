@@ -136,10 +136,10 @@ stateDiagram-v2
 
 - `Idle`: 특별한 작업 없음
 - `Listening`: 음성 수신/해석 중
-- `Executing(kind)`: 기능 실행 중. `kind`는 파라미터 (`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`)
+- `Executing(kind)`: 기능 실행 중. `kind`는 파라미터 (`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`, `sing`)
 - `Alerting`: 시스템이 사용자에게 적극적으로 피드백하는 중 (타이머 완료 등)
 
-기능별 실행 모드(`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`)는 별도 상태를 만들지 않고 `Executing(kind)`의 `kind` 파라미터로 구분합니다. 새 기능이 추가되면 `kind`를 늘리고 씬 매핑 테이블(§6.2)에 한 줄만 더하면 됩니다.
+기능별 실행 모드(`weather`, `photo`, `smarthome`, `timer_setup`, `game`, `dance`, `sing`)는 별도 상태를 만들지 않고 `Executing(kind)`의 `kind` 파라미터로 구분합니다. 새 기능이 추가되면 `kind`를 늘리고 씬 매핑 테이블(§6.2)에 한 줄만 더하면 됩니다.
 
 ### 4.1 Activity 인터럽트 정책
 
@@ -154,8 +154,8 @@ stateDiagram-v2
    기존 보류 intent가 있으면 새 것으로 덮어씁니다.
 5. `Executing -> Idle` 직후 `deferred_intent`가 있으면 즉시 `Idle -> Executing(kind)` 또는 `Idle -> Listening`으로 재진입합니다.
    어느 경로로 재진입할지는 intent가 이미 확정됐는지 여부에 따라 결정합니다.
-6. `Executing(game)`, `Executing(dance)`는 장시간 연출일 수 있으므로 기본적으로 신규 intent를 무시하고,
-   `system.cancel`, `high_priority_alert`만 받습니다.
+6. `Executing(game)`, `Executing(dance)`, `Executing(sing)`는 장시간 연출일 수 있으므로 기본적으로 신규 intent를 무시하고,
+   `system.cancel`, `high_priority_alert`만 받습니다. `Executing(sing)`은 추가로 `VISION_GESTURE_DETECTED`도 DROP 하여 노래 중 제스처 반응을 완전히 억제합니다.
 7. `high_priority_alert`의 정의: MVP에서는 `timer.expired`만 해당합니다. Phase 2에서 추가되는 알림은 이 목록에 명시적으로 추가합니다.
 
 ## 5. Oneshot Events (상태 아님)
@@ -217,6 +217,7 @@ stateDiagram-v2
 | `Executing(smarthome)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
 | `Executing(timer_setup)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
 | `Executing(dance)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
+| `Executing(sing)` | `NormalFace` | `NormalFace` | `NormalFace` | `NormalFace` |
 | `Alerting` | `AlertUI` | `AlertUI` | `AlertUI` | `AlertUI` |
 
 규칙:
