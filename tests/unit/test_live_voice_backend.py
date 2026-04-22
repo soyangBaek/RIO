@@ -61,6 +61,54 @@ class LiveVoiceBackendTest(unittest.TestCase):
         self.assertEqual(len(ended.audio), 512 * 4)
         self.assertEqual(ended.duration_ms, 128)
 
+    def test_rms_vad_delays_confirmed_until_min_speech_ms(self) -> None:
+        # 512 samples @ 16kHz = 32ms per chunk. min_speech_ms=100 → confirmed on 4th voiced chunk.
+        detector = _RmsVoiceActivityDetector(
+            threshold=300,
+            silence_chunks_to_end=2,
+            speech_pad_chunks=0,
+            min_speech_ms=100,
+            sample_rate=16000,
+        )
+        speech = np.full(512, 0.05, dtype=np.float32)
+
+        first = detector.process(speech)
+        self.assertTrue(first.started)
+        self.assertFalse(first.confirmed)
+
+        second = detector.process(speech)
+        self.assertFalse(second.started)
+        self.assertFalse(second.confirmed)
+
+        third = detector.process(speech)
+        self.assertFalse(third.confirmed)
+
+        fourth = detector.process(speech)
+        self.assertTrue(fourth.confirmed)
+
+        fifth = detector.process(speech)
+        self.assertFalse(fifth.confirmed)
+
+    def test_rms_vad_skips_confirmed_for_short_spike(self) -> None:
+        detector = _RmsVoiceActivityDetector(
+            threshold=300,
+            silence_chunks_to_end=2,
+            speech_pad_chunks=0,
+            min_speech_ms=200,
+            sample_rate=16000,
+        )
+        silence = np.zeros(512, dtype=np.float32)
+        speech = np.full(512, 0.05, dtype=np.float32)
+
+        first = detector.process(speech)
+        self.assertTrue(first.started)
+        self.assertFalse(first.confirmed)
+
+        detector.process(silence)
+        ended = detector.process(silence)
+        self.assertTrue(ended.ended)
+        self.assertTrue(ended.duration_ms < 200)
+
     def test_transcribe_and_feed_emits_worker_frames(self) -> None:
         capture = AudioCapture()
         backend = LiveVoiceBackend(

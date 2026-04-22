@@ -72,6 +72,12 @@ fn main() -> Result<()> {
                 "rms": decision.rms,
             }))?;
         }
+        if decision.confirmed {
+            emit(&json!({
+                "type": "speech_confirmed",
+                "rms": decision.rms,
+            }))?;
+        }
 
         if !decision.ended {
             continue;

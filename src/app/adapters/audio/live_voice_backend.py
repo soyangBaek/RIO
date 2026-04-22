@@ -107,6 +107,7 @@ class BackendConfig:
 @dataclass
 class _VadDecision:
     started: bool = False
+    confirmed: bool = False
     ended: bool = False
     rms: int = 0
     duration_ms: int = 0
@@ -132,6 +133,8 @@ class _RmsVoiceActivityDetector:
         self.sample_rate = max(1, sample_rate)
 
         self._active = False
+        self._confirmed = False
+        self._voiced_samples = 0
         self._silent_chunks = 0
         self._pre_roll: deque[np.ndarray] = (
             deque(maxlen=self.speech_pad_chunks) if self.speech_pad_chunks > 0 else deque()
@@ -146,6 +149,16 @@ class _RmsVoiceActivityDetector:
         clipped = np.clip(chunk.astype(np.float32, copy=False), -1.0, 1.0)
         return int(round(float(np.sqrt(np.mean(clipped * clipped))) * 32768.0))
 
+    def _check_confirmed(self) -> bool:
+        """Return True on the chunk where voiced duration first crosses min_speech_ms."""
+        if self._confirmed:
+            return False
+        voiced_ms = (self._voiced_samples / self.sample_rate) * 1000.0
+        if voiced_ms >= self.min_speech_ms:
+            self._confirmed = True
+            return True
+        return False
+
     def process(self, chunk: np.ndarray) -> _VadDecision:
         rms = self._rms(chunk)
         voiced = rms >= self.threshold
@@ -153,12 +166,18 @@ class _RmsVoiceActivityDetector:
         if not self._active:
             if voiced:
                 self._active = True
+                self._confirmed = False
+                self._voiced_samples = len(chunk)
                 self._silent_chunks = 0
                 self._pending_silence = []
                 self._current_chunks = list(self._pre_roll)
                 self._current_chunks.append(chunk.copy())
                 self._pre_roll.clear()
-                return _VadDecision(started=True, rms=rms)
+                return _VadDecision(
+                    started=True,
+                    confirmed=self._check_confirmed(),
+                    rms=rms,
+                )
             if self.speech_pad_chunks > 0:
                 self._pre_roll.append(chunk.copy())
             return _VadDecision(rms=rms)
@@ -169,7 +188,11 @@ class _RmsVoiceActivityDetector:
                 self._pending_silence = []
             self._silent_chunks = 0
             self._current_chunks.append(chunk.copy())
-            return _VadDecision(rms=rms)
+            self._voiced_samples += len(chunk)
+            return _VadDecision(
+                confirmed=self._check_confirmed(),
+                rms=rms,
+            )
 
         self._pending_silence.append(chunk.copy())
         self._silent_chunks += 1
@@ -182,6 +205,8 @@ class _RmsVoiceActivityDetector:
         duration_ms = int(round((len(audio) / self.sample_rate) * 1000.0))
 
         self._active = False
+        self._confirmed = False
+        self._voiced_samples = 0
         self._silent_chunks = 0
         self._current_chunks = []
         self._pending_silence = []
@@ -468,6 +493,9 @@ class PythonLiveVoiceBackend(_WhisperBridgeBackend):
 
             if decision.started:
                 self._emit_trace(f"[voice.vad] speech START rms={decision.rms}")
+
+            if decision.confirmed:
+                self._emit_trace(f"[voice.vad] speech CONFIRMED rms={decision.rms}")
                 self.capture.feed({"speech": True})
 
             if not decision.ended or decision.audio is None:
@@ -656,6 +684,9 @@ class RustAudioBackend(_WhisperBridgeBackend):
             return
         if kind == "speech_started":
             self._emit_trace(f"[voice.vad] speech START rms={int(message.get('rms', 0))}")
+            return
+        if kind == "speech_confirmed":
+            self._emit_trace(f"[voice.vad] speech CONFIRMED rms={int(message.get('rms', 0))}")
             self.capture.feed({"speech": True})
             return
         if kind == "speech_ended":

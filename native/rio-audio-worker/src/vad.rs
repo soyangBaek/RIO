@@ -12,6 +12,7 @@ pub struct VadParams {
 #[derive(Debug)]
 pub struct VadDecision {
     pub started: bool,
+    pub confirmed: bool,
     pub ended: bool,
     pub rms: u32,
     pub start_sample: u64,
@@ -27,6 +28,7 @@ impl Default for VadDecision {
     fn default() -> Self {
         Self {
             started: false,
+            confirmed: false,
             ended: false,
             rms: 0,
             start_sample: 0,
@@ -43,6 +45,8 @@ impl Default for VadDecision {
 pub struct RmsVad {
     params: VadParams,
     active: bool,
+    confirmed: bool,
+    voiced_samples: u64,
     silent_chunks: usize,
     sample_cursor: u64,
     pre_roll: VecDeque<(u64, Vec<f32>)>,
@@ -56,11 +60,25 @@ impl RmsVad {
             pre_roll: VecDeque::with_capacity(params.speech_pad_chunks.max(1)),
             params,
             active: false,
+            confirmed: false,
+            voiced_samples: 0,
             silent_chunks: 0,
             sample_cursor: 0,
             current_chunks: Vec::new(),
             pending_silence: Vec::new(),
         }
+    }
+
+    fn check_confirmed(&mut self) -> bool {
+        if self.confirmed {
+            return false;
+        }
+        let voiced_ms = (self.voiced_samples as f64 / self.params.sample_rate as f64) * 1000.0;
+        if voiced_ms >= self.params.min_speech_ms as f64 {
+            self.confirmed = true;
+            return true;
+        }
+        false
     }
 
     pub fn process(&mut self, chunk: &[f32]) -> VadDecision {
@@ -73,12 +91,16 @@ impl RmsVad {
         if !self.active {
             if voiced {
                 self.active = true;
+                self.confirmed = false;
+                self.voiced_samples = chunk.len() as u64;
                 self.silent_chunks = 0;
                 self.pending_silence.clear();
                 self.current_chunks = self.pre_roll.drain(..).collect();
                 self.current_chunks.push(entry);
+                let confirmed = self.check_confirmed();
                 return VadDecision {
                     started: true,
+                    confirmed,
                     rms,
                     ..VadDecision::default()
                 };
@@ -101,7 +123,10 @@ impl RmsVad {
             }
             self.silent_chunks = 0;
             self.current_chunks.push(entry);
+            self.voiced_samples += chunk.len() as u64;
+            let confirmed = self.check_confirmed();
             return VadDecision {
+                confirmed,
                 rms,
                 ..VadDecision::default()
             };
@@ -126,6 +151,8 @@ impl RmsVad {
         self.pending_silence.clear();
         self.silent_chunks = 0;
         self.active = false;
+        self.confirmed = false;
+        self.voiced_samples = 0;
 
         let audio = flatten_chunks(&segment_chunks);
         let start_sample = segment_chunks.first().map(|(start, _)| *start).unwrap_or(0);
