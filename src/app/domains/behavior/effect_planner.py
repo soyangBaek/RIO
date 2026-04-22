@@ -36,7 +36,7 @@ def _scene_key(result: ReductionResult, event: Event) -> str:
             return "game_direction"
         if gesture == "fist":
             return "fist_angry_reaction"
-        if gesture == "both_palms":
+        if gesture == "heart":
             return "both_palms_lovely_reaction"
     if event.topic == topics.TOUCH_TAP_DETECTED:
         return "tap_attention"

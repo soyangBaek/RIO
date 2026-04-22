@@ -115,7 +115,7 @@ class ReducerPipeline:
                 candidate_oneshot = OneshotName.STARTLED
             elif gesture == "fist":
                 candidate_oneshot = OneshotName.ANGRY
-            elif gesture == "both_palms":
+            elif gesture == "heart":
                 candidate_oneshot = OneshotName.LOVELY
         elif event.topic == topics.SMARTHOME_RESULT:
             candidate_oneshot = (

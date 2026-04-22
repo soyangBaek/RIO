@@ -54,6 +54,98 @@ class GestureDetector:
         return cos_angle > 0.5 and tip_far
 
     @staticmethod
+    def _detect_heart(hand_landmarks: list[Any]) -> dict | None:
+        """두 손이 하트 모양을 만들고 있으면 metric dict 을 반환, 아니면 None.
+
+        판정 조건 (모두 만족해야 통과):
+          (1) 엄지끝끼리 가까움 (거리 < 손바닥 크기 × touch_ratio)
+          (2) 검지끝끼리 가까움
+          (3) 엄지가 검지보다 아래쪽 = 하트 실루엣 방향
+          (4) 양손의 중지·약지·소지는 모두 curl (C 곡선 강제) —
+              펼친 양손으로 엄지검지만 맞붙이는 케이스 배제
+          (5) 좌/우 손이 화면상 양쪽으로 충분히 벌어지고, 손가락 만나는
+              중심점이 두 손목 x 사이에 위치 — 한쪽 팔로만 만드는 모양 배제
+          (6) 검지끝 평균이 검지 PIP 평균보다 아래 (하트 윗부분 골짜기) —
+              손이 단순히 V/일자로 모인 게 아니라 각 손이 C 를 그리는지 검증
+
+        "가까움" 기준 거리는 손-카메라 거리에 따라 절대값이 달라지므로
+        손바닥 크기(wrist↔middle MCP) 비율로 계산한다.
+        """
+        if len(hand_landmarks) < 2:
+            return None
+
+        def _dist(a: Any, b: Any) -> float:
+            dx = float(a.x) - float(b.x)
+            dy = float(a.y) - float(b.y)
+            return (dx * dx + dy * dy) ** 0.5
+
+        def _is_extended(tip: Any, pip: Any, mcp: Any) -> bool:
+            return float(tip.y) < float(pip.y) < float(mcp.y)
+
+        def _hand_curled(lm: Any) -> bool:
+            # 중지/약지/소지 모두 extended 가 아니어야 C 곡선으로 본다.
+            return (
+                not _is_extended(lm[12], lm[10], lm[9])
+                and not _is_extended(lm[16], lm[14], lm[13])
+                and not _is_extended(lm[20], lm[18], lm[17])
+            )
+
+        # 화면 좌/우 기준으로 정렬 (왼손=a, 오른손=b).
+        sorted_hands = sorted(hand_landmarks[:2], key=lambda lm: float(lm[0].x))
+        a, b = sorted_hands[0], sorted_hands[1]
+
+        hand_span = (_dist(a[0], a[9]) + _dist(b[0], b[9])) / 2.0
+        if hand_span <= 1e-6:
+            return None
+
+        thumb_dist = _dist(a[4], b[4])
+        index_dist = _dist(a[8], b[8])
+        mid_thumb_y = (float(a[4].y) + float(b[4].y)) / 2.0
+        mid_index_y = (float(a[8].y) + float(b[8].y)) / 2.0
+        mid_index_pip_y = (float(a[6].y) + float(b[6].y)) / 2.0
+
+        touch_ratio = 0.75
+        thumbs_meet = thumb_dist < hand_span * touch_ratio
+        indices_meet = index_dist < hand_span * touch_ratio
+        orientation_ok = mid_thumb_y > mid_index_y
+        fingers_curled = _hand_curled(a) and _hand_curled(b)
+
+        # 좌/우 손 벌어짐: 두 손목 x 간격이 손바닥 크기 대비 충분해야 한다.
+        lateral_gap = float(b[0].x) - float(a[0].x)
+        hands_apart = lateral_gap > hand_span * 0.3
+        # 만나는 지점(엄지끝 평균 x)이 두 손목 x 사이에 있어야 "대칭".
+        meet_x = (float(a[4].x) + float(b[4].x)) / 2.0
+        symmetric = float(a[0].x) < meet_x < float(b[0].x)
+
+        # 하트 윗부분 골짜기: 검지끝이 PIP 보다 아래쪽(큰 y).
+        top_valley = mid_index_y >= mid_index_pip_y
+
+        metrics = {
+            "thumb_dist": thumb_dist,
+            "index_dist": index_dist,
+            "hand_span": hand_span,
+            "lateral_gap": lateral_gap,
+            "thumbs_meet": thumbs_meet,
+            "indices_meet": indices_meet,
+            "heart_shape": orientation_ok,
+            "fingers_curled": fingers_curled,
+            "hands_apart": hands_apart,
+            "symmetric": symmetric,
+            "top_valley": top_valley,
+        }
+        if (
+            thumbs_meet
+            and indices_meet
+            and orientation_ok
+            and fingers_curled
+            and hands_apart
+            and symmetric
+            and top_valley
+        ):
+            return metrics
+        return None
+
+    @staticmethod
     def _palm_facing_camera(lm: Any, handedness_label: str | None) -> bool:
         thumb_x = lm[4].x
         pinky_mcp_x = lm[17].x
@@ -166,22 +258,17 @@ class GestureDetector:
                 return []
             debug["hand_present"] = True
 
-            # Check for both_palms: two hands, both palms facing camera
+            # Heart gesture: 양손이 하트 모양을 만들 때.
+            # 엄지끼리 아래에서 만나고 검지끼리 위에서 만나 C+C 가
+            # 합쳐진 하트 실루엣을 형성하는 K-pop 스타일 양손 하트.
             if len(result.multi_hand_landmarks) >= 2:
-                both_facing = True
-                for i in range(2):
-                    h_label = None
-                    if result.multi_handedness:
-                        try:
-                            h_label = result.multi_handedness[i].classification[0].label
-                        except (AttributeError, IndexError):
-                            pass
-                    if not self._palm_facing_camera(result.multi_hand_landmarks[i].landmark, h_label):
-                        both_facing = False
-                        break
-                if both_facing:
-                    gesture = "both_palms"
+                heart = self._detect_heart(
+                    [hand.landmark for hand in result.multi_hand_landmarks[:2]]
+                )
+                if heart is not None:
+                    gesture = "heart"
                     debug["classified"] = gesture
+                    debug["heart_metrics"] = heart
                     confidence = 1.0
                     # skip single-hand classification
                     self._last_debug = debug
