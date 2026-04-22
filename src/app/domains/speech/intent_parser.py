@@ -234,7 +234,10 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_timer__",
         )
 
-    if has_any("취소"):
+    # "멈춰줘" 는 단독 발화만 cancel 로 처리한다. "음악 멈춰줘" 같이 다른
+    # 키워드와 결합된 발화는 substring 매칭으로 잡히면 smarthome 등
+    # 다른 의도를 가로채기 때문에, compact 형태의 exact match 로 한정.
+    if compact == "멈춰줘":
         return IntentParseResult(
             intent="system.cancel",
             confidence=stt_confidence,

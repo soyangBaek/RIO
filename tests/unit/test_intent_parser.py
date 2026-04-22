@@ -100,8 +100,13 @@ class IntentParserTest(unittest.TestCase):
         self.assertEqual(parsed.intent, "timer.create")
 
     def test_system_cancel_official(self) -> None:
-        parsed = parse_intent("취소", stt_confidence=0.95)
+        parsed = parse_intent("멈춰줘", stt_confidence=0.95)
         self.assertEqual(parsed.intent, "system.cancel")
+
+    def test_system_cancel_not_triggered_by_combined_phrase(self) -> None:
+        # "음악 멈춰줘" 처럼 다른 키워드와 결합된 경우 cancel 로 잡히면 안 된다.
+        parsed = parse_intent("음악 멈춰줘", stt_confidence=0.95)
+        self.assertNotEqual(parsed.intent, "system.cancel")
 
     def test_system_ack_official(self) -> None:
         parsed = parse_intent("확인", stt_confidence=0.95)
