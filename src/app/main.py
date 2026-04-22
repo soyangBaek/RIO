@@ -221,6 +221,7 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
 DANCE_DURATION_SECONDS = 10.0
 SING_DURATION_SECONDS = 14.0
 PHOTO_COUNTDOWN_SECONDS = 3.0
+PHOTO_REVIEW_SECONDS = 5.0
 ALERT_AUTO_DISMISS_SECONDS = 15.0
 WEATHER_DISPLAY_DURATION_SECONDS = 6.0
 
@@ -318,6 +319,13 @@ def _photo_execution_handler_factory(
                 )
                 orchestrator.bus.publish(failed)
                 return
+
+            # 촬영 직후 N 초간 사진을 화면에 그대로 띄워 확인시키는 미리보기.
+            # preview_window 가 이 두 필드를 읽어 photo_path 를 오버레이로 렌더링.
+            orchestrator.photo_review_path = photo_path
+            orchestrator.photo_review_until = datetime.now(timezone.utc) + timedelta(
+                seconds=PHOTO_REVIEW_SECONDS
+            )
 
             succeeded = Event.create(
                 topics.TASK_SUCCEEDED,
@@ -435,6 +443,8 @@ class RioOrchestrator:
     held_alerts: list[Event] = field(default_factory=list)
     webcam_capture: "WebcamCapture | None" = None
     photo_countdown_end_at: "datetime | None" = None
+    photo_review_until: "datetime | None" = None
+    photo_review_path: "str | None" = None
     weather_display_end_at: "datetime | None" = None
     weather_icon_key: "str | None" = None
     _dance_timer: "threading.Timer | None" = None
@@ -528,7 +538,19 @@ class RioOrchestrator:
         )
         weather_display_seconds = float(weather_cfg.get("display_seconds", WEATHER_DISPLAY_DURATION_SECONDS))
         photo_storage = PhotoStorage(root_dir=Path(str((robot_cfg.get("photo") or {}).get("storage_dir", "data/photos"))))
-        self.webcam_capture = WebcamCapture(photo_storage)
+
+        def _latest_camera_frame() -> "Any | None":
+            # VisionWorker.last_frame 은 실제 카메라 경로에서는 numpy 프레임,
+            # mock(use_camera=False) 경로에서는 dict 이다. dict 가 그대로 넘어가면
+            # cv2.imencode 가 실패해 dummy stub JPEG 이 저장되므로 걸러낸다.
+            if self.vision_worker is None:
+                return None
+            frame = self.vision_worker.last_frame
+            if frame is None or isinstance(frame, dict):
+                return None
+            return frame
+
+        self.webcam_capture = WebcamCapture(photo_storage, frame_getter=_latest_camera_frame)
         self.registry.register(ActionKind.PHOTO, _photo_execution_handler_factory(self))
         self.registry.register(ActionKind.TIMER_SETUP, TimerService(self.scheduler))
         self.registry.register(ActionKind.SMARTHOME, SmartHomeService(home_client))

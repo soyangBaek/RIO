@@ -1029,6 +1029,59 @@ def default_action_label(rio: "RioOrchestrator") -> str:
     return "Idle"
 
 
+# ── 사진 촬영 후 미리보기 오버레이 ────────────────────────────────
+
+# 같은 사진을 매 프레임 디코딩하지 않도록 마지막 1장만 캐시.
+_PHOTO_REVIEW_CACHE: tuple[str, np.ndarray] | None = None
+
+
+def _load_photo_review_image(path: str) -> np.ndarray | None:
+    global _PHOTO_REVIEW_CACHE
+    if _PHOTO_REVIEW_CACHE is not None and _PHOTO_REVIEW_CACHE[0] == path:
+        return _PHOTO_REVIEW_CACHE[1]
+    try:
+        img = cv2.imread(path)
+    except Exception:
+        img = None
+    if img is None:
+        return None
+    _PHOTO_REVIEW_CACHE = (path, img)
+    return img
+
+
+def _draw_photo_review(canvas: np.ndarray, photo_path: str) -> None:
+    """canvas 중앙에 촬영 직후 사진을 약 70% 크기로 겹쳐 그린다."""
+    img = _load_photo_review_image(photo_path)
+    if img is None:
+        return
+    ch, cw = canvas.shape[:2]
+    ih, iw = img.shape[:2]
+    if iw <= 0 or ih <= 0:
+        return
+    target_w = int(cw * 0.70)
+    target_h = int(ch * 0.70)
+    scale = min(target_w / iw, target_h / ih)
+    new_w = max(1, int(iw * scale))
+    new_h = max(1, int(ih * scale))
+    resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # 주변을 어둡게 깔아 사진에 시선 집중.
+    backdrop = np.zeros_like(canvas)
+    cv2.addWeighted(canvas, 0.28, backdrop, 0.72, 0.0, dst=canvas)
+
+    x = (cw - new_w) // 2
+    y = (ch - new_h) // 2
+    # 흰 프레임으로 폴라로이드 느낌.
+    cv2.rectangle(
+        canvas,
+        (x - 6, y - 6),
+        (x + new_w + 6, y + new_h + 6),
+        (255, 255, 255),
+        thickness=6,
+    )
+    canvas[y : y + new_h, x : x + new_w] = resized
+
+
 # ── 메인 draw_robot_face ───────────────────────────────────────────
 
 
@@ -1297,6 +1350,13 @@ class PreviewWindow:
             current_action=label,
             last_gesture=last_gesture,
         )
+
+        # 촬영 직후 일정 시간 동안 찍힌 사진을 화면에 크게 띄워 보여준다.
+        review_until = getattr(rio, "photo_review_until", None)
+        review_path = getattr(rio, "photo_review_path", None)
+        if review_until is not None and review_path:
+            if (review_until - datetime.now(timezone.utc)).total_seconds() > 0:
+                _draw_photo_review(canvas, review_path)
 
         self._ensure_window(canvas_w, canvas_h)
         cv2.imshow(self.WINDOW_NAME, canvas)
