@@ -18,6 +18,8 @@ use crate::config::load_voice_config;
 use crate::ipc::{emit, ControlState};
 use crate::vad::{RmsVad, VadParams};
 
+const QUIET_SEGMENT_RMS_THRESHOLD: f32 = 0.05;
+
 fn main() -> Result<()> {
     let config_path = parse_args().context("failed to parse args")?;
     let cfg = load_voice_config(&config_path)?;
@@ -75,6 +77,8 @@ fn main() -> Result<()> {
             continue;
         }
 
+        let dropped_quiet = decision.segment_rms < QUIET_SEGMENT_RMS_THRESHOLD;
+
         emit(&json!({
             "type": "speech_ended",
             "start_sample": decision.start_sample,
@@ -83,9 +87,14 @@ fn main() -> Result<()> {
             "peak": decision.peak,
             "rms": decision.segment_rms,
             "dropped_short": decision.dropped_short,
+            "dropped_quiet": dropped_quiet,
         }))?;
 
         if decision.dropped_short {
+            continue;
+        }
+
+        if dropped_quiet {
             continue;
         }
 

@@ -220,7 +220,12 @@ class Pipeline:
             peak = float(event.payload.get("peak", 0.0))
             rms = float(event.payload.get("rms", 0.0))
             dropped_short = bool(event.payload.get("dropped_short"))
-            verdict = "-> DROP_SHORT" if dropped_short else "-> ASR"
+            dropped_quiet = bool(event.payload.get("dropped_quiet"))
+            verdict = "-> ASR"
+            if dropped_short:
+                verdict = "-> DROP_SHORT"
+            elif dropped_quiet:
+                verdict = "-> DROP_QUIET"
             print(
                 f"[{_ts()}] [vad] speech END   dur={duration_ms}ms "
                 f"peak={peak:.3f} rms={rms:.3f}  {verdict}"

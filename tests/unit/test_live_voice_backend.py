@@ -159,6 +159,31 @@ class LiveVoiceBackendTest(unittest.TestCase):
             backend._utterance_q.put_nowait(None)
             thread.join(timeout=1.0)
 
+    def test_rust_backend_dropped_quiet_message_feeds_only_silence(self) -> None:
+        capture = AudioCapture()
+        backend = RustAudioBackend(
+            capture=capture,
+            config=BackendConfig(
+                audio=AudioParams(mic_gain_percent=None),
+                vad=VADParams(),
+                asr=ASRParams(min_logprob=-1.0),
+                launch=BackendLaunchConfig(type="rust", worker_path="missing"),
+            ),
+        )
+
+        backend._handle_worker_message(
+            {
+                "type": "speech_ended",
+                "duration_ms": 480,
+                "peak": 0.04,
+                "rms": 0.03,
+                "dropped_quiet": True,
+            }
+        )
+
+        self.assertEqual(capture.read_chunk(), {"speech": False})
+        self.assertEqual(capture.read_chunk(), {"speech": False})
+
 
 if __name__ == "__main__":
     unittest.main()

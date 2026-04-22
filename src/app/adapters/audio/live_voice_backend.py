@@ -660,13 +660,18 @@ class RustAudioBackend(_WhisperBridgeBackend):
             return
         if kind == "speech_ended":
             dropped_short = bool(message.get("dropped_short"))
-            suffix = " -> DROP_SHORT" if dropped_short else ""
+            dropped_quiet = bool(message.get("dropped_quiet"))
+            suffix = ""
+            if dropped_short:
+                suffix = " -> DROP_SHORT"
+            elif dropped_quiet:
+                suffix = " -> DROP_QUIET"
             self._emit_trace(
                 f"[voice.vad] speech END dur={int(message.get('duration_ms', 0))}ms "
                 f"peak={float(message.get('peak', 0.0)):.3f} "
                 f"rms={float(message.get('rms', 0.0)):.3f}{suffix}"
             )
-            if dropped_short:
+            if dropped_short or dropped_quiet:
                 self._feed_silence()
             return
         if kind == "busy_drop":
