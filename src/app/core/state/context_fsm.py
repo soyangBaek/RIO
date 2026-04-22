@@ -18,6 +18,7 @@ DEFAULT_THRESHOLDS = {
         "face_lost_timeout_ms": 800,
         "away_timeout_ms": 60_000,
         "welcome_min_away_ms": 3_000,
+        "welcome_cooldown_ms": 10_000,
         "face_moved_sample_hz": 10,
     },
     "behavior": {
@@ -35,6 +36,7 @@ class ContextThresholds:
     idle_to_sleepy_timeout_ms: int = 120_000
     engaged_to_idle_timeout_ms: int = 5_000
     welcome_min_away_ms: int = 3_000
+    welcome_cooldown_ms: int = 10_000
     face_lost_timeout_ms: int = 800
 
 
@@ -53,6 +55,7 @@ def load_thresholds(path: str | Path = "configs/thresholds.yaml") -> ContextThre
         idle_to_sleepy_timeout_ms=int(data["behavior"]["idle_to_sleepy_timeout_ms"]),
         engaged_to_idle_timeout_ms=int(data["behavior"]["engaged_to_idle_timeout_ms"]),
         welcome_min_away_ms=int(data["presence"]["welcome_min_away_ms"]),
+        welcome_cooldown_ms=int(data["presence"]["welcome_cooldown_ms"]),
         face_lost_timeout_ms=int(data["presence"]["face_lost_timeout_ms"]),
     )
 

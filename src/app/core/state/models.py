@@ -177,6 +177,7 @@ class ExtendedState:
     capabilities: CapabilityState = field(default_factory=CapabilityState)
     previous_context_state: ContextState | None = None
     sleepy_with_face: bool = False
+    welcome_cooldown_until: datetime | None = None
 
     def copy(self) -> "ExtendedState":
         return ExtendedState(
@@ -194,6 +195,7 @@ class ExtendedState:
             capabilities=self.capabilities.copy(),
             previous_context_state=self.previous_context_state,
             sleepy_with_face=self.sleepy_with_face,
+            welcome_cooldown_until=self.welcome_cooldown_until,
         )
 
 

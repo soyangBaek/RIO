@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.app.core.events.models import Event
 from src.app.core.events import topics
@@ -40,6 +40,17 @@ class ReducerPipeline:
 
         current.extended = apply_extended_state(current.extended, event, now=now)
         current.active_oneshot = self.oneshots.expire(current.active_oneshot, now)
+
+        if (
+            event.topic == topics.VISION_FACE_DETECTED
+            and current.extended.welcome_cooldown_until is not None
+        ):
+            if current.extended.welcome_cooldown_until > now:
+                current.extended.welcome_cooldown_until = now + timedelta(
+                    milliseconds=self.thresholds.welcome_cooldown_ms
+                )
+            else:
+                current.extended.welcome_cooldown_until = None
 
         next_activity, next_kind = transition_activity(
             current.activity_state,
@@ -101,6 +112,7 @@ class ReducerPipeline:
             )
 
         candidate_oneshot: OneshotName | None = None
+        welcome_from_reappear = False
         if event.topic == topics.VOICE_INTENT_UNKNOWN:
             candidate_oneshot = OneshotName.CONFUSED
         elif event.topic == topics.TOUCH_TAP_DETECTED and previous_state.context_state == ContextState.SLEEPY:
@@ -109,8 +121,15 @@ class ReducerPipeline:
             candidate_oneshot = OneshotName.HAPPY
         elif event.topic == topics.VISION_GESTURE_DETECTED:
             gesture = event.payload.get("gesture")
-            if gesture in {"wave", "peekaboo"}:
+            if gesture == "wave":
                 candidate_oneshot = OneshotName.WELCOME
+            elif gesture == "peekaboo":
+                if (
+                    current.extended.welcome_cooldown_until is None
+                    or current.extended.welcome_cooldown_until <= now
+                ):
+                    candidate_oneshot = OneshotName.WELCOME
+                    welcome_from_reappear = True
             elif gesture == "finger_gun":
                 candidate_oneshot = OneshotName.STARTLED
             elif gesture == "fist":
@@ -131,8 +150,13 @@ class ReducerPipeline:
             and current.extended.away_started_at is not None
             and (now - current.extended.away_started_at).total_seconds() * 1000.0
             >= self.thresholds.welcome_min_away_ms
+            and (
+                current.extended.welcome_cooldown_until is None
+                or current.extended.welcome_cooldown_until <= now
+            )
         ):
             candidate_oneshot = OneshotName.WELCOME
+            welcome_from_reappear = True
 
         triggered_oneshot = None
         if candidate_oneshot is not None:
@@ -140,6 +164,13 @@ class ReducerPipeline:
             current.active_oneshot = decision.active
             if decision.changed and decision.active is not None:
                 triggered_oneshot = decision.active
+                if (
+                    decision.active.name == OneshotName.WELCOME
+                    and welcome_from_reappear
+                ):
+                    current.extended.welcome_cooldown_until = now + timedelta(
+                        milliseconds=self.thresholds.welcome_cooldown_ms
+                    )
                 emitted.append(
                     Event.create(
                         topics.ONESHOT_TRIGGERED,
