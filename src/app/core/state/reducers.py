@@ -101,13 +101,7 @@ class ReducerPipeline:
             )
 
         candidate_oneshot: OneshotName | None = None
-        if (
-            event.topic == topics.VOICE_ACTIVITY_STARTED
-            and not current.extended.face_present
-            and event.source != "audio.terminal_input"
-        ):
-            candidate_oneshot = OneshotName.STARTLED
-        elif event.topic == topics.VOICE_INTENT_UNKNOWN:
+        if event.topic == topics.VOICE_INTENT_UNKNOWN:
             candidate_oneshot = OneshotName.CONFUSED
         elif event.topic == topics.TOUCH_TAP_DETECTED and previous_state.context_state == ContextState.SLEEPY:
             candidate_oneshot = OneshotName.STARTLED

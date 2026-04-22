@@ -130,12 +130,17 @@ class InputReactionIntegrationTest(unittest.TestCase):
         self.assertTrue(last_frame.overlay.visible)
         self.assertIn("listening_cue", orchestrator.sfx.history)
 
-    def test_voice_activity_started_without_face_skips_listening_cue(self) -> None:
+    def test_voice_activity_started_without_face_does_not_startle(self) -> None:
         orchestrator = RioOrchestrator()
         orchestrator.process_event(Event.create(topics.VOICE_ACTIVITY_STARTED, "test"))
 
-        self.assertIn("startled", orchestrator.sfx.history)
-        self.assertNotIn("listening_cue", orchestrator.sfx.history)
+        self.assertNotIn("startled", orchestrator.sfx.history)
+        self.assertNotEqual(
+            orchestrator.store.snapshot().active_oneshot.name
+            if orchestrator.store.snapshot().active_oneshot is not None
+            else None,
+            OneshotName.STARTLED,
+        )
 
 
 if __name__ == "__main__":
