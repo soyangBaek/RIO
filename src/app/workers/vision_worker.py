@@ -49,12 +49,14 @@ class VisionWorker:
         detection = self.detector.detect(frame, now=when, rgb_frame=rgb_frame)
         self.last_face_detect_ms = (time.perf_counter() - face_started_at) * 1000.0
         self.last_face_event = detection
+        face_center: tuple[float, float] | None = None
         if detection is not None:
             was_face_present = self._face_present
             self._face_present = True
             self.bus.publish(detection)
             published.append(detection)
             center = tuple(detection.payload.get("center", (0.0, 0.0)))
+            face_center = (float(center[0]), float(center[1])) if len(center) >= 2 else None
             for event in self.tracker.update(center, now=when):
                 self.bus.publish(event)
                 published.append(event)
@@ -74,7 +76,12 @@ class VisionWorker:
             published.append(lost)
 
         gesture_started_at = time.perf_counter()
-        gestures = self.gesture_detector.detect(frame, now=when, rgb_frame=rgb_frame)
+        gestures = self.gesture_detector.detect(
+            frame,
+            now=when,
+            rgb_frame=rgb_frame,
+            face_center=face_center,
+        )
         self.last_gesture_detect_ms = (time.perf_counter() - gesture_started_at) * 1000.0
         self.last_gesture = None
         for event in gestures:

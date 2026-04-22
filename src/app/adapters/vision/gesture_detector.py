@@ -67,6 +67,7 @@ class GestureDetector:
         self,
         hand_landmarks: Any,
         handedness_label: str | None = None,
+        face_center: tuple[float, float] | None = None,
     ) -> tuple[str | None, dict]:
         lm = hand_landmarks.landmark
         thumb_extended = self._thumb_extended(lm)
@@ -75,6 +76,11 @@ class GestureDetector:
         ring_up = self._is_extended(lm[16], lm[14], lm[13])
         pinky_up = self._is_extended(lm[20], lm[18], lm[17])
         palm_facing = self._palm_facing_camera(lm, handedness_label)
+
+        wrist_y = float(lm[0].y)
+        hand_above_face = (
+            face_center is not None and wrist_y < float(face_center[1])
+        )
 
         fingers = {
             "thumb": bool(thumb_extended),
@@ -92,11 +98,19 @@ class GestureDetector:
         elif index_up and middle_up and ring_up and pinky_up:
             gesture = "wave"
         elif not index_up and not middle_up and not ring_up and not pinky_up:
-            gesture = "fist"
+            # fist는 얼굴 위로 주먹을 올렸을 때만 인정. 책상 위에 손이 놓인
+            # 상태처럼 우연히 주먹 모양이 잡히는 케이스를 배제하기 위함.
+            if hand_above_face:
+                gesture = "fist"
         elif index_up and not middle_up and not ring_up and not pinky_up:
             gesture = "point"
 
-        return gesture, {"fingers": fingers, "palm_facing": palm_facing}
+        return gesture, {
+            "fingers": fingers,
+            "palm_facing": palm_facing,
+            "wrist_y": wrist_y,
+            "hand_above_face": hand_above_face,
+        }
 
     def _cooldown_ready(self, gesture: str, when: datetime) -> bool:
         if self._last_gesture != gesture or self._last_emitted_at is None:
@@ -121,6 +135,7 @@ class GestureDetector:
         trace_id: str | None = None,
         now: datetime | None = None,
         rgb_frame: Any | None = None,
+        face_center: tuple[float, float] | None = None,
     ) -> list[Event]:
         when = now or datetime.now(timezone.utc)
         debug: dict = {
@@ -132,6 +147,7 @@ class GestureDetector:
             "confidence": 0.0,
             "emitted": False,
             "cooldown_remaining": 0.0,
+            "hand_above_face": False,
         }
 
         if not isinstance(frame, dict):
@@ -194,9 +210,14 @@ class GestureDetector:
                 except (AttributeError, IndexError):
                     handedness_label = None
             debug["handedness"] = handedness_label
-            gesture, extra = self._classify_hand(landmarks, handedness_label)
+            gesture, extra = self._classify_hand(
+                landmarks,
+                handedness_label,
+                face_center=face_center,
+            )
             debug["fingers"] = extra["fingers"]
             debug["palm_facing"] = extra["palm_facing"]
+            debug["hand_above_face"] = extra.get("hand_above_face", False)
             debug["classified"] = gesture
             confidence = 1.0 if gesture else 0.0
         else:
@@ -204,6 +225,12 @@ class GestureDetector:
             confidence = float(frame.get("gesture_confidence", 0.0))
             if gesture == "open_palm":
                 gesture = "wave"
+            # Dict-frame 경로에서도 fist는 얼굴 위 조건을 요구.
+            if gesture == "fist":
+                wrist_y = frame.get("wrist_y")
+                face_y = face_center[1] if face_center is not None else None
+                if wrist_y is None or face_y is None or float(wrist_y) >= float(face_y):
+                    gesture = None
             debug["hand_present"] = gesture is not None
             debug["classified"] = gesture
 
