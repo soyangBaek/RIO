@@ -139,6 +139,30 @@ class IntentParserTest(unittest.TestCase):
         parsed = parse_intent("단방 켜줘", stt_confidence=0.95)
         self.assertEqual(parsed.intent, "smarthome.heater.on")
 
+    def test_computer_stt_misrecognition_한퓨터(self) -> None:
+        parsed = parse_intent("한퓨터 켜줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.computer.on")
+
+    def test_dance_stt_misrecognition_숨쳐줘(self) -> None:
+        parsed = parse_intent("숨쳐줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "dance.start")
+
+    def test_dance_stt_misrecognition_춤추어줘(self) -> None:
+        parsed = parse_intent("춤추어줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "dance.start")
+
+    def test_light_off_stt_misrecognition_거실에_조명(self) -> None:
+        parsed = parse_intent("거실에 조명 꺼줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.light.off")
+
+    def test_light_off_stt_misrecognition_거실조명(self) -> None:
+        parsed = parse_intent("거실조명 꺼줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.light.off")
+
+    def test_light_off_stt_misrecognition_더실조명(self) -> None:
+        parsed = parse_intent("더 실조명 꺼줘", stt_confidence=0.95)
+        self.assertEqual(parsed.intent, "smarthome.light.off")
+
     # ── 지원 중단된 변형 (unknown 이어야 함) ─────────────────
 
     def test_english_command_rejected(self) -> None:

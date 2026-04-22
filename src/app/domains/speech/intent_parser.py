@@ -123,7 +123,19 @@ def _parse_dynamic_smarthome(
 
     # "거실 등" 은 whisper 가 "거실등/거실 등/거실 덩" 등으로 다양하게 낸다.
     # compact 매칭으로 공백 유무 모두 흡수.
-    if has_any("거실 등", "거실등"):
+    # 관찰된 변형:
+    #   - "거실 조명 / 거실조명 / 거실에 조명"  → "등" 대신 "조명"
+    #   - "더 실조명 / 더실조명"              → "거실" 이 "더실" 로 쪼개짐
+    if has_any(
+        "거실 등",
+        "거실등",
+        "거실 조명",
+        "거실조명",
+        "거실에 조명",
+        "거실에조명",
+        "더 실조명",
+        "더실조명",
+    ):
         if has_any("꺼줘"):
             return result("smarthome.light.off", matched_alias="__dynamic_light_off__")
         if has_any("켜줘"):
@@ -141,7 +153,8 @@ def _parse_dynamic_smarthome(
         if has_any("켜줘"):
             return result("smarthome.air_purifier.on", matched_alias="__dynamic_air_purifier_on__")
 
-    if has_any("컴퓨터"):
+    # whisper 가 "컴퓨터" 의 "컴" 을 "한" 으로 낸 "한퓨터" 관찰됨.
+    if has_any("컴퓨터", "한퓨터"):
         if has_any("꺼줘"):
             return result("smarthome.computer.off", matched_alias="__dynamic_computer_off__")
         if has_any("켜줘"):
@@ -187,7 +200,10 @@ def _parse_dynamic_generic(
             matched_alias="__dynamic_sing__",
         )
 
-    if has_any("춤춰줘"):
+    # whisper 오인식 관찰:
+    #   - "춤춰줘" → "숨쳐줘"  (ㅊ→ㅅ, ㅁ→ㅁ 유사음)
+    #   - "춤춰줘" → "춤추어줘" (구어 연장형)
+    if has_any("춤춰줘", "숨쳐줘", "춤추어줘"):
         return IntentParseResult(
             intent="dance.start",
             confidence=stt_confidence,
