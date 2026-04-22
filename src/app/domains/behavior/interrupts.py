@@ -41,6 +41,20 @@ def evaluate_interrupt(state: RuntimeState, event: Event) -> InterruptDecision:
             return InterruptDecision(InterruptAction.ALLOW, "alert_ack")
         return InterruptDecision(InterruptAction.DROP, "alerting_lock")
 
+    if current == ActivityState.LISTENING:
+        # 음성 인식 도중에는 시각 이벤트(face/gesture)가 oneshot 이나 context
+        # 전이를 만들지 않도록 전부 DROP. 사용자가 말하는 동안 손·표정 움직임이
+        # 반응을 유발해 ASR 결과와 충돌하는 것을 방지한다. 음성(VOICE_*) 과
+        # 터치·타이머 이벤트는 그대로 통과.
+        if event.topic in {
+            topics.VISION_FACE_DETECTED,
+            topics.VISION_FACE_LOST,
+            topics.VISION_FACE_MOVED,
+            topics.VISION_GESTURE_DETECTED,
+        }:
+            return InterruptDecision(InterruptAction.DROP, "listening_vision_lock")
+        return InterruptDecision(InterruptAction.ALLOW, "listening_non_vision")
+
     if current != ActivityState.EXECUTING:
         return InterruptDecision(InterruptAction.ALLOW, "not_executing")
 

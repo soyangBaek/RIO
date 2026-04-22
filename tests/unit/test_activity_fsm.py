@@ -100,6 +100,44 @@ class ActivityFSMTest(unittest.TestCase):
             event = Event.create(topic, "test", payload={"kind": "photo"}, timestamp=self.now)
             self.assertEqual(evaluate_interrupt(runtime, event).action, InterruptAction.ALLOW)
 
+    def test_interrupt_policy_listening_drops_vision_events(self) -> None:
+        runtime = RuntimeState(activity_state=ActivityState.LISTENING)
+        for topic in (
+            topics.VISION_FACE_DETECTED,
+            topics.VISION_FACE_LOST,
+            topics.VISION_FACE_MOVED,
+            topics.VISION_GESTURE_DETECTED,
+        ):
+            event = Event.create(topic, "test", payload={}, timestamp=self.now)
+            self.assertEqual(
+                evaluate_interrupt(runtime, event).action,
+                InterruptAction.DROP,
+                f"{topic} should be dropped during LISTENING",
+            )
+
+    def test_interrupt_policy_listening_allows_voice_events(self) -> None:
+        # 음성 이벤트/인텐트·터치·타이머는 LISTENING 중에도 그대로 통과해야 한다.
+        runtime = RuntimeState(activity_state=ActivityState.LISTENING)
+        for topic, payload in (
+            (topics.VOICE_INTENT_DETECTED, {"intent": "weather.current"}),
+            (topics.VOICE_INTENT_DETECTED, {"intent": "system.cancel"}),
+            (topics.VOICE_ACTIVITY_ENDED, {}),
+            (topics.TOUCH_TAP_DETECTED, {}),
+            (topics.TIMER_EXPIRED, {}),
+        ):
+            event = Event.create(topic, "test", payload=payload, timestamp=self.now)
+            self.assertEqual(
+                evaluate_interrupt(runtime, event).action,
+                InterruptAction.ALLOW,
+                f"{topic} should be allowed during LISTENING",
+            )
+
+    def test_interrupt_policy_idle_still_allows_vision(self) -> None:
+        # IDLE 상태에서는 기존처럼 시각 이벤트가 통과해야 한다 (얼굴/제스처 반응 유지).
+        runtime = RuntimeState(activity_state=ActivityState.IDLE)
+        event = Event.create(topics.VISION_GESTURE_DETECTED, "test", payload={}, timestamp=self.now)
+        self.assertEqual(evaluate_interrupt(runtime, event).action, InterruptAction.ALLOW)
+
     def test_interrupt_policy_short_actions_defer_latest_intent(self) -> None:
         runtime = RuntimeState(activity_state=ActivityState.EXECUTING)
         runtime.extended.active_executing_kind = ActionKind.SMARTHOME
