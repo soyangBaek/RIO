@@ -56,6 +56,50 @@ class ActivityFSMTest(unittest.TestCase):
         decision = evaluate_interrupt(runtime, event)
         self.assertEqual(decision.action, InterruptAction.DROP)
 
+    def test_interrupt_policy_photo_allows_cancel_only(self) -> None:
+        runtime = RuntimeState(activity_state=ActivityState.EXECUTING)
+        runtime.extended.active_executing_kind = ActionKind.PHOTO
+        cancel = Event.create(
+            topics.VOICE_INTENT_DETECTED,
+            "test",
+            payload={"intent": "system.cancel"},
+            timestamp=self.now,
+        )
+        self.assertEqual(evaluate_interrupt(runtime, cancel).action, InterruptAction.ALLOW)
+
+        # "확인" 포함 나머지 모든 음성 의도는 차단
+        ack = Event.create(
+            topics.VOICE_INTENT_DETECTED,
+            "test",
+            payload={"intent": "system.ack"},
+            timestamp=self.now,
+        )
+        self.assertEqual(evaluate_interrupt(runtime, ack).action, InterruptAction.DROP)
+
+    def test_interrupt_policy_photo_drops_gesture_and_touch(self) -> None:
+        runtime = RuntimeState(activity_state=ActivityState.EXECUTING)
+        runtime.extended.active_executing_kind = ActionKind.PHOTO
+        for topic, payload in (
+            (topics.VISION_GESTURE_DETECTED, {"gesture": "fist"}),
+            (topics.TOUCH_TAP_DETECTED, {}),
+            (topics.TOUCH_STROKE_DETECTED, {}),
+            (topics.VOICE_INTENT_UNKNOWN, {}),
+        ):
+            event = Event.create(topic, "test", payload=payload, timestamp=self.now)
+            self.assertEqual(
+                evaluate_interrupt(runtime, event).action,
+                InterruptAction.DROP,
+                f"{topic} should be dropped during photo",
+            )
+
+    def test_interrupt_policy_photo_allows_task_completion(self) -> None:
+        # 촬영 자체를 끝내는 TASK_SUCCEEDED 는 당연히 통과해야 한다.
+        runtime = RuntimeState(activity_state=ActivityState.EXECUTING)
+        runtime.extended.active_executing_kind = ActionKind.PHOTO
+        for topic in (topics.TASK_SUCCEEDED, topics.TASK_FAILED):
+            event = Event.create(topic, "test", payload={"kind": "photo"}, timestamp=self.now)
+            self.assertEqual(evaluate_interrupt(runtime, event).action, InterruptAction.ALLOW)
+
     def test_interrupt_policy_short_actions_defer_latest_intent(self) -> None:
         runtime = RuntimeState(activity_state=ActivityState.EXECUTING)
         runtime.extended.active_executing_kind = ActionKind.SMARTHOME

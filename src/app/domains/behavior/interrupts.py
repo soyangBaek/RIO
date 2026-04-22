@@ -47,9 +47,18 @@ def evaluate_interrupt(state: RuntimeState, event: Event) -> InterruptDecision:
     if kind == ActionKind.PHOTO:
         if event.topic == topics.TIMER_EXPIRED:
             return InterruptDecision(InterruptAction.HOLD_ALERT, "photo_holds_timer", held_events=[event])
-        if intent_name in {"system.ack", "system.cancel"}:
-            return InterruptDecision(InterruptAction.ALLOW, "photo_control")
-        if event.topic == topics.VOICE_INTENT_DETECTED:
+        # 카운트다운 + 촬영 동안에는 사용자에게서 오는 모든 이벤트를 막는다.
+        # 예외는 "멈춰줘"(system.cancel) 하나. 촬영 도중 제스처·터치·다른 음성
+        # 명령이 oneshot / intent 로 새 나가지 않도록 명시적으로 DROP.
+        if intent_name == "system.cancel":
+            return InterruptDecision(InterruptAction.ALLOW, "photo_cancel")
+        if event.topic in {
+            topics.VOICE_INTENT_DETECTED,
+            topics.VOICE_INTENT_UNKNOWN,
+            topics.VISION_GESTURE_DETECTED,
+            topics.TOUCH_TAP_DETECTED,
+            topics.TOUCH_STROKE_DETECTED,
+        }:
             return InterruptDecision(InterruptAction.DROP, "photo_lock")
         return InterruptDecision(InterruptAction.ALLOW, "photo_non_intent")
 
