@@ -203,7 +203,11 @@ def _parse_dynamic_generic(
     # whisper 오인식 관찰:
     #   - "춤춰줘" → "숨쳐줘"  (ㅊ→ㅅ, ㅁ→ㅁ 유사음)
     #   - "춤춰줘" → "춤추어줘" (구어 연장형)
-    if has_any("춤춰줘", "숨쳐줘", "춤추어줘"):
+    #   - "춤춰줘" → "춤터줘"   (ㅊ→ㅌ, close-talk 에서 거센소리 혼동)
+    #   - "춤춰줘" → "춤쳐줘"   (ㅝ→ㅕ 단모음 혼동)
+    #   - "댄스 모드" → "펜슬 모드" (ㄷ→ㅍ, ㅐ→ㅔ, ㄴ스→ㄴ슬 연쇄 오인식)
+    # compact 비교라 공백 유무("춤 터줘", "펜슬 모드")도 같이 흡수된다.
+    if has_any("춤춰줘", "숨쳐줘", "춤추어줘", "춤터줘", "춤쳐줘", "댄스모드", "펜슬모드"):
         return IntentParseResult(
             intent="dance.start",
             confidence=stt_confidence,
