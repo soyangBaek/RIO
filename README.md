@@ -58,10 +58,8 @@ Rust worker 기동에 실패하면 현재 설정에서는 Python live voice back
 
 자주 쓰는 실행 예:
 
-- `PYTHONPATH=. .venv/bin/python scripts/live_interaction_test.py`
-- `PYTHONPATH=. .venv/bin/python scripts/live_voice_interaction_test.py`
-- `PYTHONPATH=. .venv/bin/python scripts/voice_sandbox/run_sandbox.py`
-- `PYTHONPATH=. .venv/bin/python scripts/voice_sandbox/run_sandbox.py --backend rust`
+- `PYTHONPATH=. .venv/bin/python scripts/run_rio_app.py --profile app`
+
 
 실행 시 아래 로그가 보이면 Rust 경로가 올라온 상태입니다.
 
