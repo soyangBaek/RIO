@@ -93,6 +93,16 @@ class ASRParams:
     condition_on_previous_text: bool = True
     min_logprob: float = -1.0
     initial_prompt: Optional[str] = None
+    # utterance 길이 상한(ms). 이보다 긴 오디오 세그먼트는 whisper 에 투입
+    # 하지 않는다. 정상 한국어 단발 명령은 1~2 초 수준 (min_silence=500ms
+    # 포함). 3 초 초과는 대부분 노이즈 바다로 VAD 가 길게 이어붙인 케이스.
+    # 긴 노이즈를 decode 하느라 ASR 이 BUSY 에 묶여 뒤 발화가 drop 되는
+    # 문제(시끄러운 환경) 를 사전에 막는다. 0 이면 가드 해제.
+    max_utterance_ms: int = 3000
+    # faster-whisper 내부 silero VAD 로 비음성 구간 사전 제거. 시끄러운
+    # 환경에서 세그먼트 내부 비음성 구간 (숨소리/정적/배경) 을 빼서 실제
+    # decode 분량을 줄인다. silero 모델 CPU 추가분은 Pi 5 에서 작음.
+    vad_filter: bool = True
 
 
 @dataclass
@@ -274,6 +284,26 @@ class _WhisperBridgeBackend:
 
     def _transcribe_and_feed(self, audio: np.ndarray) -> None:
         self._ensure_whisper()
+
+        # 긴 세그먼트 사전 drop. 정상 단발 명령은 1~2초라 3초 초과는 대부분
+        # 시끄러운 환경에서 VAD 가 노이즈를 길게 이어붙인 경우. whisper 호출
+        # 자체를 건너뛰어 ASR 이 BUSY 에 묶이지 않게 함 → 뒤 발화 drop 방지.
+        sample_rate = max(1, int(self.cfg.audio.sample_rate))
+        audio_ms = int((audio.size / sample_rate) * 1000) if audio.size else 0
+        max_utt_ms = int(self.cfg.asr.max_utterance_ms or 0)
+        if max_utt_ms > 0 and audio_ms > max_utt_ms:
+            _LOGGER.info(
+                "drop long utterance dur=%dms > %dms (likely noise, ASR skipped)",
+                audio_ms,
+                max_utt_ms,
+            )
+            self._emit_trace(
+                f"[voice.asr] DROP_LONG dur={audio_ms}ms threshold={max_utt_ms}ms"
+            )
+            increment_metric("asr_long_drop_count")
+            self._feed_silence()
+            return
+
         pre = self.cfg.preprocess
         if pre.enabled and audio.size > 0:
             pre_t0 = time.perf_counter()
@@ -302,6 +332,10 @@ class _WhisperBridgeBackend:
                 # 빠지는 문제 방어. 기본 2.4 → 1.8 로 낮추면 반복 생성이
                 # 감지되자마자 해당 fallback 경로로 빠르게 포기한다.
                 compression_ratio_threshold=1.8,
+                # silero 기반 내부 VAD. 세그먼트 내부 비음성 구간을 빼서
+                # 실제 디코딩 분량을 줄인다 (시끄러운 환경에서 장시간
+                # decode 원인 감소).
+                vad_filter=bool(self.cfg.asr.vad_filter),
             )
             segs = list(segments)
         except Exception as exc:

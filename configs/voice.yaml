@@ -93,6 +93,18 @@ asr:
   # 샌드박스의 wake_word.min_asr_logprob 와 동일 역할.
   min_logprob: -1.0
 
+  # utterance 길이 상한(ms). 이보다 긴 세그먼트는 whisper 에 투입하지 않고
+  # 바로 drop. 정상 단발 명령은 1~2초(min_silence=500ms 포함). 3000ms 초과는
+  # 대부분 시끄러운 환경에서 VAD 가 노이즈를 이어붙인 케이스.
+  # 긴 decode 로 ASR 이 BUSY 에 묶여 뒤 발화가 drop 되는 문제를 사전에 막는다.
+  # 0 이면 가드 해제.
+  max_utterance_ms: 3000
+
+  # faster-whisper 내부 silero VAD 로 세그먼트 안의 비음성 구간 사전 제거.
+  # 시끄러운 환경에서 실제 decode 분량을 줄여 응답시간을 짧게 유지한다.
+  # silero 모델 CPU 추가분은 Pi 5 에서 작음.
+  vad_filter: true
+
   # Whisper 디코더 바이어싱. 공식 발화(docs/user-utterance-scenarios.md)
   # 어휘를 직전 문맥으로 주입해 디코딩을 해당 방향으로 기울인다.
   #

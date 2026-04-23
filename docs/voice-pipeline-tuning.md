@@ -107,6 +107,8 @@ INFO ... drop quiet utterance dur=...ms rms=... (likely noise spike)
 | `asr.condition_on_previous_text` | true → **false** | 이전 발화 컨텍스트가 base 모델 반복 루프 유발. "티비 꺼줘" 성공 직후 "컴퓨터 켜줘" 가 32 초+ 미응답하는 케이스 관찰. 단발 명령이라 문맥 이득도 없음 |
 | `asr.min_logprob` | **-1.0** | 유지. 이보다 낮으면 환각으로 간주해 capture 에 주입 안 함 |
 | `compression_ratio_threshold` | **1.8** (코드에서 명시) | faster-whisper 기본 2.4 → 1.8. "X X X..." 반복 생성이 감지되자마자 fallback 경로로 포기 |
+| `asr.max_utterance_ms` | **3000** | 세그먼트 길이 상한. 초과 시 whisper 호출 자체 건너뜀 → ASR 이 BUSY 에 묶이지 않아 뒤 발화를 받을 수 있음. 시끄러운 환경에서 VAD 가 노이즈를 길게 이어붙인 케이스 차단 |
+| `asr.vad_filter` | **true** | faster-whisper 내부 silero VAD. 세그먼트 안 비음성 구간을 사전 제거해 실제 decode 분량 축소 |
 
 ### 4.3 initial_prompt
 

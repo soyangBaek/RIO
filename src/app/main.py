@@ -173,6 +173,8 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
             condition_on_previous_text=bool(asr.get("condition_on_previous_text", True)),
             min_logprob=float(asr.get("min_logprob", -1.0)),
             initial_prompt=asr.get("initial_prompt") or None,
+            max_utterance_ms=int(asr.get("max_utterance_ms", 3000)),
+            vad_filter=bool(asr.get("vad_filter", True)),
         ),
         drop_while_busy=bool(concurrency.get("drop_while_busy", True)),
         launch=BackendLaunchConfig(
