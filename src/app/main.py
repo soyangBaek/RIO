@@ -21,6 +21,7 @@ from src.app.adapters.audio.live_voice_backend import (
     BackendConfig,
     BackendLaunchConfig,
     LiveVoiceBackend,
+    PreprocessParams,
     RustAudioBackend,
     VADParams,
     VoiceBackend,
@@ -101,6 +102,7 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
     concurrency = (cfg.get("concurrency") or {}) if isinstance(cfg, dict) else {}
     backend = (cfg.get("backend") or {}) if isinstance(cfg, dict) else {}
     voice_logging = (cfg.get("logging") or {}) if isinstance(cfg, dict) else {}
+    preprocess = (cfg.get("preprocess") or {}) if isinstance(cfg, dict) else {}
 
     # run_rio_app.py --log info 가 설정하는 튜닝 모드 플래그.
     # 없으면 voice.yaml 값을 그대로 쓴다 (기존 동작 유지).
@@ -183,6 +185,15 @@ def _build_voice_backend(capture: AudioCapture) -> VoiceBackend | None:
             ),
             fallback_to_python=fallback_to_python,
             startup_timeout_ms=int(backend.get("startup_timeout_ms", 3000)),
+        ),
+        preprocess=PreprocessParams(
+            enabled=bool(preprocess.get("enabled", False)),
+            apply_highpass=bool(preprocess.get("apply_highpass", True)),
+            highpass_cutoff=float(preprocess.get("highpass_cutoff", 0.01)),
+            apply_gate=bool(preprocess.get("apply_gate", True)),
+            gate_threshold=float(preprocess.get("gate_threshold", 0.01)),
+            apply_normalize=bool(preprocess.get("apply_normalize", True)),
+            target_rms=float(preprocess.get("target_rms", 0.1)),
         ),
     )
 

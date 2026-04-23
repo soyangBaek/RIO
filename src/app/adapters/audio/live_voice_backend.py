@@ -29,6 +29,7 @@ import numpy as np
 
 from src.app.adapters.audio.capture import AudioCapture
 from src.app.adapters.audio.mic_gain import apply_mic_gain, ensure_default_input_source
+from src.app.adapters.audio.preprocessor import preprocess_audio
 from src.app.core.config import resolve_repo_path
 from src.app.core.safety.tick_metrics import increment as increment_metric
 from src.app.core.safety.tick_metrics import record as record_metric
@@ -95,6 +96,17 @@ class ASRParams:
 
 
 @dataclass
+class PreprocessParams:
+    enabled: bool = False
+    apply_highpass: bool = True
+    highpass_cutoff: float = 0.01
+    apply_gate: bool = True
+    gate_threshold: float = 0.01
+    apply_normalize: bool = True
+    target_rms: float = 0.1
+
+
+@dataclass
 class BackendConfig:
     audio: AudioParams
     vad: VADParams
@@ -102,6 +114,7 @@ class BackendConfig:
     drop_while_busy: bool = True
     silence_frames_to_feed: int = 2  # keep in sync with stub VAD defaults
     launch: BackendLaunchConfig = field(default_factory=BackendLaunchConfig)
+    preprocess: PreprocessParams = field(default_factory=PreprocessParams)
 
 
 @dataclass
@@ -261,6 +274,21 @@ class _WhisperBridgeBackend:
 
     def _transcribe_and_feed(self, audio: np.ndarray) -> None:
         self._ensure_whisper()
+        pre = self.cfg.preprocess
+        if pre.enabled and audio.size > 0:
+            pre_t0 = time.perf_counter()
+            audio = preprocess_audio(
+                audio,
+                sample_rate=self.cfg.audio.sample_rate,
+                apply_highpass=pre.apply_highpass,
+                apply_gate=pre.apply_gate,
+                apply_normalize=pre.apply_normalize,
+                gate_threshold=pre.gate_threshold,
+                highpass_cutoff=pre.highpass_cutoff,
+                target_rms=pre.target_rms,
+            )
+            pre_ms = int((time.perf_counter() - pre_t0) * 1000)
+            _LOGGER.debug("preprocess applied %dms (samples=%d)", pre_ms, audio.size)
         t0 = time.perf_counter()
         try:
             segments, _info = self._whisper.transcribe(
@@ -774,6 +802,7 @@ __all__ = [
     "BackendConfig",
     "BackendLaunchConfig",
     "LiveVoiceBackend",
+    "PreprocessParams",
     "PythonLiveVoiceBackend",
     "RustAudioBackend",
     "VADParams",

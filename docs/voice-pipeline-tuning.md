@@ -253,6 +253,37 @@ if decision.segment_rms < 0.05:
 
 ---
 
+## 7.1 전처리 (시끄러운 환경 옵션, 기본 OFF)
+
+`preprocess` 섹션. VAD 가 끝난 utterance 세그먼트에 한해 ASR 투입 직전
+적용한다. per-utterance 라 스테이트/클릭 아티팩트 없음. 조용한 방 close-talk
+기본 프로파일에서는 **기본 OFF**. 팬/에어컨/배경 음성 등 SNR 이 나빠지는
+환경에서만 `enabled: true` 로 올린다.
+
+| 파라미터 | 기본값 | 의미 |
+|---|---|---|
+| `preprocess.enabled` | `false` | 전체 on/off |
+| `preprocess.apply_highpass` | `true` | 1차 IIR HPF, 저주파 험/팬 제거 |
+| `preprocess.highpass_cutoff` | `0.01` | ≈ cutoff_freq / sample_rate. 16k 에서 0.01 → ~160Hz |
+| `preprocess.apply_gate` | `true` | \|x\| ≤ threshold 를 0 으로 |
+| `preprocess.gate_threshold` | `0.01` | float32 peak 기준. 너무 높이면 어두운 음절 깎임 |
+| `preprocess.apply_normalize` | `true` | RMS 정규화 (target_rms 로 맞춤, 게인 ≤10x, ±1 클리핑) |
+| `preprocess.target_rms` | `0.1` | 정규화 타겟. 정상 발화 segment_rms 0.15~0.4 에 근접하게 |
+
+구현: [src/app/adapters/audio/preprocessor.py](../src/app/adapters/audio/preprocessor.py),
+호출 지점: `_WhisperBridgeBackend._transcribe_and_feed`.
+
+Rust backend 경로에서도 whisper 는 Python 이 돌리므로 동일하게 적용됨.
+
+주의점:
+- VAD threshold 자체는 raw 신호 기준. preprocess 는 VAD END 이후에 적용되므로
+  VAD 튜닝값과 독립적. 시끄러운 환경에서 VAD 플래핑이 본질 원인이라면
+  `vad.threshold` 를 먼저 올린다.
+- `segment_rms < 0.05` 2차 가드는 preprocess 이전 값 기준. 순서대로:
+  raw → VAD END → segment_rms 가드 → preprocess → whisper.
+
+---
+
 ## 8. 알려진 한계 & 다음 단계 후보
 
 - **base 모델 한국어 오인식 롱테일**: STT 오인식 치환은 관찰될 때마다

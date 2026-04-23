@@ -37,6 +37,26 @@ audio:
   gain_target_source: "AB13X"
 
 
+# ── 오디오 전처리 (시끄러운 환경용) ─────────────────────────
+# VAD 가 끝난 utterance 세그먼트에 대해 ASR(whisper) 투입 직전 적용.
+# per-chunk 가 아닌 per-utterance 라 스테이트 문제/클릭 아티팩트 없음.
+# close-talk 조용한 방에선 꺼도 무방. 팬/에어컨/배경 음성 있는 환경에서 켠다.
+preprocess:
+  enabled: false
+  # 1차 IIR 하이패스. cutoff_ratio ≈ cutoff_freq / sample_rate.
+  # 0.01 @ 16kHz → ~160Hz 이하 제거 (팬/험/바람 소음).
+  apply_highpass: true
+  highpass_cutoff: 0.01
+  # 노이즈 게이트. |x| <= threshold 는 0 으로. float32 normalized peak 기준.
+  # 너무 높이면 작은 발화 첫/끝 음절이 깎임. 0.01 ~ 0.02 권장.
+  apply_gate: true
+  gate_threshold: 0.01
+  # RMS 정규화. 입력 레벨 편차를 whisper 가 선호하는 수준으로 맞춘다.
+  # 게인은 최대 10배로 제한, -1..1 클리핑.
+  apply_normalize: true
+  target_rms: 0.1
+
+
 # ── VAD: RMS 기반 세그먼터 ──────────────────────────────────
 vad:
   # 16-bit PCM 기준 RMS 임계값. AB13X close-talk 실측:
